@@ -1,7 +1,8 @@
 export default function ReportPage() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <h1 className="text-4xl font-bold text-brand-400">报告</h1>
+    <div className="mt-6">
+      <h2 className="text-xl font-bold text-gray-100">分析报告</h2>
+      <p className="text-gray-500 mt-2">页面建设中...</p>
     </div>
   )
 }
