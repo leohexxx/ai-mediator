@@ -55,7 +55,9 @@ const validAnalysisJson = {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = 'test-key'
+  process.env.LLM_PROVIDER = 'anthropic'
+  process.env.LLM_API_KEY = 'test-key'
+  delete process.env.ANTHROPIC_API_KEY
   delete process.env.LLM_BASE_URL
   delete process.env.LLM_MODEL
   mockFetch.mockReset()
@@ -634,9 +636,9 @@ describe('LLM: Concurrent and timeout handling', () => {
 
     await analyzeChat('test chat', [{ name: '测试', role: 'party_a' }], 'context')
 
-    // Verify fetch was called with the custom URL
+    // Verify fetch was called with the custom URL (anthropic provider appends /messages)
     const url = mockFetch.mock.calls[0][0]
-    expect(url).toBe('https://custom-llm-api.example.com/v1/chat')
+    expect(url).toBe('https://custom-llm-api.example.com/v1/chat/messages')
   })
 
   it('respects model name from env var', async () => {

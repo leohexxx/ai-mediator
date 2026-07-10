@@ -8,6 +8,8 @@ vi.stubGlobal('fetch', mockFetch)
 
 // Save original env so we can restore between tests
 const originalApiKey = process.env.ANTHROPIC_API_KEY
+const originalProvider = process.env.LLM_PROVIDER
+const originalLlmApiKey = process.env.LLM_API_KEY
 
 // ESM static imports – safe because the service module only reads `fetch` /
 // `process.env` at call-time, never at module-evaluation time.
@@ -112,7 +114,9 @@ const testContext = '这是一个测试案件背景'
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  process.env.ANTHROPIC_API_KEY = 'test-key'
+  process.env.LLM_PROVIDER = 'anthropic'
+  process.env.LLM_API_KEY = 'test-key'
+  delete process.env.ANTHROPIC_API_KEY
   mockFetch.mockReset()
 })
 
@@ -121,6 +125,16 @@ afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY
   } else {
     process.env.ANTHROPIC_API_KEY = originalApiKey
+  }
+  if (originalProvider === undefined) {
+    delete process.env.LLM_PROVIDER
+  } else {
+    process.env.LLM_PROVIDER = originalProvider
+  }
+  if (originalLlmApiKey === undefined) {
+    delete process.env.LLM_API_KEY
+  } else {
+    process.env.LLM_API_KEY = originalLlmApiKey
   }
 })
 
@@ -254,7 +268,8 @@ describe('analyzeChat', () => {
   // Error handling
   // -----------------------------------------------------------------------
   describe('Error handling', () => {
-    it('throws when ANTHROPIC_API_KEY is empty', async () => {
+    it('throws when API key is empty', async () => {
+      delete process.env.LLM_API_KEY
       process.env.ANTHROPIC_API_KEY = ''
 
       await expect(
@@ -462,7 +477,7 @@ describe('chatWithAnalysis', () => {
       expect(full).toBe('第一部分第二部分第三部分')
     })
 
-    it('handles empty delta (missing text property) – callback fires with empty string, accumulated text stays empty', async () => {
+    it('handles empty delta (missing text property) – callback is NOT called for empty text', async () => {
       const stream = createSSEStream([
         'data: {"type":"content_block_delta","delta":{}}\n\n',
         'data: [DONE]\n\n',
@@ -475,9 +490,8 @@ describe('chatWithAnalysis', () => {
         received.push(chunk),
       )
 
-      // onChunk is called with '' because parsed.delta?.text || '' yields ''
-      expect(received).toHaveLength(1)
-      expect(received[0]).toBe('')
+      // Empty text deltas are skipped (no callback invocation)
+      expect(received).toHaveLength(0)
       // accumulated text is still empty
       expect(full).toBe('')
     })
@@ -585,12 +599,11 @@ describe('chatWithAnalysis', () => {
       await chatWithAnalysis('这是一份详细的分析报告内容', [], 'test', () => {})
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
-      const messages: Array<{ role: string; content: string }> = body.messages
-
-      const systemMsg = messages.find((m) => m.role === 'system')
-      expect(systemMsg).toBeDefined()
-      expect(systemMsg!.content).toContain('这是一份详细的分析报告内容')
-      expect(systemMsg!.content).toContain('## 之前的分析报告')
+      // Anthropic provider: system message is in body.system
+      const systemContent = body.system || body.messages?.find((m: { role: string }) => m.role === 'system')?.content
+      expect(systemContent).toBeDefined()
+      expect(systemContent).toContain('这是一份详细的分析报告内容')
+      expect(systemContent).toContain('## 之前的分析报告')
     })
 
     it('places the new message as the final user message in the messages array', async () => {
@@ -630,16 +643,17 @@ describe('chatWithAnalysis', () => {
       await chatWithAnalysis('ctx', history, 'Q2', () => {})
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+      // Anthropic provider: system message is in body.system, chat messages in body.messages
+      expect(body.system).toBeDefined()
       const messages: Array<{ role: string; content: string }> = body.messages
 
-      expect(messages).toHaveLength(4)
-      expect(messages[0].role).toBe('system')
-      expect(messages[1].role).toBe('user')
-      expect(messages[1].content).toBe('Q1')
-      expect(messages[2].role).toBe('assistant')
-      expect(messages[2].content).toBe('A1')
-      expect(messages[3].role).toBe('user')
-      expect(messages[3].content).toBe('Q2')
+      expect(messages).toHaveLength(3) // Q1, A1, Q2 (system is separate)
+      expect(messages[0].role).toBe('user')
+      expect(messages[0].content).toBe('Q1')
+      expect(messages[1].role).toBe('assistant')
+      expect(messages[1].content).toBe('A1')
+      expect(messages[2].role).toBe('user')
+      expect(messages[2].content).toBe('Q2')
     })
 
     it('sets stream: true in the API request', async () => {
