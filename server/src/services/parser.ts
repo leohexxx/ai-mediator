@@ -10,7 +10,7 @@ export function parseWeChatChatLog(rawText: string): ParsedMessage[] {
   const messages: ParsedMessage[] = []
 
   const wechatLineRegex =
-    /^(\d{1,2}[-/]\d{1,2}[-/]\s*\d{1,2}:\d{2}(?::\d{2})?)\s+(.+?)$/
+    /^((?:\d{2,4}[-/])?\d{1,2}[-/]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?)\s+(.+?)$/
 
   const speakerContentRegex = /^(.+?)[：:]\s*(.*)$/
 
@@ -37,7 +37,7 @@ export function parseWeChatChatLog(rawText: string): ParsedMessage[] {
           speaker: currentSpeaker || '未知',
           content: rest,
           timestamp: currentTime,
-          type: 'text',
+          type: classifyMessage(rest),
         })
       }
     } else {
@@ -51,10 +51,28 @@ export function parseWeChatChatLog(rawText: string): ParsedMessage[] {
           type: classifyMessage(scMatch[2]),
         })
       } else if (currentSpeaker && line.trim()) {
-        const lastMsg = messages[messages.length - 1]
-        if (lastMsg && lastMsg.speaker === currentSpeaker) {
-          lastMsg.content += '\n' + line.trim()
+        // Lines that look like date/header separators should not be appended
+        // as continuations (common in exported chat logs)
+        if (/^(={3,}|-{3,}|\*{3,})/.test(line.trim()) || /^\[.*[日月年]]/.test(line.trim())) {
+          messages.push({
+            speaker: '未知',
+            content: line.trim(),
+            timestamp: null,
+            type: 'system',
+          })
+        } else {
+          const lastMsg = messages[messages.length - 1]
+          if (lastMsg && lastMsg.speaker === currentSpeaker) {
+            lastMsg.content += '\n' + line.trim()
+          }
         }
+      } else if (line.trim()) {
+        messages.push({
+          speaker: '未知',
+          content: line.trim(),
+          timestamp: null,
+          type: classifyMessage(line.trim()),
+        })
       }
     }
   }

@@ -127,7 +127,8 @@ ${formattedChat}
   onProgress?.('正在定位冲突节点...', 60)
 
   const data = await response.json()
-  const text = data.content?.[0]?.text || ''
+  const rawText = data.content?.[0]?.text
+  const text = typeof rawText === 'string' ? rawText : (rawText != null ? String(rawText) : '')
 
   onProgress?.('正在生成分析报告...', 80)
 
