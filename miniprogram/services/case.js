@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════
-// 案例服务层 - createCase/joinCase/getCaseDetail/getCaseList
+// 案例服务层 (v2 - 支持单人模式 + 分享)
 // ═══════════════════════════════════════════════
 
 var cloudUtil = require('../utils/cloud');
 
 /**
- * 创建调解案例
+ * 创建调解案例 (v2: 默认单人模式)
  * @param {Object} params
  * @param {string} [params.title='调解案例']
  * @param {string} [params.relationship]
  * @param {'both'|'initiator_only'} [params.privacy='both']
+ * @param {'single'|'dual'} [params.mode='single']  - 单人/双人模式
  * @param {{nickname: string, avatarUrl: string}} [params.userInfo]
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
@@ -18,14 +19,15 @@ function createCase(params) {
     title: params.title || '调解案例',
     relationship: params.relationship || '',
     privacy: params.privacy || 'both',
+    mode: params.mode || 'single',
     userInfo: params.userInfo || { nickname: '微信用户', avatarUrl: '' },
   });
 }
 
 /**
- * 加入调解案例
+ * 加入调解案例（双人模式）
  * @param {Object} params
- * @param {string} params.inviteCode - 6位邀请码
+ * @param {string} params.inviteCode
  * @param {{nickname: string, avatarUrl: string}} [params.userInfo]
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
@@ -61,12 +63,25 @@ function getCaseList(params) {
 }
 
 /**
- * 生成邀请小程序码
+ * 生成邀请小程序码（双人模式）
  * @param {string} caseId
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
 function generateQRCode(caseId) {
   return cloudUtil.callFunction('generateQRCode', { caseId: caseId });
+}
+
+/**
+ * 获取分享卡片数据
+ * @param {string} caseId
+ * @param {'verdict'|'fun'|'suspense'|'compare'} [template='verdict']
+ * @returns {Promise<{code: number, data: {cardId: string, cardData: Object}|null, message: string}>}
+ */
+function getShareCard(caseId, template) {
+  return cloudUtil.callFunction('shareCard', {
+    caseId: caseId,
+    template: template || 'verdict',
+  });
 }
 
 module.exports = {
@@ -75,4 +90,5 @@ module.exports = {
   getCaseDetail: getCaseDetail,
   getCaseList: getCaseList,
   generateQRCode: generateQRCode,
+  getShareCard: getShareCard,
 };

@@ -1,11 +1,11 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/upload/upload",
+    "pages/report/report",
     "pages/create-case/create-case",
     "pages/case-detail/case-detail",
-    "pages/upload/upload",
-    "pages/ocr-preview/ocr-preview",
-    "pages/report/report"
+    "pages/ocr-preview/ocr-preview"
   ],
   "window": {
     "navigationBarBackgroundColor": "#111827",

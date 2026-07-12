@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════
-// 首页 — 案例列表 + 创建入口
+// 首页 (v2) — 单人模式 CTA + 案例列表
+// 核心流程: 点击"开始分析" → 创建案例 → 跳转上传
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -7,20 +8,14 @@ var formatUtil = require('../../utils/format');
 
 Page({
   data: {
-    /** 案例列表 */
     caseList: [],
-    /** 是否正在加载 */
     loading: true,
-    /** 是否还有更多 */
     hasMore: true,
-    /** 当前页码 */
     page: 1,
-    /** 每页条数 */
     pageSize: 10,
-    /** 是否为空 */
     isEmpty: false,
-    /** 下拉刷新状态 */
     refreshing: false,
+    creating: false,
   },
 
   onLoad: function () {
@@ -28,32 +23,22 @@ Page({
   },
 
   onShow: function () {
-    // 从其他页面返回时刷新列表
     if (this.data.caseList.length > 0) {
       this.refreshCases();
     }
   },
 
-  /**
-   * 下拉刷新
-   */
   onPullDownRefresh: function () {
     this.setData({ refreshing: true });
     this.refreshCases();
   },
 
-  /**
-   * 上拉加载更多
-   */
   onReachBottom: function () {
     if (this.data.hasMore && !this.data.loading) {
       this.loadMore();
     }
   },
 
-  /**
-   * 加载案例列表（首次）
-   */
   loadCases: function () {
     var that = this;
     this.setData({ loading: true, page: 1 });
@@ -61,15 +46,13 @@ Page({
     caseService.getCaseList({ page: 1, pageSize: this.data.pageSize }).then(function (res) {
       if (res.code === 0 && res.data) {
         var list = (res.data.list || []).map(function (item) {
-          item.formattedTime = formatUtil.formatTime(item.updatedAt);
-          item.statusLabel = formatUtil.statusLabel(item.status);
-          return item;
+          return that.formatCaseItem(item);
         });
 
         that.setData({
           caseList: list,
           loading: false,
-          hasMore: res.data.hasMore,
+          hasMore: res.data.hasMore || false,
           isEmpty: list.length === 0,
           refreshing: false,
         });
@@ -77,82 +60,141 @@ Page({
         that.setData({ loading: false, isEmpty: true, refreshing: false });
       }
       wx.stopPullDownRefresh();
-    }).catch(function (err) {
-      console.error('加载案例列表失败:', err);
+    }).catch(function () {
       that.setData({ loading: false, refreshing: false });
       wx.stopPullDownRefresh();
-      wx.showToast({ title: '加载失败', icon: 'none' });
     });
   },
 
-  /**
-   * 刷新案例列表
-   */
   refreshCases: function () {
     this.loadCases();
   },
 
-  /**
-   * 加载更多
-   */
   loadMore: function () {
     var that = this;
     var nextPage = this.data.page + 1;
-
     this.setData({ loading: true });
 
     caseService.getCaseList({ page: nextPage, pageSize: this.data.pageSize }).then(function (res) {
       if (res.code === 0 && res.data) {
         var newList = (res.data.list || []).map(function (item) {
-          item.formattedTime = formatUtil.formatTime(item.updatedAt);
-          item.statusLabel = formatUtil.statusLabel(item.status);
-          return item;
+          return that.formatCaseItem(item);
         });
-
         that.setData({
           caseList: that.data.caseList.concat(newList),
           page: nextPage,
           loading: false,
-          hasMore: res.data.hasMore,
+          hasMore: res.data.hasMore || false,
         });
       } else {
         that.setData({ loading: false });
       }
-    }).catch(function (err) {
-      console.error('加载更多失败:', err);
+    }).catch(function () {
       that.setData({ loading: false });
     });
   },
 
+  formatCaseItem: function (item) {
+    item.formattedTime = formatUtil.formatTime(item.updatedAt || item.createdAt);
+    item.statusLabel = this.getStatusLabel(item.status);
+    item.statusType = this.getStatusType(item.status);
+    item.isSingleMode = item.mode === 'single' || (!item.party_b || !item.party_b.openid);
+    return item;
+  },
+
+  getStatusLabel: function (status) {
+    var map = {
+      'single_submitted': '已上传，待分析',
+      'waiting_party_b': '等待对方加入',
+      'waiting_submission': '等待提交',
+      'analyzing': '分析中...',
+      'single_completed': '分析完成',
+      'completed': '分析完成',
+      'expired': '已过期',
+    };
+    return map[status] || status || '未知';
+  },
+
+  getStatusType: function (status) {
+    if (status === 'single_completed' || status === 'completed') return 'success';
+    if (status === 'analyzing') return 'analyzing';
+    if (status === 'expired') return 'expired';
+    return 'pending';
+  },
+
   /**
-   * 点击案例卡片 → 跳转详情
+   * 一键开始分析 (v2 核心 CTA)
+   * 自动创建单人模式案例 → 直接跳转上传页
+   */
+  onStartAnalyze: function () {
+    var that = this;
+
+    if (this.data.creating) return;
+    this.setData({ creating: true });
+
+    wx.showLoading({ title: '创建案例中...', mask: true });
+
+    // 获取用户信息（可选）
+    var userInfo = { nickname: '微信用户', avatarUrl: '' };
+    try {
+      var cache = wx.getStorageSync('userInfo');
+      if (cache) userInfo = cache;
+    } catch (_) {}
+
+    caseService.createCase({
+      title: '调解案例',
+      relationship: '',
+      privacy: 'both',
+      mode: 'single',
+      userInfo: userInfo,
+    }).then(function (res) {
+      wx.hideLoading();
+      that.setData({ creating: false });
+
+      if (res.code === 0 && res.data && res.data.caseId) {
+        // 直接跳转到上传页
+        wx.navigateTo({
+          url: '/pages/upload/upload?caseId=' + res.data.caseId + '&mode=single',
+        });
+      } else {
+        wx.showToast({ title: res.message || '创建失败', icon: 'none' });
+      }
+    }).catch(function (err) {
+      wx.hideLoading();
+      that.setData({ creating: false });
+      wx.showToast({ title: '创建失败，请重试', icon: 'none' });
+      console.error('创建案例失败:', err);
+    });
+  },
+
+  /**
+   * 点击案例卡片 → 根据状态跳转
    */
   onCaseTap: function (e) {
     var caseId = e.currentTarget.dataset.id;
-    wx.navigateTo({
-      url: '/pages/case-detail/case-detail?caseId=' + caseId,
-    });
+    var status = e.currentTarget.dataset.status;
+
+    if (status === 'single_completed' || status === 'completed') {
+      // 分析完成 → 跳转报告页
+      wx.navigateTo({
+        url: '/pages/report/report?caseId=' + caseId,
+      });
+    } else {
+      // 未完成 → 跳转详情/上传
+      wx.navigateTo({
+        url: '/pages/case-detail/case-detail?caseId=' + caseId,
+      });
+    }
   },
 
   /**
-   * 点击创建案例 CTA
+   * 分享配置（首页分享）
    */
-  onCreateTap: function () {
-    wx.navigateTo({
-      url: '/pages/create-case/create-case',
-    });
-  },
-
-  /**
-   * 分享邀请
-   */
-  onShareTap: function (e) {
-    var caseId = e.currentTarget.dataset.id;
-    var inviteCode = e.currentTarget.dataset.invitecode;
-
-    // 跳转到案例详情页，触发分享
-    wx.navigateTo({
-      url: '/pages/case-detail/case-detail?caseId=' + caseId + '&action=share',
-    });
+  onShareAppMessage: function () {
+    return {
+      title: 'AI 调解员 — 上传聊天记录，AI 告诉你谁更有理',
+      path: '/pages/index/index',
+      imageUrl: '',
+    };
   },
 });

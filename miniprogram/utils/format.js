@@ -68,9 +68,11 @@ function truncate(text, maxLength) {
  */
 function statusLabel(status) {
   var map = {
+    'single_submitted': '已上传，待分析',
     'waiting_party_b': '等待乙方加入',
     'waiting_submission': '等待双方提交',
     'analyzing': '分析中',
+    'single_completed': '分析完成',
     'completed': '分析完成',
     'expired': '已过期',
   };

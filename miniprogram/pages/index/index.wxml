@@ -1,48 +1,71 @@
-<!-- 首页：案例列表 + 创建入口 -->
+<!-- 首页 (v2) — 单人模式 CTA + 案例列表 -->
 <view class="container">
-  <!-- 创建 CTA 卡片 -->
-  <view class="create-cta card" bindtap="onCreateTap">
-    <view class="cta-icon">🤝</view>
-    <view class="cta-title">创建新的调解案例</view>
-    <view class="cta-desc">邀请对方一起上传聊天记录</view>
-    <view class="cta-sub">AI 帮你们客观分析谁更有理</view>
-    <view class="btn-primary cta-btn">开始调解</view>
+  
+  <!-- Hero CTA 卡片 -->
+  <view class="hero-cta card" bindtap="onStartAnalyze">
+    <view class="hero-icon">
+      <text class="hero-emoji">&#x1F916;</text>
+    </view>
+    <view class="hero-title">你的聊天记录，谁更有理？</view>
+    <view class="hero-desc">粘贴聊天记录或上传截图</view>
+    <view class="hero-desc">AI 帮你客观分析，一分钟出结果</view>
+    <view class="hero-btn {{creating ? 'hero-btn-loading' : ''}}">
+      <text wx:if="{{!creating}}">开始分析</text>
+      <text wx:else>创建中...</text>
+    </view>
   </view>
 
   <!-- 案例标题 -->
-  <view class="section-title" wx:if="{{!isEmpty}}">我的案例</view>
+  <view class="section-header" wx:if="{{!isEmpty}}">
+    <text class="section-title">我的案例</text>
+    <text class="section-count">{{caseList.length}} 个</text>
+  </view>
 
   <!-- 案例列表 -->
   <view class="case-list" wx:if="{{!isEmpty}}">
-    <case-card
+    <view 
+      class="case-item card"
       wx:for="{{caseList}}"
       wx:key="_id"
-      item="{{item}}"
-      bind:tap="onCaseTap"
-      bind:share="onShareTap"
-    />
+      data-id="{{item._id}}"
+      data-status="{{item.status}}"
+      bindtap="onCaseTap"
+    >
+      <view class="case-row">
+        <view class="case-info">
+          <view class="case-title">{{item.title || '调解案例'}}</view>
+          <view class="case-relation" wx:if="{{item.relationship}}">{{item.relationship}}</view>
+        </view>
+        <view class="case-status-tag status-{{item.statusType}}">
+          {{item.statusLabel}}
+        </view>
+      </view>
+      <view class="case-meta">
+        <text class="case-time">{{item.formattedTime}}</text>
+        <text class="case-mode" wx:if="{{item.isSingleMode}}">单人模式</text>
+        <text class="case-mode dual" wx:else>双人模式</text>
+      </view>
+    </view>
   </view>
 
   <!-- 空状态 -->
   <view class="empty-state" wx:if="{{isEmpty && !loading}}">
-    <view class="icon">📋</view>
-    <view class="text">还没有调解案例</view>
-    <view class="text sub">创建一个吧</view>
+    <view class="empty-icon">&#x1F4CB;</view>
+    <view class="empty-title">还没有调解案例</view>
+    <view class="empty-desc">点击上方"开始分析"创建第一个吧</view>
   </view>
 
   <!-- 加载更多 -->
   <view class="loading-more" wx:if="{{loading && caseList.length > 0}}">
-    <view class="loading-spinner">
-      <view class="spinner"></view>
-      加载中...
-    </view>
+    <view class="spinner"></view>
+    <text>加载中...</text>
   </view>
 
-  <!-- 没有更多了 -->
+  <!-- 没有更多 -->
   <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}">
-    <text class="text-muted">— 没有更多了 —</text>
+    <text>— 没有更多了 —</text>
   </view>
 
-  <!-- 安全区域 -->
+  <!-- 安全区 -->
   <view class="safe-bottom"></view>
 </view>

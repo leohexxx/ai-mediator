@@ -1,0 +1,26 @@
+<!-- share-card 分享卡片组件 -->
+<view class="share-card-container" wx:if="{{visible}}">
+  <view class="share-card-overlay" bindtap="onClose"></view>
+  
+  <view class="share-card-content">
+    <view class="card-preview">
+      <canvas 
+        type="2d" 
+        id="shareCanvas" 
+        class="share-canvas"
+        style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+      ></canvas>
+    </view>
+
+    <view class="card-actions">
+      <view class="card-info">
+        <text class="card-label">分享卡片已生成</text>
+        <text class="card-hint">长按图片可保存到相册</text>
+      </view>
+      <view class="card-buttons">
+        <button class="btn-save" bindtap="onSaveToAlbum">保存到相册</button>
+        <button class="btn-share" open-type="share">发送给朋友</button>
+      </view>
+    </view>
+  </view>
+</view>

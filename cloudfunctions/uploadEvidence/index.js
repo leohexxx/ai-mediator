@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════
-// uploadEvidence 云函数
+// uploadEvidence 云函数 (v2 - 支持单人模式)
 // 职责: 接收文本/聊天记录 → parser 解析 → 写入 evidence + 更新提交状态
+// 单人模式: 提交后自动触发分析 (autoAnalyze=true)
 // ═══════════════════════════════════════════════
 
 var cloud = require('wx-server-sdk');
@@ -43,19 +44,20 @@ exports.main = async function (event, context) {
       return { code: -1, data: null, message: '案例不存在' };
     }
 
-    // 确定用户角色
+    // 确定用户角色 (v2: 支持单人模式)
     var party;
     if (caseData.party_a.openid === openid) {
       party = 'party_a';
-    } else if (caseData.party_b.openid === openid) {
+    } else if (caseData.party_b && caseData.party_b.openid === openid) {
       party = 'party_b';
     } else {
       return { code: -1, data: null, message: '无权操作此案例' };
     }
 
-    // 检查案例状态（已完成或分析中的案例不可上传）
-    if (caseData.status === 'completed' || caseData.status === 'analyzing') {
-      return { code: -1, data: null, message: '分析已经完成或正在进行中，无法修改证据' };
+    // 检查案例状态
+    var invalidStatuses = ['completed', 'single_completed', 'analyzing'];
+    if (invalidStatuses.indexOf(caseData.status) !== -1) {
+      return { code: -1, data: null, message: '分析已完成或进行中，无法修改证据' };
     }
 
     // 解析聊天记录
@@ -79,18 +81,16 @@ exports.main = async function (event, context) {
       .get();
 
     if (existingEvidence.data.length > 0) {
-      // 更新已有证据
       await db.collection('evidence').doc(existingEvidence.data[0]._id).update({
         data: {
           rawText: rawText,
           parsedMessages: parsedMessages,
           fileIds: fileIds,
           note: note,
-          createdAt: now,
+          updatedAt: now,
         },
       });
     } else {
-      // 插入新证据
       await db.collection('evidence').add({
         data: {
           caseId: caseId,
@@ -106,12 +106,14 @@ exports.main = async function (event, context) {
     }
 
     // 更新案例提交状态
-    var updateData = {
-      updatedAt: now,
-    };
+    var updateData = { updatedAt: now };
     if (party === 'party_a') {
       updateData['party_a.submitted'] = true;
       updateData['party_a.submittedAt'] = now;
+      // 单人模式: 提交后状态变为 single_submitted
+      if (caseData.mode === 'single' || !caseData.mode) {
+        updateData['status'] = 'single_submitted';
+      }
     } else {
       updateData['party_b.submitted'] = true;
       updateData['party_b.submittedAt'] = now;
@@ -124,7 +126,16 @@ exports.main = async function (event, context) {
     var updatedData = updatedCase.data;
 
     var autoAnalyze = false;
-    if (updatedData.party_a.submitted && updatedData.party_b.submitted && updatedData.party_b.openid) {
+
+    // 双人模式: 双方都已提交 → 自动分析
+    var hasPartyB = updatedData.party_b && updatedData.party_b.openid;
+    if (hasPartyB && updatedData.party_a.submitted && updatedData.party_b.submitted) {
+      autoAnalyze = true;
+    }
+
+    // 单人模式: 甲方已提交 → 自动分析
+    var isSingleMode = updatedData.mode === 'single' || (!hasPartyB);
+    if (isSingleMode && updatedData.party_a.submitted) {
       autoAnalyze = true;
     }
 
@@ -134,6 +145,7 @@ exports.main = async function (event, context) {
         messageCount: parsedMessages.length,
         party: party,
         autoAnalyze: autoAnalyze,
+        isSingleMode: isSingleMode,
         updatedAt: now,
       },
       message: 'ok',

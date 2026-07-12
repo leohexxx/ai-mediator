@@ -1,17 +1,24 @@
-<!-- 分析报告页 — 4 层递进结构 -->
+<!-- 分析报告页 (v2) — 4 层递进 + 分享功能 -->
 <view class="container" wx:if="{{!loading}}">
+
   <!-- 分析进度 -->
   <analysis-progress wx:if="{{progress && progress.step !== 'done'}}" progress="{{progress}}" />
 
   <!-- 隐私限制 -->
   <view class="restricted-banner" wx:if="{{restricted}}">
-    <view class="restricted-icon">🔒</view>
+    <view class="restricted-icon">&#x1F512;</view>
     <view class="restricted-text">{{restrictedMessage}}</view>
   </view>
 
-  <!-- ═══ 第一层：核心结论 ═══ -->
+  <!-- 报告内容 -->
   <view wx:if="{{analysis && !restricted}}">
     <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
+
+    <!-- 分享按钮 (v2 新增) -->
+    <view class="share-bar">
+      <button class="share-btn" open-type="share">分享给好友</button>
+      <button class="share-btn secondary" bindtap="onOpenShare">生成分享卡片</button>
+    </view>
 
     <!-- ═══ 第二层：证据 & 情绪 ═══ -->
     <view class="layer-header">
@@ -19,9 +26,7 @@
       <text class="layer-title">证据 & 情绪</text>
       <view class="layer-line"></view>
     </view>
-
     <evidence-weights items="{{analysis.evidenceWeights || []}}" />
-
     <emotion-curve curves="{{analysis.emotionCurve || []}}" />
 
     <!-- ═══ 第三层：调解策略 ═══ -->
@@ -30,33 +35,62 @@
       <text class="layer-title">调解策略</text>
       <view class="layer-line"></view>
     </view>
-
     <mediation-strategy steps="{{analysis.mediationStrategy || []}}" />
 
-    <!-- ═══ 第四层：详细分析 & 追问 ═══ -->
+    <!-- ═══ 第四层：详细分析 ═══ -->
     <view class="layer-header">
       <view class="layer-line"></view>
-      <text class="layer-title">详细分析 & 追问</text>
+      <text class="layer-title">详细分析</text>
       <view class="layer-line"></view>
     </view>
-
     <detailed-analysis detailedAnalysis="{{analysis.detailedAnalysis}}" activeTab="{{activeTab}}" bind:tabchange="onTabChange" />
 
-    <!-- 追问 -->
+    <!-- 追问 (暂保留，P2 启用) -->
     <chat-panel caseId="{{caseId}}" analysis="{{analysis}}" />
   </view>
 
-  <!-- 无分析数据 -->
+  <!-- 空状态 -->
   <view class="empty-state" wx:if="{{!analysis && !progress}}">
-    <view class="icon">📊</view>
-    <view class="text">暂无分析数据</view>
-    <view class="text sub text-muted">等待双方提交证据后开始分析</view>
+    <view class="empty-icon">&#x1F4CA;</view>
+    <view class="empty-title">暂无分析数据</view>
+    <view class="empty-desc">上传聊天记录后即可开始分析</view>
+    <button class="btn-primary analyze-btn" bindtap="onManualAnalyze">开始分析</button>
   </view>
 
   <view class="safe-bottom"></view>
 </view>
 
+<!-- 分享面板 (v2 新增) -->
+<view class="share-overlay" wx:if="{{showSharePanel}}" bindtap="onCloseShare">
+  <view class="share-panel" catchtap="">
+    <view class="share-panel-title">选择分享卡片样式</view>
+    
+    <view class="share-templates">
+      <view class="share-template-item" data-template="verdict" bindtap="onSelectShareTemplate">
+        <view class="template-preview verdict-preview">
+          <view class="template-score">65 : 35</view>
+          <view class="template-label">裁决版</view>
+        </view>
+      </view>
+      <view class="share-template-item" data-template="fun" bindtap="onSelectShareTemplate">
+        <view class="template-preview fun-preview">
+          <view class="template-text">谁更有理?</view>
+          <view class="template-label">趣味版</view>
+        </view>
+      </view>
+      <view class="share-template-item" data-template="suspense" bindtap="onSelectShareTemplate">
+        <view class="template-preview suspense-preview">
+          <view class="template-text">???</view>
+          <view class="template-label">悬念版</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="share-panel-close" bindtap="onCloseShare">取消</view>
+  </view>
+</view>
+
 <!-- 加载中 -->
 <view class="loading-spinner" wx:if="{{loading}}">
-  <text class="text-secondary">加载报告中...</text>
+  <text>加载报告中...</text>
 </view>

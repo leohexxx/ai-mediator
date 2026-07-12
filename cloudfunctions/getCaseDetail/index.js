@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// getCaseDetail 云函数
+// getCaseDetail 云函数 (v2 - 支持单人模式)
 // 职责: 案例详情 + 权限校验 + 隐私过滤
 // ═══════════════════════════════════════════════
 
@@ -32,39 +32,41 @@ exports.main = async function (event, context) {
       return { code: -1, data: null, message: '案例不存在' };
     }
 
-    // 权限校验：仅甲乙方可查看
+    // 权限校验：支持单人模式 (party_b 可能为 null)
     var isPartyA = caseData.party_a.openid === openid;
-    var isPartyB = caseData.party_b.openid === openid;
+    var hasPartyB = caseData.party_b && caseData.party_b.openid;
+    var isPartyB = hasPartyB && caseData.party_b.openid === openid;
 
     if (!isPartyA && !isPartyB) {
       return { code: -1, data: null, message: '无权查看此案例' };
     }
 
     var role = isPartyA ? 'party_a' : 'party_b';
+    var isSingleMode = caseData.mode === 'single' || (!hasPartyB);
+    var isCompleted = caseData.status === 'completed' || caseData.status === 'single_completed';
 
-    // 获取己方证据（自己的证据始终可见）
+    // 获取己方证据
     var myEvidence = await db.collection('evidence')
       .where({ caseId: caseId, party: role })
       .get();
 
-    // 获取对方证据（仅分析完成 + 双方可见模式下可见）
+    // 获取对方证据（仅双人 + 分析完成 + 双方可见模式下可见）
     var otherParty = role === 'party_a' ? 'party_b' : 'party_a';
     var otherEvidence = null;
 
-    if (caseData.status === 'completed' && caseData.privacy === 'both') {
+    if (!isSingleMode && isCompleted && caseData.privacy === 'both') {
       var otherResult = await db.collection('evidence')
         .where({ caseId: caseId, party: otherParty })
         .get();
       otherEvidence = otherResult.data.length > 0 ? otherResult.data[0] : null;
     }
 
-    // 获取分析报告（隐私控制）
+    // 获取分析报告
     var analysis = null;
     if (caseData.analysisId) {
       var analysisResult = await db.collection('analyses').doc(caseData.analysisId).get();
       var analysisData = analysisResult.data;
 
-      // 隐私过滤：仅发起方可见模式下，乙方不能看分析
       if (analysisData && caseData.privacy === 'initiator_only' && role === 'party_b') {
         analysis = {
           _id: analysisData._id,
@@ -72,7 +74,6 @@ exports.main = async function (event, context) {
           schemaVersion: analysisData.schemaVersion,
           progress: analysisData.progress,
           createdAt: analysisData.createdAt,
-          // 隐私模式：乙方仅看到概述
           restricted: true,
           restrictedMessage: '分析已完成，结果仅对发起方可见',
         };
@@ -81,12 +82,16 @@ exports.main = async function (event, context) {
       }
     }
 
-    // 获取邀请信息
-    var invitation = await db.collection('invitations')
-      .where({ caseId: caseId })
-      .orderBy('createdAt', 'desc')
-      .limit(1)
-      .get();
+    // 获取邀请信息（仅双人模式）
+    var invitation = null;
+    if (!isSingleMode) {
+      var invResult = await db.collection('invitations')
+        .where({ caseId: caseId })
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+      invitation = invResult.data.length > 0 ? invResult.data[0] : null;
+    }
 
     return {
       code: 0,
@@ -96,7 +101,8 @@ exports.main = async function (event, context) {
         myEvidence: myEvidence.data.length > 0 ? myEvidence.data[0] : null,
         otherEvidence: otherEvidence,
         analysis: analysis,
-        invitation: invitation.data.length > 0 ? invitation.data[0] : null,
+        invitation: invitation,
+        isSingleMode: isSingleMode,
       },
       message: 'ok',
     };
