@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import EvidenceUpload from '../components/EvidenceUpload'
-import ReportSummary from '../components/ReportSummary'
-import CharacterMap from '../components/CharacterMap'
-import Timeline from '../components/Timeline'
-import VerdictCard from '../components/VerdictCard'
-import AdviceCard from '../components/AdviceCard'
-import ChatPanel from '../components/ChatPanel'
+import CoreVerdictCard from '../components/CoreVerdictCard'
+import EvidenceWeights from '../components/EvidenceWeights'
+import EmotionCurveChart from '../components/EmotionCurveChart'
+import MediationStrategy from '../components/MediationStrategy'
+import DetailedAnalysisTabs from '../components/DetailedAnalysisTabs'
 import { useCase } from '../hooks/useCase'
 import { useAnalysis } from '../hooks/useAnalysis'
 import { saveCase } from '../utils/storage'
-import type { ChatMessage, Case } from '../types'
+import { addTextEvidence } from '../services/api'
+import { ensureV2 } from '../utils/analysisMigration'
+import type { ChatMessage, Case, Analysis } from '../types'
 
 export default function ReportPage() {
   const { caseId } = useParams<{ caseId: string }>()
@@ -34,9 +35,12 @@ export default function ReportPage() {
     )
   }
 
-  const analysis = c.analysis
+  // 渲染前检查 schemaVersion 并迁移
+  const analysis: Analysis = ensureV2(c.analysis) || c.analysis
+
   const partyA = c.parties.find((p) => p.role === 'party_a')?.name || '甲方'
   const partyB = c.parties.find((p) => p.role === 'party_b')?.name || '乙方'
+  const partyNames = { a: partyA, b: partyB }
 
   async function handleSend(content: string) {
     if (!caseId) return
@@ -55,7 +59,17 @@ export default function ReportPage() {
     })
 
     if (response) {
-      setChatMessages((prev) => [...prev, response])
+      const newHistory = [...(c?.chatHistory || []), userMsg, response]
+      await updateCase({ chatHistory: newHistory })
+      setChatMessages([])
+    } else {
+      const errorMsg: ChatMessage = {
+        id: `msg_err_${Date.now()}`,
+        role: 'assistant',
+        content: '⚠️ 发送失败，请重试',
+        timestamp: new Date().toISOString(),
+      }
+      setChatMessages((prev) => [...prev, errorMsg])
     }
     setStreaming(false)
     setStreamContent('')
@@ -63,6 +77,7 @@ export default function ReportPage() {
 
   async function handleSupplementText(text: string, source: string) {
     if (!c) return
+    await addTextEvidence(c.id, text, source as 'party_a' | 'party_b' | 'self')
     const updatedCase: Case = {
       ...c,
       evidence: [
@@ -94,12 +109,37 @@ export default function ReportPage() {
           </p>
         </div>
 
-        <ReportSummary analysis={analysis} />
-        <CharacterMap characters={analysis.characters} />
-        <Timeline events={analysis.timeline} />
-        <VerdictCard verdict={analysis.verdict} />
-        <AdviceCard advice={analysis.advice} partyNames={{ a: partyA, b: partyB }} />
+        {/* 第一屏：核心结论（不滚动可见） */}
+        <CoreVerdictCard
+          coreConclusion={analysis.coreConclusion}
+          partyNames={partyNames}
+        />
 
+        {/* 第二屏：证据 & 情绪 */}
+        <EvidenceWeights
+          evidenceWeights={analysis.evidenceWeights}
+          rawText={c.rawText}
+        />
+
+        <EmotionCurveChart emotionCurve={analysis.emotionCurve} />
+
+        {/* 第三屏：调解策略 */}
+        <MediationStrategy
+          mediationStrategy={analysis.mediationStrategy}
+          partyNames={partyNames}
+        />
+
+        {/* 第四屏：详细分析（折叠 Tab） */}
+        <DetailedAnalysisTabs
+          detailedAnalysis={analysis.detailedAnalysis}
+          partyNames={partyNames}
+          chatMessages={[...(c.chatHistory || []), ...chatMessages]}
+          onSend={handleSend}
+          streaming={streaming}
+          streamContent={streamContent}
+        />
+
+        {/* 补充证据 */}
         <div className="card">
           <button
             onClick={() => setShowEvidenceUpload(!showEvidenceUpload)}
@@ -123,13 +163,6 @@ export default function ReportPage() {
             </div>
           )}
         </div>
-
-        <ChatPanel
-          messages={[...(c.chatHistory || []), ...chatMessages]}
-          onSend={handleSend}
-          streaming={streaming}
-          streamContent={streamContent}
-        />
 
         <button
           onClick={() => navigate('/')}

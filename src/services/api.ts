@@ -28,6 +28,19 @@ export async function createCase(title: string): Promise<Case> {
   return res.json();
 }
 
+export async function updateCaseServer(
+  caseId: string,
+  updates: Partial<Case>
+): Promise<Case> {
+  const res = await fetch(`${BASE}/cases/${caseId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error('Failed to update case on server');
+  return res.json();
+}
+
 export async function uploadEvidence(
   caseId: string,
   file: File,
@@ -67,7 +80,15 @@ export async function triggerAnalysis(
     method: 'POST',
   });
 
-  if (!res.ok || !res.body) throw new Error('Analysis failed');
+  if (!res.ok) {
+    let errMsg = 'Analysis failed';
+    try {
+      const errBody = await res.json();
+      if (errBody.error) errMsg = errBody.error;
+    } catch {}
+    throw new Error(errMsg);
+  }
+  if (!res.body) throw new Error('Analysis failed: no response body');
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -89,12 +110,17 @@ export async function triggerAnalysis(
       try {
         const parsed = JSON.parse(data);
         if (parsed.type === 'progress') {
+          if (parsed.step === 'error') {
+            throw new Error(parsed.message || 'Analysis failed');
+          }
           onProgress(parsed as AnalysisProgress);
         } else if (parsed.type === 'result') {
           result = parsed.analysis;
         }
-      } catch {
-        // skip malformed chunks
+      } catch (e) {
+        // Re-throw if it's our error from the error-check above
+        if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
+        // Skip malformed chunks
       }
     }
   }
@@ -133,8 +159,19 @@ export async function sendMessage(
       if (!line.startsWith('data: ')) continue;
       const data = line.slice(6);
       if (data === '[DONE]') continue;
-      fullContent += data;
-      onChunk(data);
+      try {
+        const parsed = JSON.parse(data);
+        if (typeof parsed === 'string') {
+          fullContent += parsed;
+          onChunk(parsed);
+        } else if (parsed && typeof parsed === 'object' && parsed.error) {
+          throw new Error(parsed.error);
+        }
+      } catch (e) {
+        // Re-throw if it's our error from the error-check above
+        if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
+        // Skip unparseable chunks
+      }
     }
   }
 

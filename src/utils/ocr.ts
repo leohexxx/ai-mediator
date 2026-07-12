@@ -77,3 +77,48 @@ export async function extractTextFromVideo(
 
   return texts.join('\n')
 }
+
+/**
+ * 从 OCR 识别的文本中提取说话人名字。
+ *
+ * 策略：
+ * 1. 按行扫描，匹配 "XXX:" 或 "XXX：" 格式
+ * 2. 收集所有不同的说话人名（去重，保留出现顺序）
+ * 3. 过滤长度 > 20 的"名字"（OCR 噪声）
+ * 4. 过滤纯数字/纯符号行
+ * 5. 返回前 2 个作为甲乙方候选
+ */
+export function extractSpeakers(text: string): string[] {
+  const speakerRegex = /^(.+?)[：:]\s*(.*)$/
+  const lines = text.split('\n')
+  const speakers: string[] = []
+  const seen = new Set<string>()
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    const match = trimmed.match(speakerRegex)
+    if (!match) continue
+
+    const name = match[1].trim()
+    const content = match[2].trim()
+
+    // 过滤条件
+    if (!name) continue
+    if (name.length > 20) continue // OCR 噪声
+    if (name.length === 0) continue
+    if (/^[\d\s\p{P}]+$/u.test(name)) continue // 纯数字/符号
+    if (!content) continue // 没有内容的行跳过
+
+    if (!seen.has(name)) {
+      seen.add(name)
+      speakers.push(name)
+    }
+
+    // 只需要前 2 个不同的说话人
+    if (speakers.length >= 2) break
+  }
+
+  return speakers
+}

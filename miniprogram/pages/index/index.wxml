@@ -1,0 +1,48 @@
+<!-- 首页：案例列表 + 创建入口 -->
+<view class="container">
+  <!-- 创建 CTA 卡片 -->
+  <view class="create-cta card" bindtap="onCreateTap">
+    <view class="cta-icon">🤝</view>
+    <view class="cta-title">创建新的调解案例</view>
+    <view class="cta-desc">邀请对方一起上传聊天记录</view>
+    <view class="cta-sub">AI 帮你们客观分析谁更有理</view>
+    <view class="btn-primary cta-btn">开始调解</view>
+  </view>
+
+  <!-- 案例标题 -->
+  <view class="section-title" wx:if="{{!isEmpty}}">我的案例</view>
+
+  <!-- 案例列表 -->
+  <view class="case-list" wx:if="{{!isEmpty}}">
+    <case-card
+      wx:for="{{caseList}}"
+      wx:key="_id"
+      item="{{item}}"
+      bind:tap="onCaseTap"
+      bind:share="onShareTap"
+    />
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{isEmpty && !loading}}">
+    <view class="icon">📋</view>
+    <view class="text">还没有调解案例</view>
+    <view class="text sub">创建一个吧</view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="loading-more" wx:if="{{loading && caseList.length > 0}}">
+    <view class="loading-spinner">
+      <view class="spinner"></view>
+      加载中...
+    </view>
+  </view>
+
+  <!-- 没有更多了 -->
+  <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}">
+    <text class="text-muted">— 没有更多了 —</text>
+  </view>
+
+  <!-- 安全区域 -->
+  <view class="safe-bottom"></view>
+</view>

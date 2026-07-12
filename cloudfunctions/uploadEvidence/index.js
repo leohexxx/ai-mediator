@@ -1,0 +1,145 @@
+// ═══════════════════════════════════════════════
+// uploadEvidence 云函数
+// 职责: 接收文本/聊天记录 → parser 解析 → 写入 evidence + 更新提交状态
+// ═══════════════════════════════════════════════
+
+var cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+var db = cloud.database();
+var parser = require('./common/parser');
+
+/**
+ * 云函数入口
+ * @param {Object} event
+ * @param {string} event.caseId - 案例 ID
+ * @param {string} event.rawText - 聊天记录原始文本
+ * @param {string} [event.note] - 用户备注（可选）
+ * @param {string[]} [event.fileIds] - 云存储文件 ID 列表（可选）
+ * @param {Object} context
+ */
+exports.main = async function (event, context) {
+  var wxContext = cloud.getWXContext();
+  var openid = wxContext.OPENID;
+
+  try {
+    var caseId = event.caseId;
+    var rawText = event.rawText;
+    var note = event.note || '';
+    var fileIds = event.fileIds || [];
+
+    if (!caseId) {
+      return { code: -1, data: null, message: '缺少案例 ID' };
+    }
+    if (!rawText || !rawText.trim()) {
+      return { code: -1, data: null, message: '请提供聊天记录内容' };
+    }
+
+    // 获取案例信息
+    var caseResult = await db.collection('cases').doc(caseId).get();
+    var caseData = caseResult.data;
+
+    if (!caseData) {
+      return { code: -1, data: null, message: '案例不存在' };
+    }
+
+    // 确定用户角色
+    var party;
+    if (caseData.party_a.openid === openid) {
+      party = 'party_a';
+    } else if (caseData.party_b.openid === openid) {
+      party = 'party_b';
+    } else {
+      return { code: -1, data: null, message: '无权操作此案例' };
+    }
+
+    // 检查案例状态（已完成或分析中的案例不可上传）
+    if (caseData.status === 'completed' || caseData.status === 'analyzing') {
+      return { code: -1, data: null, message: '分析已经完成或正在进行中，无法修改证据' };
+    }
+
+    // 解析聊天记录
+    var parsedMessages;
+    try {
+      parsedMessages = parser.parseWeChatChatLog(rawText);
+    } catch (parseErr) {
+      console.error('parse error:', parseErr);
+      return { code: -1, data: null, message: '聊天记录解析失败: ' + parseErr.message };
+    }
+
+    if (parsedMessages.length === 0) {
+      return { code: -1, data: null, message: '未能解析出有效的聊天消息，请检查格式' };
+    }
+
+    var now = new Date().toISOString();
+
+    // 检查是否已有同方证据（覆盖旧证据）
+    var existingEvidence = await db.collection('evidence')
+      .where({ caseId: caseId, party: party })
+      .get();
+
+    if (existingEvidence.data.length > 0) {
+      // 更新已有证据
+      await db.collection('evidence').doc(existingEvidence.data[0]._id).update({
+        data: {
+          rawText: rawText,
+          parsedMessages: parsedMessages,
+          fileIds: fileIds,
+          note: note,
+          createdAt: now,
+        },
+      });
+    } else {
+      // 插入新证据
+      await db.collection('evidence').add({
+        data: {
+          caseId: caseId,
+          party: party,
+          openid: openid,
+          rawText: rawText,
+          parsedMessages: parsedMessages,
+          fileIds: fileIds,
+          note: note,
+          createdAt: now,
+        },
+      });
+    }
+
+    // 更新案例提交状态
+    var updateData = {
+      updatedAt: now,
+    };
+    if (party === 'party_a') {
+      updateData['party_a.submitted'] = true;
+      updateData['party_a.submittedAt'] = now;
+    } else {
+      updateData['party_b.submitted'] = true;
+      updateData['party_b.submittedAt'] = now;
+    }
+
+    await db.collection('cases').doc(caseId).update({ data: updateData });
+
+    // 重新获取案例判断是否需要自动触发分析
+    var updatedCase = await db.collection('cases').doc(caseId).get();
+    var updatedData = updatedCase.data;
+
+    var autoAnalyze = false;
+    if (updatedData.party_a.submitted && updatedData.party_b.submitted && updatedData.party_b.openid) {
+      autoAnalyze = true;
+    }
+
+    return {
+      code: 0,
+      data: {
+        messageCount: parsedMessages.length,
+        party: party,
+        autoAnalyze: autoAnalyze,
+        updatedAt: now,
+      },
+      message: 'ok',
+    };
+  } catch (error) {
+    console.error('uploadEvidence error:', error);
+    return { code: -1, data: null, message: error.message || '上传证据失败' };
+  }
+};

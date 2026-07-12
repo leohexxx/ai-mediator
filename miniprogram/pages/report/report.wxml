@@ -1,0 +1,62 @@
+<!-- 分析报告页 — 4 层递进结构 -->
+<view class="container" wx:if="{{!loading}}">
+  <!-- 分析进度 -->
+  <analysis-progress wx:if="{{progress && progress.step !== 'done'}}" progress="{{progress}}" />
+
+  <!-- 隐私限制 -->
+  <view class="restricted-banner" wx:if="{{restricted}}">
+    <view class="restricted-icon">🔒</view>
+    <view class="restricted-text">{{restrictedMessage}}</view>
+  </view>
+
+  <!-- ═══ 第一层：核心结论 ═══ -->
+  <view wx:if="{{analysis && !restricted}}">
+    <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
+
+    <!-- ═══ 第二层：证据 & 情绪 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">证据 & 情绪</text>
+      <view class="layer-line"></view>
+    </view>
+
+    <evidence-weights items="{{analysis.evidenceWeights || []}}" />
+
+    <emotion-curve curves="{{analysis.emotionCurve || []}}" />
+
+    <!-- ═══ 第三层：调解策略 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">调解策略</text>
+      <view class="layer-line"></view>
+    </view>
+
+    <mediation-strategy steps="{{analysis.mediationStrategy || []}}" />
+
+    <!-- ═══ 第四层：详细分析 & 追问 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">详细分析 & 追问</text>
+      <view class="layer-line"></view>
+    </view>
+
+    <detailed-analysis detailedAnalysis="{{analysis.detailedAnalysis}}" activeTab="{{activeTab}}" bind:tabchange="onTabChange" />
+
+    <!-- 追问 -->
+    <chat-panel caseId="{{caseId}}" analysis="{{analysis}}" />
+  </view>
+
+  <!-- 无分析数据 -->
+  <view class="empty-state" wx:if="{{!analysis && !progress}}">
+    <view class="icon">📊</view>
+    <view class="text">暂无分析数据</view>
+    <view class="text sub text-muted">等待双方提交证据后开始分析</view>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>
+
+<!-- 加载中 -->
+<view class="loading-spinner" wx:if="{{loading}}">
+  <text class="text-secondary">加载报告中...</text>
+</view>

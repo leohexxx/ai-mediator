@@ -1,0 +1,22 @@
+/* 情绪曲线组件样式 */
+.emotion-curve {
+  margin-bottom: 24rpx;
+}
+
+.curve-title {
+  font-size: var(--font-md);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 16rpx;
+}
+
+.curve-canvas {
+  display: block;
+  width: 100%;
+}
+
+.empty {
+  text-align: center;
+  padding: 60rpx 0;
+  font-size: var(--font-sm);
+}

@@ -1,0 +1,143 @@
+/* 上传证据页样式 */
+.role-badge {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  color: var(--color-brand);
+  margin-bottom: 32rpx;
+}
+
+.upload-options {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 0;
+}
+
+.upload-card {
+  flex: 1;
+  padding: 32rpx 24rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: var(--transition-fast);
+  margin-bottom: 0;
+}
+
+.upload-card.active {
+  border-color: var(--color-brand);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.upload-card:last-child {
+  margin-top: 16rpx;
+  flex: none;
+  width: 100%;
+}
+
+.upload-icon {
+  font-size: 48rpx;
+  margin-bottom: 12rpx;
+}
+
+.upload-title {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 6rpx;
+}
+
+.upload-desc {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.upload-file-name {
+  font-size: var(--font-sm);
+  margin-top: 8rpx;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 0;
+}
+
+.or-line {
+  flex: 1;
+  height: 1rpx;
+  background: var(--color-border);
+}
+
+.or-text {
+  padding: 0 24rpx;
+  font-size: var(--font-sm);
+}
+
+.text-input-area {
+  margin-bottom: 24rpx;
+}
+
+.text-input {
+  width: 100%;
+  min-height: 300rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  line-height: 1.8;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+
+.input-placeholder {
+  color: var(--color-text-muted);
+}
+
+.text-count {
+  text-align: right;
+  font-size: var(--font-xs);
+  margin-top: 8rpx;
+}
+
+.note-section {
+  margin-bottom: 24rpx;
+}
+
+.note-label {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 4rpx;
+}
+
+.note-desc {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 12rpx;
+}
+
+.note-input {
+  width: 100%;
+  min-height: 120rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.submit-area {
+  padding: 16rpx 0;
+}
+
+.submit-area .btn-primary {
+  width: 100%;
+}

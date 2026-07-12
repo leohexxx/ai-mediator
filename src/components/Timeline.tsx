@@ -12,19 +12,22 @@ const EMOTION_COLORS: Record<string, string> = {
 
 export default function Timeline({ events }: { events: TimelineEvent[] }) {
   return (
-    <div className="card">
-      <h3 className="text-sm text-brand-400 font-medium mb-3">⏱️ 关键时间线</h3>
+    <div>
       <div className="space-y-3">
         {events.map((event, i) => (
           <div key={i} className="flex gap-3">
             <div className="flex flex-col items-center">
-              <div className="w-2 h-2 rounded-full bg-brand-500 mt-1.5" />
+              <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${
+                event.isTurningPoint
+                  ? 'bg-red-500 ring-2 ring-red-900'
+                  : 'bg-brand-500'
+              }`} />
               {i < events.length - 1 && (
                 <div className="w-px flex-1 bg-gray-800 mt-1" />
               )}
             </div>
             <div className="flex-1 pb-2">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-sm font-medium text-gray-200">
                   {event.speaker}
                 </span>
@@ -36,6 +39,11 @@ export default function Timeline({ events }: { events: TimelineEvent[] }) {
                 }`}>
                   {event.emotion}
                 </span>
+                {event.isTurningPoint && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-400 font-medium">
+                    ⚡ 转折点
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-400">{event.content}</p>
               <p className="text-xs text-gray-600 mt-0.5">{event.significance}</p>

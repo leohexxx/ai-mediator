@@ -1,0 +1,146 @@
+classDiagram
+    class Case {
+        +string _id
+        +string title
+        +string relationship
+        +string privacy
+        +PartyInfo party_a
+        +PartyInfo party_b
+        +string status
+        +string analysisId
+        +string expiresAt
+        +string createdAt
+        +string updatedAt
+    }
+
+    class PartyInfo {
+        +string openid
+        +string nickname
+        +string avatarUrl
+        +boolean submitted
+        +string submittedAt
+    }
+
+    class Evidence {
+        +string _id
+        +string caseId
+        +string party
+        +string openid
+        +string rawText
+        +ParsedMessage[] parsedMessages
+        +string[] fileIds
+        +string note
+        +string createdAt
+    }
+
+    class ParsedMessage {
+        +string speaker
+        +string content
+        +string timestamp
+        +string type
+    }
+
+    class Analysis {
+        +string _id
+        +string caseId
+        +string schemaVersion
+        +CoreConclusion coreConclusion
+        +EvidenceWeight[] evidenceWeights
+        +EmotionCurve[] emotionCurve
+        +MediationStep[] mediationStrategy
+        +DetailedAnalysis detailedAnalysis
+        +Advice advice
+        +AnalysisProgress progress
+        +string createdAt
+    }
+
+    class CoreConclusion {
+        +string overallWinner
+        +number scoreA
+        +number scoreB
+        +string oneLineVerdict
+        +string[] keyReasons
+        +string recommendedAction
+        +number confidence
+        +string[] confidenceReasons
+    }
+
+    class EvidenceWeight {
+        +string id
+        +string speaker
+        +string content
+        +string timestamp
+        +number weight
+        +string weightReason
+        +string favors
+    }
+
+    class EmotionCurve {
+        +string speaker
+        +EmotionPoint[] points
+    }
+
+    class EmotionPoint {
+        +string timestamp
+        +string emotion
+        +number intensity
+        +string trigger
+    }
+
+    class MediationStep {
+        +number step
+        +string title
+        +string description
+        +string target
+        +string expectedOutcome
+        +string difficulty
+    }
+
+    class DetailedAnalysis {
+        +string summary
+        +string relationship
+        +Character[] characters
+        +Conflict[] conflicts
+        +TimelineEvent[] timeline
+    }
+
+    class Invitation {
+        +string _id
+        +string caseId
+        +string inviteCode
+        +boolean used
+        +string usedBy
+        +string createdAt
+    }
+
+    class ChatMessage {
+        +string _id
+        +string caseId
+        +string userId
+        +Chunk[] chunks
+        +string status
+        +string fullText
+        +string createdAt
+        +string updatedAt
+    }
+
+    class AnalysisProgress {
+        +string step
+        +string message
+        +number progress
+    }
+
+    Case "1" --> "1" PartyInfo : party_a
+    Case "1" --> "1" PartyInfo : party_b
+    Case "1" --> "*" Evidence : contains
+    Case "1" --> "0..1" Analysis : has
+    Case "1" --> "1" Invitation : generates
+    Evidence "1" --> "*" ParsedMessage : contains
+    Analysis "1" --> "1" CoreConclusion
+    Analysis "1" --> "*" EvidenceWeight
+    Analysis "1" --> "*" EmotionCurve
+    Analysis "1" --> "*" MediationStep
+    Analysis "1" --> "1" DetailedAnalysis
+    Analysis "1" --> "1" AnalysisProgress
+    EmotionCurve "1" --> "*" EmotionPoint
+    ChatMessage "1" --> "*" Case : belongs to

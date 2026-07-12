@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "case-card": "/components/case-card/case-card"
+  },
+  "navigationBarTitleText": "AI 调解员",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark"
+}

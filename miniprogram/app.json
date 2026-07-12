@@ -1,0 +1,23 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/create-case/create-case",
+    "pages/case-detail/case-detail",
+    "pages/upload/upload",
+    "pages/ocr-preview/ocr-preview",
+    "pages/report/report"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#111827",
+    "navigationBarTitleText": "AI 调解员",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#111827",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": true,
+    "onReachBottomDistance": 50
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "cloud": true,
+  "cloudfunctionRoot": "cloudfunctions/"
+}

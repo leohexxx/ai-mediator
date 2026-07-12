@@ -1,0 +1,41 @@
+/* 分析报告页样式 */
+.restricted-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 48rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  border: 1rpx solid var(--color-warning);
+}
+
+.restricted-icon {
+  font-size: 72rpx;
+  margin-bottom: 24rpx;
+}
+
+.restricted-text {
+  font-size: var(--font-md);
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.layer-header {
+  display: flex;
+  align-items: center;
+  padding: 48rpx 0 24rpx;
+}
+
+.layer-line {
+  flex: 1;
+  height: 1rpx;
+  background: var(--color-border);
+}
+
+.layer-title {
+  padding: 0 24rpx;
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  letter-spacing: 4rpx;
+}

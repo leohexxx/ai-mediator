@@ -1,16 +1,25 @@
 import type { AnalysisProgress } from '../types'
 
+interface Props {
+  progress: AnalysisProgress
+  onRetry?: () => void
+}
+
 const STEP_LABELS: Record<string, string> = {
   extracting: '📄 提取聊天内容',
   parsing: '🔍 解析对话结构',
-  understanding: '🧠 理解上下文语义',
+  understanding: '🧠 理解对话上下文',
+  evidence: '⚡ 提取关键证据',
+  emotion: '📈 分析情绪变化',
+  judging: '⚖️ 综合判断',
+  strategy: '🤝 制定调解策略',
   analyzing: '⚖️ 分析冲突与对错',
   generating: '📝 生成分析报告',
   done: '✅ 分析完成',
   error: '❌ 分析出错',
 }
 
-export default function AnalysisProgress({ progress }: { progress: AnalysisProgress }) {
+export default function AnalysisProgress({ progress, onRetry }: Props) {
   const isError = progress.step === 'error'
   const isDone = progress.step === 'done'
 
@@ -39,7 +48,17 @@ export default function AnalysisProgress({ progress }: { progress: AnalysisProgr
       )}
 
       {isError && (
-        <p className="text-red-400 text-sm mt-2">{progress.message}</p>
+        <>
+          <p className="text-red-400 text-sm mt-2">{progress.message}</p>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="btn-primary mt-4"
+            >
+              重试
+            </button>
+          )}
+        </>
       )}
     </div>
   )

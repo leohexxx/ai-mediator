@@ -1,0 +1,28 @@
+<!-- 关键证据权重列表 -->
+<view class="evidence-weights card" wx:if="{{items.length > 0}}">
+  <view class="section-title">📋 关键证据 ({{items.length}}条)</view>
+
+  <view
+    wx:for="{{expanded ? items : items.slice(0, displayCount)}}"
+    wx:key="id"
+    class="evidence-item"
+  >
+    <view class="evidence-header">
+      <view class="evidence-weight {{item.weight >= 80 ? 'high' : item.weight >= 60 ? 'medium' : 'low'}}">
+        ⚡{{item.weight}}
+      </view>
+      <view class="evidence-speaker">{{item.speaker}}</view>
+      <view class="evidence-favors {{item.favors === 'a' ? 'favors-a' : item.favors === 'b' ? 'favors-b' : 'favors-neutral'}}">
+        {{item.favors === 'a' ? '偏向甲方' : item.favors === 'b' ? '偏向乙方' : '中性'}}
+      </view>
+    </view>
+    <view class="evidence-content">"{{item.content}}"</view>
+    <view class="evidence-reason text-secondary">{{item.weightReason}}</view>
+    <view class="evidence-time text-muted" wx:if="{{item.timestamp}}">{{item.timestamp}}</view>
+  </view>
+
+  <!-- 展开/收起 -->
+  <view class="expand-btn" wx:if="{{items.length > displayCount}}" bindtap="onToggleExpand">
+    <text class="text-brand">{{expanded ? '收起 ▲' : '展开全部 ' + items.length + ' 条 ▼'}}</text>
+  </view>
+</view>

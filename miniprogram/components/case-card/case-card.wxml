@@ -1,0 +1,21 @@
+<!-- 案例列表卡片 -->
+<view class="case-card card" data-id="{{item._id}}" data-invitecode="{{item.inviteCode}}">
+  <view class="card-header">
+    <view class="card-status-icon {{statusClass}}">{{statusIcon}}</view>
+    <view class="card-info">
+      <view class="card-title">{{item.title}}</view>
+      <view class="card-subtitle text-secondary">
+        甲方({{item.party_a.nickname || '我'}}) ✓已提交 | {{statusText}}
+      </view>
+    </view>
+    <view class="card-time text-muted">{{item.formattedTime || item.updatedAt}}</view>
+  </view>
+
+  <view class="card-footer" wx:if="{{item.status === 'completed'}}">
+    <text class="text-brand">查看报告 →</text>
+  </view>
+
+  <view class="card-footer" wx:if="{{item.status === 'waiting_party_b' && item.role === 'party_a'}}">
+    <text class="text-brand" catchtap="onShareTap" data-id="{{item._id}}" data-invitecode="{{item.inviteCode}}">分享邀请</text>
+  </view>
+</view>

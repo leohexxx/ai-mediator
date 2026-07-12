@@ -18,8 +18,8 @@
 | 前端 | React 18 + TypeScript + Vite + Tailwind CSS |
 | OCR | Tesseract.js (客户端) |
 | 后端 | Node.js + Express + TypeScript |
-| AI | Claude API / Anthropic API |
-| 存储 | IndexedDB (浏览器端) |
+| AI | DeepSeek API / OpenAI API / Anthropic API（三选一） |
+| 存储 | IndexedDB (浏览器端) + 内存 Map (服务端) |
 
 ## 快速开始
 
@@ -39,8 +39,16 @@ npm install
 ```bash
 cd server
 cp .env.example .env
-# 编辑 .env 填入你的 ANTHROPIC_API_KEY
+# 编辑 .env 填入你的 LLM_API_KEY
 ```
+
+支持三个 LLM 提供商（在 `.env` 中设置 `LLM_PROVIDER`）：
+
+| 提供商 | LLM_PROVIDER | LLM_MODEL（默认） | 获取 API Key |
+|--------|-------------|-------------------|-------------|
+| DeepSeek | `deepseek` | `deepseek-chat` | https://platform.deepseek.com |
+| OpenAI | `openai` | `gpt-4o` | https://platform.openai.com |
+| Anthropic | `anthropic` | `claude-sonnet-4-20250514` | https://console.anthropic.com |
 
 ### 3. 启动开发服务器
 
@@ -85,7 +93,8 @@ app/
 ├── server/
 │   └── src/
 │       ├── routes/     # API 路由
-│       └── services/   # 聊天解析, LLM 服务
+│       ├── services/   # 聊天解析, LLM 服务
+│       └── types.ts    # 服务端类型定义
 └── docs/
     └── superpowers/
         ├── specs/      # 设计规格文档

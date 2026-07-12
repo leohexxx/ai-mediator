@@ -50,50 +50,62 @@ function createSSEStream(chunks: string[]): ReadableStream<Uint8Array> {
   })
 }
 
-/** A valid Analysis object matching the shape expected by the AI Mediator types */
+/** A valid v2 Analysis object matching the shape expected by the AI Mediator types */
 const validAnalysisJson = {
-  summary: '测试摘要——沟通不足导致的误会',
-  relationship: '情侣',
-  characters: [
-    {
-      name: '小明',
-      role: 'party_a',
-      personality: '直率但容易焦虑',
-      stance: '希望对方及时回应',
-      emotionalState: '生气',
-    },
-    {
-      name: '小红',
-      role: 'party_b',
-      personality: '温柔但回避冲突',
-      stance: '希望有自己的空间',
-      emotionalState: '委屈',
-    },
-  ],
-  timeline: [
-    {
-      timestamp: '2024-07-01 10:00',
-      speaker: '小明',
-      content: '你为什么不回我消息',
-      emotion: '生气',
-      significance: '冲突导火索',
-    },
-  ],
-  conflicts: [
-    {
-      topic: '消息回复频率',
-      partyAStance: '小明认为应该及时回复',
-      partyBStance: '小红认为不需要时刻在线',
-      aiJudgment: '双方需要在沟通频率上达成共识，而非互相指责',
-      winner: 'tie',
-    },
-  ],
-  verdict: {
-    summary: '沟通期待不一致导致的争吵',
+  coreConclusion: {
+    overallWinner: 'b',
     scoreA: 45,
     scoreB: 55,
-    reasoning: ['小红应有更明确的回应', '小明应降低期待，给对方空间'],
-    overallWinner: 'b',
+    oneLineVerdict: '沟通期待不一致导致的争吵',
+    keyReasons: ['小红应有更明确的回应', '小明应降低期待，给对方空间'],
+    recommendedAction: '约定一个双方都舒适的沟通节奏',
+    confidence: 70,
+    confidenceReasons: ['聊天记录较为完整'],
+  },
+  evidenceWeights: [],
+  emotionCurve: [],
+  mediationStrategy: [],
+  detailedAnalysis: {
+    summary: '测试摘要——沟通不足导致的误会',
+    relationship: '情侣',
+    characters: [
+      {
+        name: '小明',
+        role: 'party_a',
+        personality: '直率但容易焦虑',
+        stance: '希望对方及时回应',
+        emotionalState: '生气',
+        communicationStyle: '追问型',
+      },
+      {
+        name: '小红',
+        role: 'party_b',
+        personality: '温柔但回避冲突',
+        stance: '希望有自己的空间',
+        emotionalState: '委屈',
+        communicationStyle: '回避型',
+      },
+    ],
+    timeline: [
+      {
+        timestamp: '2024-07-01 10:00',
+        speaker: '小明',
+        content: '你为什么不回我消息',
+        emotion: '生气',
+        significance: '冲突导火索',
+        isTurningPoint: false,
+      },
+    ],
+    conflicts: [
+      {
+        topic: '消息回复频率',
+        partyAStance: '小明认为应该及时回复',
+        partyBStance: '小红认为不需要时刻在线',
+        aiJudgment: '双方需要在沟通频率上达成共识，而非互相指责',
+        winner: 'tie',
+        severity: 'medium',
+      },
+    ],
   },
   advice: {
     toA: ['减少频繁追问，给予对方信任'],
@@ -147,7 +159,7 @@ describe('analyzeChat', () => {
   // Progress callbacks
   // -----------------------------------------------------------------------
   describe('Progress callbacks', () => {
-    it('calls onProgress with the correct step messages and progress values in ascending order', async () => {
+    it('calls onProgress with the correct step names and progress values in ascending order', async () => {
       mockFetch.mockResolvedValue(
         makeMockResponse({
           json: { content: [{ text: JSON.stringify(validAnalysisJson) }] },
@@ -160,32 +172,19 @@ describe('analyzeChat', () => {
 
       await analyzeChat(testChat, testParties, testContext, onProgress)
 
-      expect(calls).toHaveLength(5)
+      // CoT 5 steps + done = 6 calls
+      expect(calls).toHaveLength(6)
 
-      expect(calls[0]).toEqual({
-        step: '正在理解对话上下文...',
-        progress: 20,
-      })
-      expect(calls[1]).toEqual({
-        step: '正在分析人物关系...',
-        progress: 40,
-      })
-      expect(calls[2]).toEqual({
-        step: '正在定位冲突节点...',
-        progress: 60,
-      })
-      expect(calls[3]).toEqual({
-        step: '正在生成分析报告...',
-        progress: 80,
-      })
-      expect(calls[4]).toEqual({
-        step: '分析完成！',
-        progress: 100,
-      })
+      expect(calls[0]).toEqual({ step: 'understanding', progress: 20 })
+      expect(calls[1]).toEqual({ step: 'evidence', progress: 40 })
+      expect(calls[2]).toEqual({ step: 'emotion', progress: 55 })
+      expect(calls[3]).toEqual({ step: 'judging', progress: 75 })
+      expect(calls[4]).toEqual({ step: 'strategy', progress: 90 })
+      expect(calls[5]).toEqual({ step: 'done', progress: 100 })
 
       // Verify progress values are strictly increasing
       const progressValues = calls.map((c) => c.progress)
-      expect(progressValues).toEqual([20, 40, 60, 80, 100])
+      expect(progressValues).toEqual([20, 40, 55, 75, 90, 100])
     })
 
     it('does not call onProgress when no callback is provided', async () => {
@@ -206,7 +205,7 @@ describe('analyzeChat', () => {
   // Response parsing
   // -----------------------------------------------------------------------
   describe('Response parsing', () => {
-    it('parses a plain JSON string and returns a correct Analysis structure', async () => {
+    it('parses a plain JSON string and returns a correct v2 Analysis structure', async () => {
       mockFetch.mockResolvedValue(
         makeMockResponse({
           json: { content: [{ text: JSON.stringify(validAnalysisJson) }] },
@@ -215,16 +214,16 @@ describe('analyzeChat', () => {
 
       const result = await analyzeChat(testChat, testParties, testContext)
 
-      expect(result.summary).toBe('测试摘要——沟通不足导致的误会')
-      expect(result.relationship).toBe('情侣')
-      expect(result.characters).toHaveLength(2)
-      expect(result.characters[0].name).toBe('小明')
-      expect(result.characters[0].role).toBe('party_a')
-      expect(result.timeline).toHaveLength(1)
-      expect(result.conflicts).toHaveLength(1)
-      expect(result.conflicts[0].winner).toBe('tie')
-      expect(result.verdict).toBeDefined()
-      expect(result.verdict.scoreA + result.verdict.scoreB).toBe(100)
+      expect(result.detailedAnalysis.summary).toBe('测试摘要——沟通不足导致的误会')
+      expect(result.detailedAnalysis.relationship).toBe('情侣')
+      expect(result.detailedAnalysis.characters).toHaveLength(2)
+      expect(result.detailedAnalysis.characters[0].name).toBe('小明')
+      expect(result.detailedAnalysis.characters[0].role).toBe('party_a')
+      expect(result.detailedAnalysis.timeline).toHaveLength(1)
+      expect(result.detailedAnalysis.conflicts).toHaveLength(1)
+      expect(result.detailedAnalysis.conflicts[0].winner).toBe('tie')
+      expect(result.coreConclusion).toBeDefined()
+      expect(result.coreConclusion.scoreA + result.coreConclusion.scoreB).toBe(100)
       expect(result.advice).toBeDefined()
       expect(result.advice.toA).toHaveLength(1)
       expect(result.advice.toB).toHaveLength(1)
@@ -242,9 +241,9 @@ describe('analyzeChat', () => {
 
       const result = await analyzeChat(testChat, testParties, testContext)
 
-      expect(result.summary).toBe('测试摘要——沟通不足导致的误会')
-      expect(result.relationship).toBe('情侣')
-      expect(result.verdict.scoreA).toBe(45)
+      expect(result.detailedAnalysis.summary).toBe('测试摘要——沟通不足导致的误会')
+      expect(result.detailedAnalysis.relationship).toBe('情侣')
+      expect(result.coreConclusion.scoreA).toBe(45)
     })
 
     it('parses JSON with extra text before and after the object', async () => {
@@ -260,7 +259,7 @@ describe('analyzeChat', () => {
       )
 
       const result = await analyzeChat(testChat, testParties, testContext)
-      expect(result.summary).toBe('测试摘要——沟通不足导致的误会')
+      expect(result.detailedAnalysis.summary).toBe('测试摘要——沟通不足导致的误会')
     })
   })
 
@@ -490,9 +489,7 @@ describe('chatWithAnalysis', () => {
         received.push(chunk),
       )
 
-      // Empty text deltas are skipped (no callback invocation)
       expect(received).toHaveLength(0)
-      // accumulated text is still empty
       expect(full).toBe('')
     })
 
@@ -615,7 +612,6 @@ describe('chatWithAnalysis', () => {
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
       const messages: Array<{ role: string; content: string }> = body.messages
 
-      // Find the last user message
       const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
       expect(lastUserIdx).toBeGreaterThanOrEqual(0)
       expect(messages[lastUserIdx].content).toBe('这是最新的用户消息')

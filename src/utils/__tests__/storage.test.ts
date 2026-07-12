@@ -62,42 +62,52 @@ describe('storage', () => {
       c.analysis = {
         id: 'analysis-1',
         caseId: 'case-analysis',
-        summary: '这是一份分析摘要',
-        characters: [
-          {
-            name: '张三',
-            role: 'party_a',
-            personality: '急躁',
-            stance: '要求赔偿',
-            emotionalState: '愤怒',
-          },
-        ],
-        relationship: '夫妻',
-        timeline: [],
-        conflicts: [],
-        verdict: {
-          summary: '裁决摘要',
-          scoreA: 80,
-          scoreB: 60,
-          reasoning: ['理由1', '理由2'],
+        createdAt: new Date().toISOString(),
+        schemaVersion: 'v2',
+        coreConclusion: {
           overallWinner: 'a',
+          scoreA: 80,
+          scoreB: 20,
+          oneLineVerdict: '裁决摘要',
+          keyReasons: ['理由1', '理由2'],
+          recommendedAction: '建议行动',
+          confidence: 75,
+          confidenceReasons: ['证据充分'],
+        },
+        evidenceWeights: [],
+        emotionCurve: [],
+        mediationStrategy: [],
+        detailedAnalysis: {
+          summary: '这是一份分析摘要',
+          relationship: '夫妻',
+          characters: [
+            {
+              name: '张三',
+              role: 'party_a',
+              personality: '急躁',
+              stance: '要求赔偿',
+              emotionalState: '愤怒',
+              communicationStyle: '直接型',
+            },
+          ],
+          timeline: [],
+          conflicts: [],
         },
         advice: {
           toA: ['建议A1'],
           toB: ['建议B1'],
           toBoth: ['共同建议1'],
         },
-        createdAt: new Date().toISOString(),
       }
 
       await saveCase(c)
       const retrieved = await getCase('case-analysis')
 
       expect(retrieved!.analysis).toBeDefined()
-      expect(retrieved!.analysis!.summary).toBe('这是一份分析摘要')
-      expect(retrieved!.analysis!.characters[0].name).toBe('张三')
-      expect(retrieved!.analysis!.verdict.scoreA).toBe(80)
-      expect(retrieved!.analysis!.verdict.overallWinner).toBe('a')
+      expect(retrieved!.analysis!.detailedAnalysis.summary).toBe('这是一份分析摘要')
+      expect(retrieved!.analysis!.detailedAnalysis.characters[0].name).toBe('张三')
+      expect(retrieved!.analysis!.coreConclusion.scoreA).toBe(80)
+      expect(retrieved!.analysis!.coreConclusion.overallWinner).toBe('a')
       expect(retrieved!.analysis!.advice.toA).toEqual(['建议A1'])
     })
 

@@ -34,19 +34,33 @@ function makeMockResponse(opts: MockResponseOpts = {}) {
 }
 
 const validAnalysisJson = {
-  summary: '沟通不足导致的误会',
-  relationship: '情侣',
-  characters: [
-    { name: '小明', role: 'party_a', personality: '直率', stance: '希望及时回应', emotionalState: '生气' },
-    { name: '小红', role: 'party_b', personality: '温柔', stance: '希望有自己的空间', emotionalState: '委屈' },
-  ],
-  timeline: [
-    { timestamp: '2024-07-01 10:00', speaker: '小明', content: '为什么不回消息', emotion: '生气', significance: '冲突导火索' },
-  ],
-  conflicts: [
-    { topic: '消息回复频率', partyAStance: '应即时回复', partyBStance: '无需时刻在线', aiJudgment: '需达成共识', winner: 'tie' },
-  ],
-  verdict: { summary: '期待不一致', scoreA: 45, scoreB: 55, reasoning: ['理由1', '理由2'], overallWinner: 'b' },
+  coreConclusion: {
+    overallWinner: 'b',
+    scoreA: 45,
+    scoreB: 55,
+    oneLineVerdict: '期待不一致',
+    keyReasons: ['理由1', '理由2'],
+    recommendedAction: '约定沟通节奏',
+    confidence: 70,
+    confidenceReasons: ['聊天记录较为完整'],
+  },
+  evidenceWeights: [],
+  emotionCurve: [],
+  mediationStrategy: [],
+  detailedAnalysis: {
+    summary: '沟通不足导致的误会',
+    relationship: '情侣',
+    characters: [
+      { name: '小明', role: 'party_a', personality: '直率', stance: '希望及时回应', emotionalState: '生气', communicationStyle: '追问型' },
+      { name: '小红', role: 'party_b', personality: '温柔', stance: '希望有自己的空间', emotionalState: '委屈', communicationStyle: '回避型' },
+    ],
+    timeline: [
+      { timestamp: '2024-07-01 10:00', speaker: '小明', content: '为什么不回消息', emotion: '生气', significance: '冲突导火索', isTurningPoint: false },
+    ],
+    conflicts: [
+      { topic: '消息回复频率', partyAStance: '应即时回复', partyBStance: '无需时刻在线', aiJudgment: '需达成共识', winner: 'tie', severity: 'medium' },
+    ],
+  },
   advice: { toA: ['减少追问'], toB: ['简短回应'], toBoth: ['约定沟通节奏'] },
 }
 
@@ -591,8 +605,8 @@ describe('LLM: Concurrent and timeout handling', () => {
 
     expect(results).toHaveLength(5)
     results.forEach((r) => {
-      expect(r.summary).toBe('沟通不足导致的误会')
-      expect(r.characters).toHaveLength(2)
+      expect(r.detailedAnalysis.summary).toBe('沟通不足导致的误会')
+      expect(r.detailedAnalysis.characters).toHaveLength(2)
     })
     // Verify all 5 calls were made
     expect(mockFetch).toHaveBeenCalledTimes(5)
@@ -617,7 +631,7 @@ describe('LLM: Concurrent and timeout handling', () => {
     const result = await analyzeChat(longChat, [{ name: '说话人0', role: 'party_a' }], '背景')
 
     expect(result).toBeDefined()
-    expect(result.summary).toBe('沟通不足导致的误会')
+    expect(result.detailedAnalysis.summary).toBe('沟通不足导致的误会')
 
     // Verify the prompt sent includes the long chat
     const body = JSON.parse(mockFetch.mock.calls[0][1].body)
@@ -829,7 +843,7 @@ describe('LLM: Malformed API responses', () => {
     )
 
     const result = await analyzeChat('test', [{ name: '测试', role: 'party_a' }], 'context')
-    expect(result.summary).toBe('沟通不足导致的误会')
+    expect(result.detailedAnalysis.summary).toBe('沟通不足导致的误会')
     // Extra fields are preserved by JSON.parse
     expect((result as any).extraNested).toBeDefined()
   })

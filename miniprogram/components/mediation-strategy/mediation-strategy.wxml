@@ -1,0 +1,27 @@
+<!-- 调解策略步骤时间线 -->
+<view class="mediation-strategy card" wx:if="{{steps.length > 0}}">
+  <view class="strategy-title">🤝 调解路线图</view>
+
+  <view class="timeline">
+    <view wx:for="{{steps}}" wx:key="step" class="timeline-item">
+      <view class="timeline-marker">
+        <view class="step-number">{{item.step}}</view>
+        <view class="timeline-line" wx:if="{{index < steps.length - 1}}"></view>
+      </view>
+
+      <view class="timeline-content">
+        <view class="step-header">
+          <view class="step-title">{{item.title}}</view>
+          <view class="step-badges">
+            <view class="badge badge-target">{{item.target === 'a' ? '甲方' : item.target === 'b' ? '乙方' : '双方'}}</view>
+            <view class="badge badge-difficulty {{item.difficulty}}">
+              {{item.difficulty === 'easy' ? '🟢易' : item.difficulty === 'medium' ? '🟡中' : '🔴难'}}
+            </view>
+          </view>
+        </view>
+        <view class="step-desc">{{item.description}}</view>
+        <view class="step-outcome text-success" wx:if="{{item.expectedOutcome}}">预期: {{item.expectedOutcome}}</view>
+      </view>
+    </view>
+  </view>
+</view>

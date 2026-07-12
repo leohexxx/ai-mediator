@@ -47,55 +47,68 @@ function makeAnalysis(caseId: string): Analysis {
   return {
     id: `analysis-${caseId}`,
     caseId,
-    summary: '综合判断总结',
-    characters: [
-      {
-        name: '张三',
-        role: 'party_a',
-        personality: '直率',
-        stance: '要求对方道歉',
-        emotionalState: '愤怒',
-      },
-      {
-        name: '李四',
-        role: 'party_b',
-        personality: '温和',
-        stance: '认为自己没错',
-        emotionalState: '委屈',
-      },
-    ],
-    relationship: '朋友',
-    timeline: [
-      {
-        timestamp: '2024-01-01 10:00',
-        speaker: '张三',
-        content: '你怎么能这样',
-        emotion: '愤怒',
-        significance: '冲突起点',
-      },
-    ],
-    conflicts: [
-      {
-        topic: '信任问题',
-        partyAStance: '张三认为李四不守信用',
-        partyBStance: '李四认为有客观原因',
-        aiJudgment: '双方都缺乏有效沟通',
-        winner: 'tie',
-      },
-    ],
-    verdict: {
-      summary: '沟通不畅导致的误会',
+    createdAt: new Date().toISOString(),
+    schemaVersion: 'v2',
+    coreConclusion: {
+      overallWinner: 'b',
       scoreA: 40,
       scoreB: 60,
-      reasoning: ['理由1', '理由2', '理由3'],
-      overallWinner: 'b',
+      oneLineVerdict: '沟通不畅导致的误会',
+      keyReasons: ['理由1', '理由2', '理由3'],
+      recommendedAction: '建议双方加强沟通',
+      confidence: 70,
+      confidenceReasons: ['证据较为完整'],
+    },
+    evidenceWeights: [],
+    emotionCurve: [],
+    mediationStrategy: [],
+    detailedAnalysis: {
+      summary: '综合判断总结',
+      relationship: '朋友',
+      characters: [
+        {
+          name: '张三',
+          role: 'party_a',
+          personality: '直率',
+          stance: '要求对方道歉',
+          emotionalState: '愤怒',
+          communicationStyle: '直接表达型',
+        },
+        {
+          name: '李四',
+          role: 'party_b',
+          personality: '温和',
+          stance: '认为自己没错',
+          emotionalState: '委屈',
+          communicationStyle: '回避型',
+        },
+      ],
+      timeline: [
+        {
+          timestamp: '2024-01-01 10:00',
+          speaker: '张三',
+          content: '你怎么能这样',
+          emotion: '愤怒',
+          significance: '冲突起点',
+          isTurningPoint: false,
+        },
+      ],
+      conflicts: [
+        {
+          topic: '信任问题',
+          partyAStance: '张三认为李四不守信用',
+          partyBStance: '李四认为有客观原因',
+          aiJudgment: '双方都缺乏有效沟通',
+          winner: 'tie',
+          severity: 'medium',
+        },
+      ],
     },
     advice: {
       toA: ['建议A1', '建议A2'],
       toB: ['建议B1', '建议B2'],
       toBoth: ['共同建议'],
     },
-    createdAt: new Date().toISOString(),
   }
 }
 
@@ -329,7 +342,7 @@ describe('Storage: Data integrity', () => {
     expect(retrieved!.evidence[0].extractedText).toBe(longText)
     expect(retrieved!.chatHistory[0].content).toBe(longText)
     expect(retrieved!.analysis).toBeDefined()
-    expect(retrieved!.analysis!.summary).toBe('综合判断总结')
+    expect(retrieved!.analysis!.detailedAnalysis.summary).toBe('综合判断总结')
   })
 
   it('preserves special Unicode characters in all text fields', async () => {
@@ -358,16 +371,20 @@ describe('Storage: Data integrity', () => {
       rawText: `聊天记录:\n張三 🐱: ${unicodeText}\nمحمد أحمد: مرحبا بالعالم 🌍`,
       analysis: {
         ...makeAnalysis(id),
-        summary: `分析摘要: ${unicodeText}`,
-        characters: [
-          { name: '張三 🐱', role: 'party_a', personality: '直率 🎯', stance: '要求说明 ∑', emotionalState: '愤怒 😤' },
-          { name: 'محمد أحمد', role: 'party_b', personality: '温和 🌸', stance: '解释 ∫', emotionalState: '平静 😌' },
-        ],
-        relationship: '朋友关系 🤝',
-        verdict: {
-          ...makeAnalysis(id).verdict,
-          summary: `裁决: ${unicodeText}`,
-          reasoning: ['理由①', '理由② ∑', '理由③ 🎉'],
+        detailedAnalysis: {
+          summary: `分析摘要: ${unicodeText}`,
+          relationship: '朋友关系 🤝',
+          characters: [
+            { name: '張三 🐱', role: 'party_a', personality: '直率 🎯', stance: '要求说明 ∑', emotionalState: '愤怒 😤', communicationStyle: '直接型 🎯' },
+            { name: 'محمد أحمد', role: 'party_b', personality: '温和 🌸', stance: '解释 ∫', emotionalState: '平静 😌', communicationStyle: '温和型 🌸' },
+          ],
+          timeline: [],
+          conflicts: [],
+        },
+        coreConclusion: {
+          ...makeAnalysis(id).coreConclusion,
+          oneLineVerdict: `裁决: ${unicodeText}`,
+          keyReasons: ['理由①', '理由② ∑', '理由③ 🎉'],
         },
         advice: {
           toA: ['建议A: 冷静沟通 😌', '建议A: 换位思考 🔄'],
@@ -395,9 +412,9 @@ describe('Storage: Data integrity', () => {
     expect(retrieved!.parties[1].name).toBe('محمد أحمد')
     expect(retrieved!.evidence[0].extractedText).toContain('∑∏∫√∞')
     expect(retrieved!.rawText).toContain('مرحبا')
-    expect(retrieved!.analysis!.summary).toContain('🎉')
-    expect(retrieved!.analysis!.characters[1].name).toBe('محمد أحمد')
-    expect(retrieved!.analysis!.verdict.reasoning[1]).toContain('∑')
+    expect(retrieved!.analysis!.detailedAnalysis.summary).toContain('🎉')
+    expect(retrieved!.analysis!.detailedAnalysis.characters[1].name).toBe('محمد أحمد')
+    expect(retrieved!.analysis!.coreConclusion.keyReasons[1]).toContain('∑')
     expect(retrieved!.analysis!.advice.toBoth[0]).toContain('🗓️')
     expect(retrieved!.chatHistory[0].content).toContain('🎉')
   })
@@ -522,7 +539,7 @@ describe('Storage: Edge data', () => {
     expect(retrieved).toBeDefined()
     expect(retrieved!.evidence).toEqual([])
     expect(retrieved!.analysis).not.toBeNull()
-    expect(retrieved!.analysis!.summary).toBe('综合判断总结')
+    expect(retrieved!.analysis!.detailedAnalysis.summary).toBe('综合判断总结')
   })
 
   it('handles case with null analysis but non-empty chatHistory', async () => {
@@ -620,24 +637,33 @@ describe('Storage: Edge data', () => {
     c.analysis = {
       id: `analysis-${id}`,
       caseId: id,
-      summary: '',
-      characters: [],
-      relationship: '',
-      timeline: [],
-      conflicts: [],
-      verdict: {
-        summary: '',
+      createdAt: new Date().toISOString(),
+      schemaVersion: 'v2',
+      coreConclusion: {
+        overallWinner: 'tie',
         scoreA: 0,
         scoreB: 0,
-        reasoning: [],
-        overallWinner: 'tie',
+        oneLineVerdict: '',
+        keyReasons: [],
+        recommendedAction: '',
+        confidence: 0,
+        confidenceReasons: [],
+      },
+      evidenceWeights: [],
+      emotionCurve: [],
+      mediationStrategy: [],
+      detailedAnalysis: {
+        summary: '',
+        relationship: '',
+        characters: [],
+        timeline: [],
+        conflicts: [],
       },
       advice: {
         toA: [],
         toB: [],
         toBoth: [],
       },
-      createdAt: new Date().toISOString(),
     }
 
     await saveCase(c)
@@ -645,9 +671,9 @@ describe('Storage: Edge data', () => {
     const retrieved = await getCase(id)
     expect(retrieved).toBeDefined()
     expect(retrieved!.analysis).not.toBeNull()
-    expect(retrieved!.analysis!.summary).toBe('')
-    expect(retrieved!.analysis!.characters).toEqual([])
-    expect(retrieved!.analysis!.verdict.reasoning).toEqual([])
+    expect(retrieved!.analysis!.detailedAnalysis.summary).toBe('')
+    expect(retrieved!.analysis!.detailedAnalysis.characters).toEqual([])
+    expect(retrieved!.analysis!.coreConclusion.keyReasons).toEqual([])
     expect(retrieved!.analysis!.advice.toA).toEqual([])
   })
 
@@ -655,27 +681,27 @@ describe('Storage: Edge data', () => {
     const id = `edge-7-${uniqueCounter}`
     const c = makeCase(id, '零分案件')
     c.analysis = makeAnalysis(id)
-    c.analysis.verdict.scoreA = 0
-    c.analysis.verdict.scoreB = 100
+    c.analysis.coreConclusion.scoreA = 0
+    c.analysis.coreConclusion.scoreB = 100
 
     await saveCase(c)
 
     const retrieved = await getCase(id)
-    expect(retrieved!.analysis!.verdict.scoreA).toBe(0)
-    expect(retrieved!.analysis!.verdict.scoreB).toBe(100)
+    expect(retrieved!.analysis!.coreConclusion.scoreA).toBe(0)
+    expect(retrieved!.analysis!.coreConclusion.scoreB).toBe(100)
   })
 
   it('saves and retrieves case with analysis verdict scoreB being 0', async () => {
     const id = `edge-8-${uniqueCounter}`
     const c = makeCase(id, '满分案件')
     c.analysis = makeAnalysis(id)
-    c.analysis.verdict.scoreA = 100
-    c.analysis.verdict.scoreB = 0
+    c.analysis.coreConclusion.scoreA = 100
+    c.analysis.coreConclusion.scoreB = 0
 
     await saveCase(c)
 
     const retrieved = await getCase(id)
-    expect(retrieved!.analysis!.verdict.scoreA).toBe(100)
-    expect(retrieved!.analysis!.verdict.scoreB).toBe(0)
+    expect(retrieved!.analysis!.coreConclusion.scoreA).toBe(100)
+    expect(retrieved!.analysis!.coreConclusion.scoreB).toBe(0)
   })
 })

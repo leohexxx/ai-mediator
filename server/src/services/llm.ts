@@ -1,4 +1,6 @@
 import type { Analysis, ChatMessage } from '../types.js'
+import { buildAnalysisUserPrompt } from '../prompts/analysisPrompt.js'
+import { buildChatSystemPrompt } from '../prompts/chatPrompt.js'
 
 type LLMProvider = 'anthropic' | 'deepseek' | 'openai'
 
@@ -39,64 +41,6 @@ function getConfig(): LLMConfig {
     baseUrl: process.env.LLM_BASE_URL || defaultBaseUrl,
   }
 }
-
-// ── Prompt (same for all providers) ──────────────────────────────
-
-const ANALYSIS_PROMPT = `你是一位经验丰富的情感调解专家和仲裁员。你的任务是基于提供的聊天记录，进行客观、深入的分析。
-
-请严格按照以下 JSON 格式返回分析结果（不要包含任何其他文字）：
-
-{
-  "summary": "一句话概括本次冲突的核心",
-  "relationship": "判断的人物关系（如：情侣、朋友、同事、家人等）",
-  "characters": [
-    {
-      "name": "人物名称",
-      "role": "party_a 或 party_b 或 other",
-      "personality": "性格特点分析",
-      "stance": "其核心立场和诉求",
-      "emotionalState": "当前情绪状态"
-    }
-  ],
-  "timeline": [
-    {
-      "timestamp": "时间",
-      "speaker": "说话人",
-      "content": "关键对话内容摘要",
-      "emotion": "情绪标签（如生气/委屈/冷静/伤心等）",
-      "significance": "为什么这条消息重要"
-    }
-  ],
-  "conflicts": [
-    {
-      "topic": "争议话题",
-      "partyAStance": "甲方立场",
-      "partyBStance": "乙方立场",
-      "aiJudgment": "AI 的客观判断",
-      "winner": "更有理的一方：a 或 b 或 tie"
-    }
-  ],
-  "verdict": {
-    "summary": "综合判断总结",
-    "scoreA": 60,
-    "scoreB": 40,
-    "reasoning": ["理由1", "理由2", "理由3"],
-    "overallWinner": "a 或 b 或 tie"
-  },
-  "advice": {
-    "toA": ["给甲方的具体建议1", "建议2"],
-    "toB": ["给乙方的具体建议1", "建议2"],
-    "toBoth": ["双方应该共同注意的事项"]
-  }
-}
-
-评分规则：
-- scoreA + scoreB = 100
-- 分数高的一方代表更有理
-- 请基于客观事实判断，不要被情绪化语言左右
-- 考虑到聊天记录可能不完整，请在判断时留有余地
-
-请用中文输出所有内容。`
 
 // ── API call helpers ─────────────────────────────────────────────
 
@@ -181,6 +125,23 @@ function extractStreamDelta(config: LLMConfig, parsed: Record<string, unknown>):
   return (parsed as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]?.delta?.content || ''
 }
 
+// ── CoT progress step definitions ────────────────────────────────
+
+interface CoTStep {
+  step: string
+  message: string
+  progress: number
+}
+
+const COT_STEPS: CoTStep[] = [
+  { step: 'understanding', message: '正在理解对话上下文...', progress: 20 },
+  { step: 'evidence', message: '正在提取关键证据...', progress: 40 },
+  { step: 'emotion', message: '正在分析情绪变化...', progress: 55 },
+  { step: 'judging', message: '正在综合判断...', progress: 75 },
+  { step: 'strategy', message: '正在制定调解策略...', progress: 90 },
+  { step: 'done', message: '分析完成', progress: 100 },
+]
+
 // ── Public API ───────────────────────────────────────────────────
 
 export async function analyzeChat(
@@ -194,30 +155,15 @@ export async function analyzeChat(
     throw new Error('Missing API key. Set LLM_API_KEY (or ANTHROPIC_API_KEY) environment variable.')
   }
 
-  const partyInfo = parties
-    .map((p) => `- ${p.role === 'party_a' ? '甲方' : '乙方'}: ${p.name}`)
-    .join('\n')
+  const userPrompt = buildAnalysisUserPrompt(formattedChat, parties, caseContext)
 
-  const userPrompt = `${ANALYSIS_PROMPT}
-
----
-## 案件背景
-${caseContext || '无额外背景信息'}
-
-## 当事人信息
-${partyInfo}
-
-## 聊天记录
-${formattedChat}
----
-请分析以上聊天记录，输出 JSON 格式的分析结果。`
-
-  onProgress?.('正在理解对话上下文...', 20)
+  // CoT Step 1: Understanding
+  onProgress?.(COT_STEPS[0].step, COT_STEPS[0].progress)
 
   const response = await fetch(buildChatEndpoint(config), {
     method: 'POST',
     headers: buildHeaders(config),
-    body: buildRequestBody(config, [{ role: 'user', content: userPrompt }], 4096, false),
+    body: buildRequestBody(config, [{ role: 'user', content: userPrompt }], 8192, false),
   })
 
   if (!response.ok) {
@@ -225,22 +171,30 @@ ${formattedChat}
     throw new Error(`LLM API error: ${response.status} ${err}`)
   }
 
-  onProgress?.('正在分析人物关系...', 40)
-  onProgress?.('正在定位冲突节点...', 60)
+  // CoT Steps 2-3: Evidence & Emotion (simulated while waiting for response body)
+  onProgress?.(COT_STEPS[1].step, COT_STEPS[1].progress)
+  onProgress?.(COT_STEPS[2].step, COT_STEPS[2].progress)
 
   const data = await response.json()
   const text = extractTextFromResponse(config, data as Record<string, unknown>)
 
-  onProgress?.('正在生成分析报告...', 80)
+  // CoT Step 4: Judging
+  onProgress?.(COT_STEPS[3].step, COT_STEPS[3].progress)
 
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
     throw new Error('Failed to parse JSON from LLM response')
   }
 
-  onProgress?.('分析完成！', 100)
+  // CoT Step 5: Strategy
+  onProgress?.(COT_STEPS[4].step, COT_STEPS[4].progress)
 
-  return JSON.parse(jsonMatch[0]) as Analysis
+  const parsed = JSON.parse(jsonMatch[0]) as Analysis
+
+  // CoT Step 6: Done
+  onProgress?.(COT_STEPS[5].step, COT_STEPS[5].progress)
+
+  return parsed
 }
 
 export async function chatWithAnalysis(
@@ -251,13 +205,12 @@ export async function chatWithAnalysis(
 ): Promise<string> {
   const config = getConfig()
 
+  const systemPrompt = buildChatSystemPrompt(context)
+
   const messages = [
     {
       role: 'system' as const,
-      content: `你是一位情感调解专家。基于之前的案例分析，回答用户的追问。请保持客观、中肯。请用中文回答。
-
-## 之前的分析报告
-${context}`,
+      content: systemPrompt,
     },
     ...history.map((m) => ({
       role: m.role as 'user' | 'assistant',

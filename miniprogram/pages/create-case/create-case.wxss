@@ -1,0 +1,120 @@
+/* 创建案例页样式 */
+.form-section {
+  margin-bottom: 40rpx;
+}
+
+.form-label {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 16rpx;
+}
+
+.form-input {
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  font-size: var(--font-md);
+  color: var(--color-text-primary);
+}
+
+.input-placeholder {
+  color: var(--color-text-muted);
+}
+
+.option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.option-chip {
+  padding: 16rpx 32rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-md);
+  color: var(--color-text-secondary);
+  transition: var(--transition-fast);
+}
+
+.option-chip.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16rpx;
+  transition: var(--transition-fast);
+}
+
+.option-card.active {
+  border-color: var(--color-brand);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.option-radio {
+  margin-right: 20rpx;
+  margin-top: 4rpx;
+}
+
+.radio-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--color-border);
+}
+
+.radio-dot.checked {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  box-shadow: inset 0 0 0 4rpx var(--color-bg);
+}
+
+.option-title {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 4rpx;
+}
+
+.option-desc {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.form-tip {
+  display: flex;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.tip-icon {
+  font-size: 36rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.tip-text {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.form-submit {
+  padding: 16rpx 0;
+}
+
+.form-submit .btn-primary {
+  width: 100%;
+}

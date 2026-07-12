@@ -1,0 +1,79 @@
+/* 案例详情页样式 */
+.case-header {
+  margin-bottom: 32rpx;
+}
+
+.case-title {
+  font-size: var(--font-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin-bottom: 8rpx;
+}
+
+.case-meta {
+  font-size: var(--font-sm);
+}
+
+.invite-toggle {
+  margin: 24rpx 0;
+  text-align: center;
+}
+
+.invite-toggle .btn-secondary {
+  display: block;
+}
+
+.analysis-hint {
+  text-align: center;
+  margin-top: 24rpx;
+}
+
+.hint-icon {
+  font-size: 56rpx;
+  margin-bottom: 12rpx;
+}
+
+.hint-text {
+  font-size: var(--font-lg);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 8rpx;
+}
+
+.hint-sub {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.analysis-complete {
+  margin-top: 24rpx;
+}
+
+.complete-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.complete-icon {
+  font-size: 40rpx;
+  margin-right: 12rpx;
+}
+
+.complete-text {
+  font-size: var(--font-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-success);
+}
+
+.restricted-text {
+  font-size: var(--font-md);
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 32rpx 0;
+}
+
+.report-btn {
+  display: block;
+  margin-top: 16rpx;
+}

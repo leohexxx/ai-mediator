@@ -1,0 +1,75 @@
+sequenceDiagram
+    participant A as 甲方(小李)
+    participant MP as 小程序端
+    participant CF as 云函数
+    participant DB as 云数据库
+    participant LLM as DeepSeek API
+    participant B as 乙方(小王)
+
+    Note over A,B: ===== 阶段1: 创建案例 =====
+    A->>MP: 点击"开始调解"
+    MP->>CF: login(wx.login code)
+    CF-->>MP: openid + 自定义登录态
+    A->>MP: 填写标题、关系、隐私设置
+    MP->>CF: createCase(title, relationship, privacy)
+    CF->>DB: cases.insert({ party_a, status: 'waiting_party_b' })
+    CF->>DB: invitations.insert({ inviteCode, caseId })
+    CF-->>MP: { caseId, inviteCode }
+
+    Note over A,B: ===== 阶段2: 邀请乙方 =====
+    MP->>MP: 生成分享卡片 (onShareAppMessage)
+    A->>B: 微信聊天分享卡片
+    B->>MP: 点击卡片 / 扫码进入小程序
+    MP->>CF: joinCase(inviteCode)
+    CF->>DB: invitations.find({ inviteCode })
+    CF->>DB: cases.update({ party_b })
+    CF->>DB: invitations.update({ used: true })
+    CF-->>MP: { caseId, role: 'party_b' }
+    MP->>DB: cases watch → party_b 已加入
+    DB-->>MP: 变更推送
+    MP-->>A: 🟢 乙方已加入
+
+    Note over A,B: ===== 阶段3: 双方上传证据 =====
+    A->>MP: 选择聊天截图/粘贴文本
+    MP->>CF: uploadEvidence(caseId, rawText, party)
+    CF->>CF: parseWeChatChatLog(rawText) ← 复用 parser.ts
+    CF->>DB: evidence.insert({ caseId, party, parsedMessages })
+    CF->>DB: cases.update({ party_a.submitted: true })
+    CF-->>MP: { success: true }
+
+    B->>MP: 选择聊天截图/粘贴文本
+    MP->>CF: uploadEvidence(caseId, rawText, party)
+    CF->>CF: parseWeChatChatLog(rawText)
+    CF->>DB: evidence.insert({ caseId, party, parsedMessages })
+    CF->>DB: cases.update({ party_b.submitted: true })
+    CF-->>MP: { success: true }
+
+    Note over A,B: ===== 阶段4: 自动触发分析 =====
+    DB-->>CF: 触发器: 双方都已提交
+    CF->>DB: cases.update({ status: 'analyzing' })
+    CF->>DB: evidence.find({ caseId: both parties })
+    CF->>CF: formatChatForLLM(merged) ← 复用 parser.ts
+    CF->>DB: analyses.update({ progress.step: 'understanding', progress: 20 })
+    MP->>DB: watch analyses.progress
+    DB-->>MP: 步骤1: 理解对话 (20%)
+    CF->>LLM: analyzeChat(formatted, parties, context)
+    CF->>DB: analyses.update({ progress.step: 'evidence', progress: 40 })
+    DB-->>MP: 步骤2: 提取证据 (40%)
+    CF->>DB: analyses.update({ progress.step: 'emotion', progress: 55 })
+    DB-->>MP: 步骤3: 追踪情绪 (55%)
+    CF->>DB: analyses.update({ progress.step: 'judging', progress: 75 })
+    DB-->>MP: 步骤4: 综合判断 (75%)
+    LLM-->>CF: JSON 分析结果
+    CF->>DB: analyses.update({ full result + progress.step: 'done', progress: 100 })
+    DB-->>MP: 分析完成 (100%)
+    CF->>DB: cases.update({ status: 'completed', analysisId })
+    MP->>A: 分析报告已生成
+    MP->>B: 分析报告已生成
+
+    Note over A,B: ===== 阶段5: 查看与追问 =====
+    A->>MP: 打开报告页
+    MP->>CF: getCaseDetail(caseId) → 含隐私校验
+    CF-->>MP: 完整报告数据
+    A->>MP: 追问 AI
+    MP->>CF: chatWithAnalysis 流式
+    CF-->>MP: 流式回答 (via DB watch)

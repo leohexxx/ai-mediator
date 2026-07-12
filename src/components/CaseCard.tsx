@@ -30,7 +30,7 @@ export default function CaseCard({ c }: { c: Case }) {
 
       {hasAnalysis && c.analysis && (
         <p className="mt-3 text-sm text-gray-400 line-clamp-2">
-          {c.analysis.summary}
+          {c.analysis.detailedAnalysis?.summary || c.analysis.coreConclusion?.oneLineVerdict || ''}
         </p>
       )}
     </div>

@@ -2,8 +2,7 @@ import type { Character } from '../types'
 
 export default function CharacterMap({ characters }: { characters: Character[] }) {
   return (
-    <div className="card">
-      <h3 className="text-sm text-brand-400 font-medium mb-3">👥 人物画像</h3>
+    <div>
       <div className="grid gap-3">
         {characters.map((char, i) => (
           <div key={i} className="bg-gray-800/50 rounded-xl p-4">
@@ -22,6 +21,9 @@ export default function CharacterMap({ characters }: { characters: Character[] }
             <p className="text-sm text-gray-400 mb-1">{char.personality}</p>
             <p className="text-sm text-gray-500">立场：{char.stance}</p>
             <p className="text-sm text-gray-500">情绪：{char.emotionalState}</p>
+            {char.communicationStyle && (
+              <p className="text-sm text-gray-500">沟通风格：{char.communicationStyle}</p>
+            )}
           </div>
         ))}
       </div>
