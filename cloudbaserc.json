@@ -1,0 +1,30 @@
+{
+  "envId": "cloudbase-d4g5p82875fe1a5ce",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "ocrImage",
+      "timeout": 60,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "analyzeCase",
+      "timeout": 60,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "uploadEvidence",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "chatWithAnalysis",
+      "timeout": 30,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    }
+  ]
+}
