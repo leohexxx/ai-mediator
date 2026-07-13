@@ -24,8 +24,8 @@ Page({
   onLoad: function () {
     this.loadCases();
 
-    // 检查是否已同意隐私政策
-    if (!app.hasAgreedPrivacy()) {
+    // 检查是否需要展示隐私弹窗（首次使用 或 微信主动触发）
+    if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
       this.setData({ showPrivacyModal: true });
     }
   },
@@ -214,21 +214,31 @@ Page({
   onAgreePrivacy: function () {
     app.agreePrivacy();
     this.setData({ showPrivacyModal: false });
+
+    // 联动微信原生隐私授权
+    if (app._privacyResolve) {
+      app._privacyResolve({ event: 'agree', buttonId: 'agree-btn' });
+      app._privacyResolve = null;
+      app._pendingPrivacyAuth = false;
+    }
   },
 
   /**
    * 用户不同意 — 退出小程序
    */
   onDisagreePrivacy: function () {
+    // 联动微信原生隐私拒绝
+    if (app._privacyResolve) {
+      app._privacyResolve({ event: 'disagree' });
+      app._privacyResolve = null;
+      app._pendingPrivacyAuth = false;
+    }
+
     wx.showModal({
       title: '提示',
       content: '需要同意隐私政策才能使用本小程序。',
       showCancel: false,
       confirmText: '我知道了',
-      success: function () {
-        // 返回上一页或关闭
-        wx.navigateBack({ fail: function () { /* 已经是首页则不做操作 */ } });
-      },
     });
   },
 

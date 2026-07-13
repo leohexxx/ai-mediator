@@ -12,6 +12,16 @@ App({
       traceUser: true,
     });
 
+    // 监听微信原生隐私授权事件（合规必须）
+    if (wx.onNeedPrivacyAuthorization) {
+      wx.onNeedPrivacyAuthorization(function (resolve) {
+        // 微信需要展示隐私弹窗时，使用我们自己写的同意弹窗
+        that._privacyResolve = resolve;
+        // 首页会检测 showPrivacyModal 并弹出
+        that._pendingPrivacyAuth = true;
+      });
+    }
+
     // 静默登录
     this.doLogin().then(function (openid) {
       that.globalData.openid = openid;
