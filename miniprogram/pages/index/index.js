@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════
-// 首页 (v2) — 单人模式 CTA + 案例列表
-// 核心流程: 点击"开始分析" → 创建案例 → 跳转上传
+// 首页 (v3) — 合规弹窗 + 单人模式 CTA
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
 var formatUtil = require('../../utils/format');
+var app = getApp();
 
 Page({
   data: {
@@ -16,10 +16,18 @@ Page({
     isEmpty: false,
     refreshing: false,
     creating: false,
+
+    // 隐私同意弹窗
+    showPrivacyModal: false,
   },
 
   onLoad: function () {
     this.loadCases();
+
+    // 检查是否已同意隐私政策
+    if (!app.hasAgreedPrivacy()) {
+      this.setData({ showPrivacyModal: true });
+    }
   },
 
   onShow: function () {
@@ -192,9 +200,44 @@ Page({
    */
   onShareAppMessage: function () {
     return {
-      title: 'AI 调解员 — 上传聊天记录，AI 告诉你谁更有理',
+      title: '啷个对 — 上传聊天记录，看谁更在理',
       path: '/pages/index/index',
       imageUrl: '',
     };
+  },
+
+  // ===== 隐私同意弹窗 (v3 合规新增) =====
+
+  /**
+   * 用户同意隐私政策
+   */
+  onAgreePrivacy: function () {
+    app.agreePrivacy();
+    this.setData({ showPrivacyModal: false });
+  },
+
+  /**
+   * 用户不同意 — 退出小程序
+   */
+  onDisagreePrivacy: function () {
+    wx.showModal({
+      title: '提示',
+      content: '需要同意隐私政策才能使用本小程序。',
+      showCancel: false,
+      confirmText: '我知道了',
+      success: function () {
+        // 返回上一页或关闭
+        wx.navigateBack({ fail: function () { /* 已经是首页则不做操作 */ } });
+      },
+    });
+  },
+
+  /**
+   * 打开隐私政策页
+   */
+  onViewPrivacy: function () {
+    wx.navigateTo({
+      url: '/pages/privacy/privacy',
+    });
   },
 });

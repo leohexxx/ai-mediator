@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// AI 调解员 — 小程序入口 (v2 - 单人模式 MVP)
+// 啷个对 — 小程序入口 (v3 - 合规改造)
 // ═══════════════════════════════════════════════
 
 App({
@@ -26,7 +26,6 @@ App({
         that.globalData.pendingCaseId = options.query.caseId;
       }
       if (options.query.scene) {
-        // decode scene parameter (e.g. "share_xxx" or "invite_xxx")
         var scene = decodeURIComponent(options.query.scene || '');
         if (scene.startsWith('share_')) {
           that.globalData.pendingCaseId = scene.replace('share_', '');
@@ -85,6 +84,28 @@ App({
         },
       });
     });
+  },
+
+  /**
+   * 检查用户是否已同意隐私政策和用户协议
+   * @returns {boolean}
+   */
+  hasAgreedPrivacy: function () {
+    try {
+      return wx.getStorageSync('privacy_agreed') === true;
+    } catch (_) {
+      return false;
+    }
+  },
+
+  /**
+   * 记录用户同意
+   */
+  agreePrivacy: function () {
+    try {
+      wx.setStorageSync('privacy_agreed', true);
+      wx.setStorageSync('privacy_agreed_at', new Date().toISOString());
+    } catch (_) {}
   },
 
   globalData: {

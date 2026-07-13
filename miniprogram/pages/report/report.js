@@ -181,15 +181,15 @@ Page({
     var analysis = this.data.analysis;
     var caseData = this.data.caseData;
 
-    var title = 'AI 调解员';
+    var title = '啷个对';
     if (analysis && analysis.coreConclusion) {
       var winner = analysis.coreConclusion.overallWinner;
       if (winner === 'party_a') {
-        title = 'AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '甲方') + '更有理！';
+        title = '啷个对？AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '甲方') + '更在理！';
       } else if (winner === 'party_b') {
-        title = 'AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '乙方') + '更有理！';
+        title = '啷个对？AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '乙方') + '更在理！';
       } else {
-        title = 'AI 调解员：双方各有道理';
+        title = '啷个对：都有道理';
       }
     }
 
@@ -205,7 +205,7 @@ Page({
    */
   onShareTimeline: function () {
     return {
-      title: 'AI 调解员 — 上传聊天记录，看谁更有理',
+      title: '啷个对 — 粘贴聊天记录，看谁更在理',
       query: 'caseId=' + this.data.caseId,
       imageUrl: '',
     };

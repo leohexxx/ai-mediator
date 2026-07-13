@@ -3,13 +3,14 @@
     "pages/index/index",
     "pages/upload/upload",
     "pages/report/report",
+    "pages/privacy/privacy",
     "pages/create-case/create-case",
     "pages/case-detail/case-detail",
     "pages/ocr-preview/ocr-preview"
   ],
   "window": {
     "navigationBarBackgroundColor": "#111827",
-    "navigationBarTitleText": "AI 调解员",
+    "navigationBarTitleText": "啷个对",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#111827",
     "backgroundTextStyle": "light",

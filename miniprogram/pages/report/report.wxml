@@ -23,6 +23,12 @@
   <view wx:if="{{analysis && !restricted}}">
     <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
 
+    <!-- AI 免责声明 (合规新增) -->
+    <view class="ai-disclaimer">
+      <view class="ai-disclaimer-icon">&#x2139;</view>
+      <text>本报告由 AI 自动生成，仅供参考，不构成法律或心理建议。</text>
+    </view>
+
     <!-- 性格信息展示 + 编辑入口 (v3 新增) -->
     <view class="personality-display" wx:if="{{personalityA || personalityB}}">
       <view class="personality-row" wx:if="{{personalityA}}">

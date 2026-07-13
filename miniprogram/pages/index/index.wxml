@@ -69,3 +69,30 @@
   <!-- 安全区 -->
   <view class="safe-bottom"></view>
 </view>
+
+<!-- 隐私政策同意弹窗 -->
+<view class="privacy-overlay" wx:if="{{showPrivacyModal}}">
+  <view class="privacy-modal">
+    <view class="privacy-modal-title">欢迎使用啷个对</view>
+    <view class="privacy-modal-body">
+      <view class="privacy-modal-text">
+        我们非常重视您的个人信息安全。在使用本小程序前，请您阅读并同意以下内容：
+      </view>
+      <view class="privacy-modal-links">
+        <view class="privacy-link" bindtap="onViewPrivacy">
+          <text class="link-text">《隐私政策》</text>
+        </view>
+      </view>
+      <view class="privacy-modal-text sm">
+        您提供的聊天记录将用于 AI 分析，不会公开展示或分享给其他用户。您可以随时删除数据。本小程序使用 DeepSeek API 进行文本处理。
+      </view>
+      <view class="privacy-modal-check">
+        <text>点击"同意并继续"即表示您已阅读并同意上述条款</text>
+      </view>
+    </view>
+    <view class="privacy-modal-actions">
+      <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">不同意</button>
+      <button class="privacy-btn agree" bindtap="onAgreePrivacy">同意并继续</button>
+    </view>
+  </view>
+</view>
