@@ -8,7 +8,7 @@ App({
 
     // 初始化云开发
     wx.cloud.init({
-      env: 'your-env-id',
+      env: 'cloudbase-d4g5p82875fe1a5ce',
       traceUser: true,
     });
 

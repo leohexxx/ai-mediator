@@ -1,0 +1,71 @@
+<!-- personality-picker 性格信息选择器 -->
+<view class="personality-picker">
+  <!-- 提示语 -->
+  <view class="picker-hint" wx:if="{{showHint}}">
+    <text>{{hintText || '补充性格信息，让分析更懂你们'}}</text>
+  </view>
+
+  <!-- 己方 (A) -->
+  <view class="picker-section">
+    <view class="section-label">{{partyALabel || '关于你'}}</view>
+
+    <view class="field-row">
+      <text class="field-tag">MBTI</text>
+      <picker mode="selector" range="{{mbtiOptions}}" value="{{mbtiIndexA}}" bindchange="onMbtiChangeA">
+        <view class="picker-value {{mbtiA ? 'selected' : ''}}">
+          {{mbtiA || '选择 MBTI (可选)'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="field-row">
+      <text class="field-tag">星座</text>
+      <picker mode="selector" range="{{zodiacLabels}}" value="{{zodiacIndexA}}" bindchange="onZodiacChangeA">
+        <view class="picker-value {{zodiacA ? 'selected' : ''}}">
+          {{zodiacLabelA || '选择星座 (可选)'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="field-row">
+      <text class="field-tag">属性</text>
+      <picker mode="selector" range="{{elementOptions}}" value="{{elementIndexA}}" bindchange="onElementChangeA">
+        <view class="picker-value {{elementA ? 'selected' : ''}}">
+          {{elementA || ('选择属性 (可选)' + (autoElementA ? ' — 已自动识别为「' + autoElementA + '」' : ''))}}
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 对方 (B) -->
+  <view class="picker-section">
+    <view class="section-label">{{partyBLabel || '关于对方'}}</view>
+
+    <view class="field-row">
+      <text class="field-tag">MBTI</text>
+      <picker mode="selector" range="{{mbtiOptions}}" value="{{mbtiIndexB}}" bindchange="onMbtiChangeB">
+        <view class="picker-value {{mbtiB ? 'selected' : ''}}">
+          {{mbtiB || '选择 MBTI (可选)'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="field-row">
+      <text class="field-tag">星座</text>
+      <picker mode="selector" range="{{zodiacLabels}}" value="{{zodiacIndexB}}" bindchange="onZodiacChangeB">
+        <view class="picker-value {{zodiacB ? 'selected' : ''}}">
+          {{zodiacLabelB || '选择星座 (可选)'}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="field-row">
+      <text class="field-tag">属性</text>
+      <picker mode="selector" range="{{elementOptions}}" value="{{elementIndexB}}" bindchange="onElementChangeB">
+        <view class="picker-value {{elementB ? 'selected' : ''}}">
+          {{elementB || ('选择属性 (可选)' + (autoElementB ? ' — 已自动识别为「' + autoElementB + '」' : ''))}}
+        </view>
+      </picker>
+    </view>
+  </view>
+</view>

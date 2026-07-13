@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "personality-picker": "/components/personality-picker/personality-picker"
+  },
   "navigationBarTitleText": "上传聊天记录"
 }

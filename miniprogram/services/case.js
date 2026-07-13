@@ -84,6 +84,21 @@ function getShareCard(caseId, template) {
   });
 }
 
+/**
+ * 更新性格信息
+ * @param {string} caseId
+ * @param {Object|null} personalityA - 甲方的性格数据
+ * @param {Object|null} personalityB - 乙方的性格数据
+ * @returns {Promise<{code: number, data: Object|null, message: string}>}
+ */
+function updatePersonality(caseId, personalityA, personalityB) {
+  return cloudUtil.callFunction('updatePersonality', {
+    caseId: caseId,
+    personalityA: personalityA,
+    personalityB: personalityB,
+  });
+}
+
 module.exports = {
   createCase: createCase,
   joinCase: joinCase,
@@ -91,4 +106,5 @@ module.exports = {
   getCaseList: getCaseList,
   generateQRCode: generateQRCode,
   getShareCard: getShareCard,
+  updatePersonality: updatePersonality,
 };

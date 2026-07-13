@@ -1,0 +1,61 @@
+/* personality-picker 组件样式 */
+.personality-picker {
+  padding: 8rpx 0;
+}
+
+.picker-hint {
+  margin-bottom: 24rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: rgba(99, 102, 241, 0.08);
+  font-size: 24rpx;
+  color: var(--color-brand);
+  text-align: center;
+}
+
+.picker-section {
+  margin-bottom: 28rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+}
+
+.section-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 18rpx;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+
+.field-row:last-child {
+  margin-bottom: 0;
+}
+
+.field-tag {
+  width: 80rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.picker-value {
+  flex: 1;
+  padding: 14rpx 20rpx;
+  border-radius: 10rpx;
+  background: var(--color-bg-tertiary);
+  font-size: 26rpx;
+  color: var(--color-text-muted);
+}
+
+.picker-value.selected {
+  color: var(--color-text-primary);
+  background: rgba(99, 102, 241, 0.08);
+}

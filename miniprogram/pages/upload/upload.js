@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════
-// 上传证据页 (v2) — 支持单人模式，提交后自动跳转分析
+// 上传证据页 (v3) — 支持性格信息补充
 // ═══════════════════════════════════════════════
 
 var evidenceService = require('../../services/evidence');
 var analysisService = require('../../services/analysis');
+var caseService = require('../../services/case');
 
 Page({
   data: {
@@ -17,6 +18,10 @@ Page({
     selectedImageCount: 0,
     selectedFileName: '',
     showGuide: true,
+
+    // 性格弹窗
+    showPersonalityModal: false,
+    personalitySubmitted: false,
   },
 
   onLoad: function (options) {
@@ -93,31 +98,10 @@ Page({
       if (res.code === 0 && res.data) {
         wx.showToast({ title: '提交成功', icon: 'success' });
 
-        // 单人模式: 自动触发分析并跳转
-        if (res.data.autoAnalyze || that.data.mode === 'single') {
-          setTimeout(function () {
-            analysisService.analyzeCase(that.data.caseId).then(function (analysisRes) {
-              if (analysisRes.code === 0) {
-                // 跳转到报告页查看分析进度
-                wx.redirectTo({
-                  url: '/pages/report/report?caseId=' + that.data.caseId,
-                });
-              } else {
-                wx.showToast({ title: analysisRes.message || '分析启动失败', icon: 'none' });
-              }
-            }).catch(function () {
-              // 即使分析触发失败，也跳转到报告页（让用户手动触发）
-              wx.redirectTo({
-                url: '/pages/report/report?caseId=' + that.data.caseId,
-              });
-            });
-          }, 1500);
-        } else {
-          // 双人模式: 返回详情页
-          setTimeout(function () {
-            wx.navigateBack();
-          }, 1500);
-        }
+        // 弹出性格信息弹窗
+        that.setData({
+          showPersonalityModal: true,
+        });
       } else {
         that.setData({ submitting: false });
         wx.showToast({ title: res.message || '提交失败', icon: 'none' });
@@ -126,6 +110,64 @@ Page({
       wx.hideLoading();
       that.setData({ submitting: false });
       wx.showToast({ title: '提交失败，请重试', icon: 'none' });
+    });
+  },
+
+  // ===== 性格信息弹窗 =====
+
+  /**
+   * 补充性格信息并开始分析
+   */
+  onPersonalityConfirm: function () {
+    var that = this;
+    var picker = this.selectComponent('#personalityPicker');
+
+    if (picker && picker.hasAnyData()) {
+      var data = picker.getData();
+      caseService.updatePersonality(
+        this.data.caseId,
+        data.personalityA,
+        data.personalityB
+      ).then(function () {
+        that._startAnalysis();
+      }).catch(function () {
+        // 性格保存失败也继续分析
+        that._startAnalysis();
+      });
+    } else {
+      this._startAnalysis();
+    }
+  },
+
+  /**
+   * 跳过性格信息，直接分析
+   */
+  onPersonalitySkip: function () {
+    this._startAnalysis();
+  },
+
+  /**
+   * 开始分析并跳转
+   */
+  _startAnalysis: function () {
+    var that = this;
+    this.setData({ showPersonalityModal: false });
+
+    analysisService.analyzeCase(this.data.caseId).then(function (analysisRes) {
+      if (analysisRes.code === 0) {
+        wx.redirectTo({
+          url: '/pages/report/report?caseId=' + that.data.caseId,
+        });
+      } else {
+        wx.showToast({ title: analysisRes.message || '分析启动失败', icon: 'none' });
+        wx.redirectTo({
+          url: '/pages/report/report?caseId=' + that.data.caseId,
+        });
+      }
+    }).catch(function () {
+      wx.redirectTo({
+        url: '/pages/report/report?caseId=' + that.data.caseId,
+      });
     });
   },
 });

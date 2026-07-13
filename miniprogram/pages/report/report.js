@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 分析报告页 (v2) — 4 层结构 + 分享功能
+// 分析报告页 (v3) — 性格信息展示 + 重新分析
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -22,6 +22,12 @@ Page({
     showSharePanel: false,
     shareCardData: null,
     shareLoading: false,
+
+    // 性格信息
+    showPersonalityEditor: false,
+    personalityA: null,
+    personalityB: null,
+    reanalyzing: false,
   },
 
   onLoad: function (options) {
@@ -49,6 +55,8 @@ Page({
           caseData: caseData,
           role: res.data.role,
           loading: false,
+          personalityA: (caseData.party_a && caseData.party_a.personality) || null,
+          personalityB: (caseData.party_b && caseData.party_b.personality) || null,
         });
 
         if (analysis && analysis.restricted) {
@@ -206,5 +214,77 @@ Page({
       wx.hideLoading();
       wx.showToast({ title: '分析失败，请重试', icon: 'none' });
     });
+  },
+
+  // ===== 性格信息 (v3 新增) =====
+
+  /**
+   * 打开性格编辑器
+   */
+  onEditPersonality: function () {
+    this.setData({ showPersonalityEditor: true });
+  },
+
+  /**
+   * 关闭性格编辑器
+   */
+  onClosePersonalityEditor: function () {
+    this.setData({ showPersonalityEditor: false });
+  },
+
+  /**
+   * 保存性格信息并重新分析
+   */
+  onSavePersonality: function () {
+    var that = this;
+    var picker = this.selectComponent('#reportPersonalityPicker');
+
+    if (!picker || !picker.hasAnyData()) {
+      wx.showToast({ title: '请至少填写一项信息', icon: 'none' });
+      return;
+    }
+
+    var data = picker.getData();
+    this.setData({ showPersonalityEditor: false, reanalyzing: true });
+
+    wx.showLoading({ title: '正在保存并重新分析...', mask: true });
+
+    caseService.updatePersonality(
+      this.data.caseId,
+      data.personalityA,
+      data.personalityB
+    ).then(function () {
+      // 重新触发分析
+      return analysisService.analyzeCase(that.data.caseId);
+    }).then(function (analysisRes) {
+      wx.hideLoading();
+      that.setData({ reanalyzing: false });
+
+      if (analysisRes.code === 0) {
+        wx.showToast({ title: '分析已重新开始', icon: 'success' });
+        that.loadReport();
+      } else {
+        wx.showToast({ title: analysisRes.message || '分析失败', icon: 'none' });
+      }
+    }).catch(function () {
+      wx.hideLoading();
+      that.setData({ reanalyzing: false });
+      wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+    });
+  },
+
+  /**
+   * 格式化性格信息为展示文本
+   */
+  _formatPersonalityDisplay: function (p) {
+    if (!p) return null;
+    var parts = [];
+    if (p.mbti) parts.push(p.mbti);
+    if (p.zodiac) {
+      var personalityUtil = require('../../utils/personality');
+      parts.push(personalityUtil.getZodiacLabel(p.zodiac) || p.zodiac);
+    }
+    if (p.element) parts.push(p.element);
+    return parts.length > 0 ? parts.join(' / ') : null;
   },
 });

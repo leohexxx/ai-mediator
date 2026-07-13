@@ -1,4 +1,5 @@
-<!-- 分析报告页 (v2) — 4 层递进 + 分享功能 -->
+<!-- 分析报告页 (v3) — 性格信息 + 重新分析 -->
+
 <view class="container" wx:if="{{!loading}}">
 
   <!-- 分析进度 -->
@@ -14,7 +15,25 @@
   <view wx:if="{{analysis && !restricted}}">
     <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
 
-    <!-- 分享按钮 (v2 新增) -->
+    <!-- 性格信息展示 + 编辑入口 (v3 新增) -->
+    <view class="personality-display" wx:if="{{personalityA || personalityB}}">
+      <view class="personality-row" wx:if="{{personalityA}}">
+        <text class="personality-tag">关于你</text>
+        <text class="personality-text">{{personalityA.mbti || ''}} {{personalityA.zodiac || ''}} {{personalityA.element || ''}}</text>
+      </view>
+      <view class="personality-row" wx:if="{{personalityB}}">
+        <text class="personality-tag">关于对方</text>
+        <text class="personality-text">{{personalityB.mbti || ''}} {{personalityB.zodiac || ''}} {{personalityB.element || ''}}</text>
+      </view>
+      <view class="personality-edit-btn" bindtap="onEditPersonality">编辑性格信息</view>
+    </view>
+
+    <view class="personality-empty" wx:elif="{{analysis && analysis.coreConclusion}}">
+      <view class="personality-empty-text">补充性格信息，让分析结合 MBTI 和星座维度</view>
+      <view class="personality-add-btn" bindtap="onEditPersonality">添加性格信息</view>
+    </view>
+
+    <!-- 分享按钮 -->
     <view class="share-bar">
       <button class="share-btn" open-type="share">分享给好友</button>
       <button class="share-btn secondary" bindtap="onOpenShare">生成分享卡片</button>
@@ -87,6 +106,34 @@
     </view>
 
     <view class="share-panel-close" bindtap="onCloseShare">取消</view>
+  </view>
+</view>
+
+<!-- 性格信息编辑器弹窗 -->
+<view class="personality-overlay" wx:if="{{showPersonalityEditor}}">
+  <view class="personality-modal">
+    <view class="modal-header">
+      <text class="modal-title">编辑性格信息</text>
+      <view class="modal-close" bindtap="onClosePersonalityEditor">&#x2715;</view>
+    </view>
+
+    <scroll-view class="modal-scroll" scroll-y>
+      <personality-picker
+        id="reportPersonalityPicker"
+        show-hint="{{false}}"
+        party-a-label="你的性格"
+        party-b-label="对方的性格"
+        personality-a="{{personalityA}}"
+        personality-b="{{personalityB}}"
+      />
+    </scroll-view>
+
+    <view class="modal-actions">
+      <button class="btn-cancel" bindtap="onClosePersonalityEditor">取消</button>
+      <button class="btn-reanalyze" bindtap="onSavePersonality" loading="{{reanalyzing}}">
+        {{reanalyzing ? '分析中...' : '保存并重新分析'}}
+      </button>
+    </view>
   </view>
 </view>
 

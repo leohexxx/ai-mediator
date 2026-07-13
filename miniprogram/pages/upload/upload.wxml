@@ -87,3 +87,23 @@
 
   <view class="safe-bottom"></view>
 </view>
+
+<!-- 性格信息弹窗（上传成功后显示） -->
+<view class="personality-overlay" wx:if="{{showPersonalityModal}}">
+  <view class="personality-modal">
+    <view class="modal-title">证据提交成功！</view>
+    <view class="modal-subtitle">补充你和对方的性格信息，让分析更精准</view>
+
+    <scroll-view class="modal-scroll" scroll-y>
+      <personality-picker
+        id="personalityPicker"
+        hint-text="填写后分析会结合性格维度（可选）"
+      />
+    </scroll-view>
+
+    <view class="modal-actions">
+      <button class="btn-skip" bindtap="onPersonalitySkip">跳过</button>
+      <button class="btn-confirm" bindtap="onPersonalityConfirm">确认并开始分析</button>
+    </view>
+  </view>
+</view>

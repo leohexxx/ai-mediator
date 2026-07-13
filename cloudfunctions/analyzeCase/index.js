@@ -10,6 +10,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 var db = cloud.database();
 var parser = require('./common/parser');
 var llm = require('./common/llm');
+var personalityUtil = require('./common/personality');
 
 /**
  * 云函数入口
@@ -194,6 +195,28 @@ exports.main = async function (event, context) {
     var caseContext = '关系: ' + (caseData.relationship || '未设置') +
       '\\n案例标题: ' + (caseData.title || '调解案例') +
       (isSingleMode ? '\\n模式: 单人分析（仅一方提供证据）' : '');
+
+    // 性格信息
+    var personalityA = caseData.party_a && caseData.party_a.personality;
+    var personalityB = caseData.party_b && caseData.party_b.personality;
+
+    if (personalityA || personalityB) {
+      var personalityText = '\\n性格信息:';
+      var nameA = (caseData.party_a && caseData.party_a.nickname) || '甲方';
+      var nameB = (caseData.party_b && caseData.party_b.nickname) || '乙方';
+
+      var formattedA = personalityUtil.formatPersonalityForPrompt(personalityA, nameA);
+      var formattedB = personalityUtil.formatPersonalityForPrompt(personalityB, nameB);
+
+      if (formattedA) personalityText += '\\n' + formattedA;
+      if (formattedB) personalityText += '\\n' + formattedB;
+
+      if (personalityA && personalityB && personalityA.mbti && personalityB.mbti) {
+        personalityText += '\\n  提示: 结合双方的 MBTI 类型和星座属性，分析性格差异如何影响他们的沟通方式和冲突模式。';
+      }
+
+      caseContext += personalityText;
+    }
 
     // 5. 调用 LLM 分析
     onProgress('understanding', 20);

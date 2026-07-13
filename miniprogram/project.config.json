@@ -2,8 +2,14 @@
   "description": "AI 调解员 - 微信小程序版",
   "packOptions": {
     "ignore": [
-      { "type": "file", "value": ".gitignore" },
-      { "type": "folder", "value": "node_modules" }
+      {
+        "value": ".gitignore",
+        "type": "file"
+      },
+      {
+        "value": "node_modules",
+        "type": "folder"
+      }
     ],
     "include": []
   },
@@ -40,11 +46,18 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "compileWorklet": false,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
   },
   "compileType": "miniprogram",
-  "libVersion": "3.3.4",
-  "appid": "your-appid",
+  "libVersion": "3.16.2",
+  "appid": "wxf82c52d4800346a6",
   "projectname": "ai-mediator-miniapp",
   "condition": {
     "search": {
@@ -72,5 +85,7 @@
   },
   "cloudfunctionRoot": "cloudfunctions/",
   "cloudfunctionTemplateRoot": "cloudfunctionTemplate/",
-  "cloudbaseRoot": "cloudfunctions/"
+  "cloudbaseRoot": "cloudfunctions/",
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {}
 }
