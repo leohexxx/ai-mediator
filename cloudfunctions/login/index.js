@@ -1,40 +1,29 @@
 // ═══════════════════════════════════════════════
-// login 云函数
-// 职责: 接收 wx.login code → 换取 openid → 返回自定义登录态
+// login 云函数 (v2)
+// 职责: 通过 getWXContext 获取用户 openid，返回登录态
+// 改进: 不再需要 wx.login + code2Session，直接从云函数上下文获取
 // ═══════════════════════════════════════════════
 
 var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
-/**
- * 云函数入口
- * @param {Object} event - 调用参数
- * @param {string} event.code - wx.login 返回的临时 code
- * @param {Object} context - 云函数上下文
- * @returns {Promise<{code: number, data: Object|null, message: string}>}
- */
 exports.main = async function (event, context) {
   try {
-    var code = event.code;
-    if (!code) {
-      return { code: -1, data: null, message: '缺少登录凭证 code' };
-    }
+    // getWXContext 直接获取调用者的身份信息
+    // 不需要前端传 code，云函数上下文自带 openid
+    var wxContext = cloud.getWXContext();
+    var openid = wxContext.OPENID;
+    var unionid = wxContext.UNIONID || null;
 
-    // 调用微信接口换取 openid
-    var result = await cloud.openapi.auth.code2Session({
-      code: code,
-    });
-
-    if (!result || !result.openid) {
-      return { code: -1, data: null, message: '获取 openid 失败，code 可能已过期' };
+    if (!openid) {
+      return { code: -1, data: null, message: '无法获取用户身份' };
     }
 
     return {
       code: 0,
       data: {
-        openid: result.openid,
-        sessionKey: result.session_key,
-        unionid: result.unionid || null,
+        openid: openid,
+        unionid: unionid,
       },
       message: 'ok',
     };

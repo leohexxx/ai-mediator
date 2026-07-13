@@ -21,7 +21,13 @@
     "disableUseStrict": false,
     "condition": false,
     "swc": false,
-    "disableSWC": true
+    "disableSWC": true,
+    "urlCheck": false,
+    "useApiHook": true,
+    "useApiHostProcess": true,
+    "useIsolateContext": true,
+    "userConfirmedBundleSwitch": false,
+    "bundle": false
   },
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
@@ -31,5 +37,7 @@
   },
   "appid": "wxf82c52d4800346a6",
   "editorSetting": {},
-  "libVersion": "3.16.2"
+  "libVersion": "2.32.3",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "miniprogramRoot": "miniprogram/"
 }

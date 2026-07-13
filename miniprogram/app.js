@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 啷个对 — 小程序入口 (v3 - 合规改造)
+// 啷个对 — 小程序入口 (v4 - 云开发修复)
 // ═══════════════════════════════════════════════
 
 App({
@@ -7,27 +7,29 @@ App({
     var that = this;
 
     // 初始化云开发
-    wx.cloud.init({
-      env: 'cloudbase-d4g5p82875fe1a5ce',
-      traceUser: true,
-    });
+    if (wx.cloud) {
+      wx.cloud.init({
+        env: 'cloudbase-d4g5p82875fe1a5ce',
+        traceUser: true,
+      });
+    } else {
+      console.error('当前基础库不支持云开发，请升级微信或基础库版本');
+    }
 
     // 监听微信原生隐私授权事件（合规必须）
     if (wx.onNeedPrivacyAuthorization) {
       wx.onNeedPrivacyAuthorization(function (resolve) {
-        // 微信需要展示隐私弹窗时，使用我们自己写的同意弹窗
         that._privacyResolve = resolve;
-        // 首页会检测 showPrivacyModal 并弹出
         that._pendingPrivacyAuth = true;
       });
     }
 
-    // 静默登录
+    // 静默登录（非阻塞，失败不影响 app 启动）
     this.doLogin().then(function (openid) {
       that.globalData.openid = openid;
       console.log('登录成功, openid:', openid);
     }).catch(function (err) {
-      console.error('登录失败:', err);
+      console.warn('登录失败（不影响使用，后续操作会自动重试）:', err);
     });
 
     // 解析分享进入的案例 ID
@@ -37,7 +39,7 @@ App({
       }
       if (options.query.scene) {
         var scene = decodeURIComponent(options.query.scene || '');
-        if (scene.startsWith('share_')) {
+        if (scene.indexOf('share_') === 0) {
           that.globalData.pendingCaseId = scene.replace('share_', '');
         }
       }
@@ -54,9 +56,15 @@ App({
 
   onHide: function () {},
 
+  /**
+   * 登录流程 (v2)
+   * 不再需要 wx.login + code2Session
+   * 直接调用 login 云函数，通过 getWXContext 获取 openid
+   */
   doLogin: function () {
     var that = this;
     return new Promise(function (resolve, reject) {
+      // 优先使用缓存
       var cachedOpenid = wx.getStorageSync('openid');
       if (cachedOpenid) {
         that.globalData.openid = cachedOpenid;
@@ -64,29 +72,25 @@ App({
         return;
       }
 
-      wx.login({
-        success: function (res) {
-          if (res.code) {
-            wx.cloud.callFunction({
-              name: 'login',
-              data: { code: res.code },
-              success: function (cfRes) {
-                var result = cfRes.result;
-                if (result && result.code === 0 && result.data) {
-                  var openid = result.data.openid;
-                  wx.setStorageSync('openid', openid);
-                  that.globalData.openid = openid;
-                  resolve(openid);
-                } else {
-                  reject(new Error(result.message || '登录失败'));
-                }
-              },
-              fail: function (err) {
-                reject(err);
-              },
-            });
+      // 检查云开发是否可用
+      if (!wx.cloud) {
+        reject(new Error('云开发不可用'));
+        return;
+      }
+
+      // 直接调用 login 云函数（不需要 wx.login code）
+      wx.cloud.callFunction({
+        name: 'login',
+        data: {},
+        success: function (cfRes) {
+          var result = cfRes.result;
+          if (result && result.code === 0 && result.data && result.data.openid) {
+            var openid = result.data.openid;
+            wx.setStorageSync('openid', openid);
+            that.globalData.openid = openid;
+            resolve(openid);
           } else {
-            reject(new Error('wx.login 失败'));
+            reject(new Error(result && result.message || '登录失败'));
           }
         },
         fail: function (err) {
@@ -97,8 +101,22 @@ App({
   },
 
   /**
+   * 确保已登录（其他页面调用此方法，确保 openid 可用）
+   * 如果未登录则自动重试
+   */
+  ensureLogin: function () {
+    var that = this;
+    if (this.globalData.openid) {
+      return Promise.resolve(this.globalData.openid);
+    }
+    return this.doLogin().catch(function (err) {
+      console.warn('ensureLogin 重试失败:', err);
+      return Promise.reject(err);
+    });
+  },
+
+  /**
    * 检查用户是否已同意隐私政策和用户协议
-   * @returns {boolean}
    */
   hasAgreedPrivacy: function () {
     try {

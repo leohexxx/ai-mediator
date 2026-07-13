@@ -3,10 +3,10 @@
     "pages/index/index",
     "pages/upload/upload",
     "pages/report/report",
-    "pages/privacy/privacy",
     "pages/create-case/create-case",
     "pages/case-detail/case-detail",
-    "pages/ocr-preview/ocr-preview"
+    "pages/ocr-preview/ocr-preview",
+    "pages/privacy/privacy"
   ],
   "window": {
     "navigationBarBackgroundColor": "#111827",
@@ -20,6 +20,5 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "cloud": true,
-  "cloudfunctionRoot": "cloudfunctions/",
-  "usePrivacyCheck": true
+  "cloudfunctionRoot": "../cloudfunctions/"
 }

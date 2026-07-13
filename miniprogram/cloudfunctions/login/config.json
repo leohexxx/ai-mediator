@@ -1,6 +1,0 @@
-{
-  "permissions": {
-    "openapi": ["auth.code2Session"]
-  },
-  "timeout": 3
-}
