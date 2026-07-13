@@ -150,6 +150,18 @@ function ocrImage(filePath) {
 }
 
 /**
+ * OCR 识别 base64 图片（直接传 base64，不读文件。用于视频帧等场景）
+ * @param {string} base64 - 图片 base64 编码（不含 data:image 前缀）
+ * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
+ */
+function ocrImageBase64(base64) {
+  return cloudUtil.callFunction('ocrImage', {
+    base64: base64,
+    mimeType: 'image/jpeg',
+  });
+}
+
+/**
  * 批量上传图片并做 OCR 识别
  * @param {string[]} tempFilePaths - 本地文件路径列表
  * @param {string} caseId - 案例 ID
@@ -205,5 +217,6 @@ module.exports = {
   uploadImageToCloud: uploadImageToCloud,
   uploadVideoToCloud: uploadVideoToCloud,
   ocrImage: ocrImage,
+  ocrImageBase64: ocrImageBase64,
   uploadImagesAndOCR: uploadImagesAndOCR,
 };

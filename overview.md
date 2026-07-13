@@ -1,58 +1,63 @@
-# 云开发 -604100 错误修复概览
+# 排查总结：AI 分析失败 + OCR 识别率差
 
-## 问题
+## 问题 1：AI 分析一直分析不出来 ✅ 已修复
 
-微信开发者工具控制台报错：
+### 根因
+`cloudfunctions/common/llm.js`（已修复版本）从未同步到云函数实际使用的副本目录 `analyzeCase/common/llm.js`。
+
+云函数加载的旧版 `llm.js` 有三个致命差异：
+
+| 对比项 | 修复版 (cloudfunctions/common/) | 旧版 (analyzeCase/common/) |
+|--------|-------------------------------|---------------------------|
+| 默认 provider | `deepseek` | `anthropic` |
+| FALLBACK_API_KEY | 有 (sk-23bd...) | 无（空字符串） |
+| HTTP 方式 | `https.request`（原生） | `fetch`（云函数不支持） |
+
+→ 导致 `getConfig()` 返回 `{provider:"anthropic", apiKey:""}` → `analyzeChat` 抛出 "Missing API key"
+
+### 修复
+1. 将 `cloudfunctions/common/llm.js` 同步到 `analyzeCase/common/llm.js` 和 `uploadEvidence/common/llm.js`
+2. 删除嵌套重复目录 `common/common/`（每个 8 个文件，共 16 个）
+3. 集成测试 19/19 通过
+
+### 验证
 ```
-登录失败: <Error: errCode: -604100 API not found | errMsg: system error: error code: -604100>
-cloud sdk (build ts 1670494204239) injection skipped for sdk version 3.16.2
-当前 cloudVersion: undefined
-```
-
-## 根因
-
-`app.json` 在 v4 合规改造时丢失了 `cloudfunctionRoot` 字段。没有这个字段，微信开发者工具不知道云函数代码在哪里，导致：
-1. 云 SDK 注入被跳过（`injection skipped`）
-2. `wx.cloud.callFunction` 找不到 API（`-604100`）
-
-## 修复内容
-
-### 1. 配置修复
-| 文件 | 改动 |
-|------|------|
-| `app.json` | 加回 `cloudfunctionRoot: ../cloudfunctions/` |
-| `project.config.json` | 加 `cloudfunctionRoot` + `miniprogramRoot` |
-
-### 2. login 云函数简化
-- **之前**: `wx.login()` → get code → `callFunction('login', {code})` → `cloud.openapi.auth.code2Session({code})` → get openid
-- **之后**: `callFunction('login')` → `cloud.getWXContext().OPENID` → done
-- 不再需要 `wx.login` + `code` 流程
-- 不再需要 `auth.code2Session` openapi 权限
-
-### 3. app.js 登录容错
-- 登录失败从 `console.error` 降级为 `console.warn`（不阻塞 app 启动）
-- 新增 `ensureLogin()` 方法供其他页面按需调用
-- 低版本基础库安全降级（`wx.cloud` 不存在时）
-
-### 4. 清理
-- 删除 `miniprogram/cloudfunctions/` 重复目录（9000+ 行垃圾代码）
-
-## 测试结果
-19/19 全部通过
-
-## 你需要做的
-
-修复后，在微信开发者工具中需要**重新上传部署云函数**：
-
-```
-1. 右键 cloudfunctions/login → 上传并部署：云端安装依赖
-2. 其他云函数也依次上传部署
-3. 重新编译运行
+修复前: provider=anthropic, apiKey="" → Missing API key
+修复后: provider=deepseek, apiKey=sk-23bd..., model=deepseek-chat ✅
 ```
 
-## Git
+---
+
+## 问题 2：OCR 识别率差 ⚠️ 代码无问题，需部署排查
+
+### 排查结果
+- **OCR.space API 本地测试**：3.6 秒，855 字中文，识别率完整清晰 ✅
+- **图片大小**：124-408KB（base64 后 165-544KB），在 callFunction 1MB 限制内 ✅
+- **OCR 云函数代码**：正确使用 `https.request`，参数正确 ✅
+
+### 需要你操作
+代码层面没问题，问题在**部署/运行环境**层面：
+
+1. **重新部署 `ocrImage` 云函数**
+   - 微信开发者工具 → 云开发 → 云函数 → 右键 `ocrImage` → 上传并部署
+   - 同样部署 `analyzeCase` 和 `uploadEvidence`（llm.js 已更新）
+
+2. **检查 OCR.space 免费额度**
+   - 免费 API 每月 25,000 次请求
+   - 如额度耗尽，需更换 API key 或升级
+
+3. **测试文件夹 `1/` 说明**
+   - 包含 9 张聊天截图 + 1 个聊天视频 mp4
+   - 视频无法直接 OCR（当前架构只处理图片）
+   - 如需视频 OCR，需先抽帧再逐帧识别
+
+---
+
+## 本次修复 Git 记录
+
 ```
-8cfd722  fix: 修复云开发 -604100 错误 ← 当前
-c01eb82  fix: 微信隐私授权修复
-ac20599  v4: 合规改造
+commit a532302
+fix: 修复 AI 分析失败 - llm.js 旧副本默认走 anthropic 且无 API key
+
+19 files changed, 327 insertions(+), 2505 deletions(-)
 ```

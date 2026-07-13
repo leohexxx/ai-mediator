@@ -1,0 +1,327 @@
+{
+  "coreConclusion": {
+    "overallWinner": "tie",
+    "scoreA": 50,
+    "scoreB": 50,
+    "oneLineVerdict": "双方在恋爱观念和需求上存在显著差异，但都表现出理性沟通和寻求解决方案的意愿，无明显过错方",
+    "keyReasons": [
+      "双方都能理性分析彼此差异，并尝试提出解决方案",
+      "甲方明确表达了高需求、焦虑型依恋和需要可执行的需求表达方式",
+      "乙方提出了对情绪管理、独立空间的需求，并承认自身不足",
+      "双方在最后阶段达成共识，愿意共同磨合",
+      "对话整体平和理性，没有严重攻击或情绪失控"
+    ],
+    "recommendedAction": "建议双方继续落实已达成的共识，每周进行一次情感需求沟通，逐步尝试对方提出的具体改善措施",
+    "confidence": 80,
+    "confidenceReasons": [
+      "对话记录完整，展示了从分歧到和解的完整过程",
+      "双方沟通能力较强，表达清晰",
+      "聊天记录存在时间跳跃，部分上下文可能缺失",
+      "双方情绪稳定，判断结果可靠性高"
+    ]
+  },
+  "evidenceWeights": [
+    {
+      "id": "ev_w_1",
+      "speaker": "甲方",
+      "content": "在恋爱关系里，我是高需求者（渴望情感回应，对细节敏感），你是低需求者（需要独立空间，情感表达内敛）",
+      "timestamp": null,
+      "weight": 90,
+      "weightReason": "这是甲方对双方核心差异的精准总结，奠定了整个分析的基础，具有决定性作用",
+      "favors": "a"
+    },
+    {
+      "id": "ev_w_2",
+      "speaker": "乙方",
+      "content": "我的需求是恋爱能够给我带来正面的、愉快的、轻松的感受，我不喜欢甚至厌烦在恋爱中有过多的悲情叙事",
+      "timestamp": null,
+      "weight": 85,
+      "weightReason": "清晰表达了乙方的核心需求，与甲方形成鲜明对比，是理解冲突的关键",
+      "favors": "b"
+    },
+    {
+      "id": "ev_w_3",
+      "speaker": "甲方",
+      "content": "我需要你辅助我从悲伤的情绪里走出来，或者说把注意力转移到别的地方去",
+      "timestamp": null,
+      "weight": 75,
+      "weightReason": "具体说明了情绪支持需求的具体形式，具有可操作性",
+      "favors": "a"
+    },
+    {
+      "id": "ev_w_4",
+      "speaker": "乙方",
+      "content": "我并不认为恋爱双方是需要把每时每刻都的情绪做共享的",
+      "timestamp": null,
+      "weight": 70,
+      "weightReason": "直接回应了双方在情绪共享程度上的分歧，体现观念差异",
+      "favors": "b"
+    },
+    {
+      "id": "ev_w_5",
+      "speaker": "甲方",
+      "content": "我们最大的问题就在于沟通时只表达感受，但不能明确的指出需求（这里的需求指的是明确的可执行的需求）",
+      "timestamp": null,
+      "weight": 80,
+      "weightReason": "提出了具体改进方向，具有建设性，得到后续回应",
+      "favors": "neutral"
+    },
+    {
+      "id": "ev_w_6",
+      "speaker": "乙方",
+      "content": "如果你也觉得爱大于问题，那我们相互磨合就好了，不用把问题想得太悲观太复杂",
+      "timestamp": null,
+      "weight": 75,
+      "weightReason": "表达了和解意愿，是冲突缓和的关键节点",
+      "favors": "neutral"
+    }
+  ],
+  "emotionCurve": [
+    {
+      "speaker": "甲方",
+      "points": [
+        {
+          "timestamp": null,
+          "emotion": "理性分析",
+          "intensity": 60,
+          "trigger": "开始分析双方需求差异"
+        },
+        {
+          "timestamp": null,
+          "emotion": "焦虑",
+          "intensity": 70,
+          "trigger": "讨论情感回应和不确定感"
+        },
+        {
+          "timestamp": null,
+          "emotion": "平和",
+          "intensity": 50,
+          "trigger": "提出具体解决方案"
+        },
+        {
+          "timestamp": null,
+          "emotion": "坚定",
+          "intensity": 65,
+          "trigger": "要求明确回答是否想继续"
+        },
+        {
+          "timestamp": null,
+          "emotion": "欣慰",
+          "intensity": 70,
+          "trigger": "得到肯定回答后提议和解"
+        }
+      ]
+    },
+    {
+      "speaker": "乙方",
+      "points": [
+        {
+          "timestamp": null,
+          "emotion": "反思",
+          "intensity": 60,
+          "trigger": "回应甲方需求分析"
+        },
+        {
+          "timestamp": null,
+          "emotion": "防御",
+          "intensity": 55,
+          "trigger": "解释自己的恋爱观"
+        },
+        {
+          "timestamp": null,
+          "emotion": "困惑",
+          "intensity": 50,
+          "trigger": "对甲方朋友评价提出疑问"
+        },
+        {
+          "timestamp": null,
+          "emotion": "理性",
+          "intensity": 60,
+          "trigger": "讨论观念差异的哲学角度"
+        },
+        {
+          "timestamp": null,
+          "emotion": "妥协",
+          "intensity": 65,
+          "trigger": "最后同意磨合"
+        }
+      ]
+    }
+  ],
+  "mediationStrategy": [
+    {
+      "step": 1,
+      "title": "确认共同目标",
+      "description": "双方先明确确认'爱大于问题'的共识，建立合作解决问题的基调",
+      "target": "both",
+      "expectedOutcome": "增强双方解决问题的信心和动力",
+      "difficulty": "easy"
+    },
+    {
+      "step": 2,
+      "title": "建立需求清单",
+      "description": "各自写下3-5条最核心的可执行需求，用对方能理解的方式表达，避免抽象感受",
+      "target": "both",
+      "expectedOutcome": "将模糊分歧转化为具体行动项",
+      "difficulty": "medium"
+    },
+    {
+      "step": 3,
+      "title": "试行预告制",
+      "description": "乙方在需要独处或忙碌时提前告知时间和预计回复时间，甲方练习接受不完全同步的回应",
+      "target": "a",
+      "expectedOutcome": "降低甲方焦虑，同时保护乙方的独立空间",
+      "difficulty": "medium"
+    },
+    {
+      "step": 4,
+      "title": "建立情绪支持协议",
+      "description": "约定当甲方情绪崩溃时，先由甲方明确需要'解决问题'还是'情绪支持'，乙方据此调整回应方式",
+      "target": "both",
+      "expectedOutcome": "减少因沟通方式差异产生的二次冲突",
+      "difficulty": "medium"
+    },
+    {
+      "step": 5,
+      "title": "定期复盘调整",
+      "description": "每两周设立固定时间回顾试行效果，允许调整或放弃不合适的方案，避免僵化",
+      "target": "both",
+      "expectedOutcome": "保持解决方案的动态适应性",
+      "difficulty": "easy"
+    }
+  ],
+  "detailedAnalysis": {
+    "summary": "这是一对异地情侣的恋爱观念深度沟通。甲方表现为高需求、焦虑型依恋，渴望情感回应和细节关怀；乙方倾向低需求、理性独立，重视轻松正面的恋爱体验。双方在情绪共享程度、独立空间需求、解决问题方式上存在显著分歧，但通过多轮理性对话，最终达成'爱大于问题'的共识，愿意逐步磨合。",
+    "relationship": "情侣",
+    "characters": [
+      {
+        "name": "甲方",
+        "role": "party_a",
+        "personality": "高需求、敏感、善于自省、焦虑型依恋、表达欲强",
+        "stance": "希望获得明确、可预测的情感回应，需要对方主动关心和细节记忆",
+        "emotionalState": "初期焦虑，后期得到肯定后趋于平和",
+        "communicationStyle": "直接、条理清晰、喜欢使用心理学概念分析关系"
+      },
+      {
+        "name": "乙方",
+        "role": "party_b",
+        "personality": "理性、重视边界、独立、内敛、厌恶过度情感负担",
+        "stance": "需要独立空间和轻松恋爱氛围，反对负面情绪过度共享",
+        "emotionalState": "初始防御，逐步开放，最终愿意妥协",
+        "communicationStyle": "反思型、喜欢哲学化抽象、有回避倾向但能直面问题"
+      }
+    ],
+    "conflicts": [
+      {
+        "topic": "情绪共享程度",
+        "partyAStance": "需要对方主动共享生活片段，在负面情绪时提供支持",
+        "partyBStance": "认为恋爱不应包含过多负面情绪，有意识回避情绪输出",
+        "aiJudgment": "双方需求确实存在矛盾，但可以通过明确边界和约定解决",
+        "winner": "tie",
+        "severity": "high"
+      },
+      {
+        "topic": "需求表达方式",
+        "partyAStance": "需要可执行的明确需求，而非模糊感受",
+        "partyBStance": "认为一些需求本质对立，非表达方式问题",
+        "aiJudgment": "甲方提议具有建设性，但乙方指出部分需求确实存在结构对立，需双方妥协",
+        "winner": "neutral",
+        "severity": "medium"
+      },
+      {
+        "topic": "恋爱与生活边界",
+        "partyAStance": "认为情绪可以跨领域带入恋爱，需要对方接纳全部自己",
+        "partyBStance": "主张恋爱仅是生活一部分，其他领域问题应自行消化",
+        "aiJudgment": "乙方观点更为成熟，但甲方需要的情感包容也属合理需求，需寻找平衡点",
+        "winner": "b",
+        "severity": "medium"
+      }
+    ],
+    "timeline": [
+      {
+        "timestamp": "星期五 18:02",
+        "speaker": "乙方",
+        "content": "提出知道问题所在并愿意沟通",
+        "emotion": "主动",
+        "significance": "开启对话",
+        "isTurningPoint": true
+      },
+      {
+        "timestamp": "星期五 23:16",
+        "speaker": "甲方",
+        "content": "系统分析双方需求差异并提出可执行方案",
+        "emotion": "理性积极",
+        "significance": "奠定讨论框架",
+        "isTurningPoint": true
+      },
+      {
+        "timestamp": "昨天 00:54",
+        "speaker": "乙方",
+        "content": "接受部分观点，但对'预告制'表示难以做到",
+        "emotion": "理性防御",
+        "significance": "第一次正面回应甲方方案",
+        "isTurningPoint": false
+      },
+      {
+        "timestamp": "昨天 01:01",
+        "speaker": "甲方",
+        "content": "澄清情绪支持需求的具体形式",
+        "emotion": "解释",
+        "significance": "减少误解",
+        "isTurningPoint": false
+      },
+      {
+        "timestamp": "昨天 01:25",
+        "speaker": "乙方",
+        "content": "提出恋爱观念根本差异",
+        "emotion": "抽象反思",
+        "significance": "深化讨论层次",
+        "isTurningPoint": true
+      },
+      {
+        "timestamp": "昨天 13:37",
+        "speaker": "乙方",
+        "content": "确认愿意尝试逐步磨合",
+        "emotion": "妥协",
+        "significance": "冲突缓和",
+        "isTurningPoint": false
+      },
+      {
+        "timestamp": "昨天 18:12",
+        "speaker": "甲方",
+        "content": "要求明确确认双方都有共同未来的意愿",
+        "emotion": "坚定",
+        "significance": "最后的情感确认",
+        "isTurningPoint": true
+      },
+      {
+        "timestamp": "昨天 18:41",
+        "speaker": "甲方",
+        "content": "提议握手言和",
+        "emotion": "欣慰",
+        "significance": "达成和解",
+        "isTurningPoint": true
+      }
+    ]
+  },
+  "advice": {
+    "toA": [
+      "学会区分'需要情感支持'和'需要解决问题'，并明确告知对方",
+      "尝试接受不完全同步的回应，信任对方的承诺而非即时反馈",
+      "在要求对方分享的同时，也主动创造安全空间让对方表达自己的独立需求",
+      "不要用'你改变了才是爱我'的逻辑框架来理解分歧"
+    ],
+    "toB": [
+      "承认甲方的焦虑是真实且合理的，避免用'安全感低'简化问题",
+      "在感到被要求过多时，先明确说出自己的感受而非直接回避",
+      "尝试在日常生活中增加小规模的主动分享，不一定需要预告",
+      "接受恋爱关系中存在一定程度的负面情绪是正常的"
+    ],
+    "toBoth": [
+      "定期进行无评判的需求沟通，避免问题积累",
+      "承认差异的存在不等于关系的失败，差异可以成为深度了解的契机",
+      "在磨合过程中，给彼此犯错和调整的空间，避免完美主义",
+      "异地期间建立固定的情感连接仪式（如每周视频复盘），减少不确定性"
+    ]
+  }
+}

@@ -127,7 +127,7 @@ Page({
   // ===== 视频/录屏上传 =====
 
   /**
-   * 选择视频或录屏 — 上传到云存储，作为证据保存
+   * 选择视频或录屏 — 抽帧 OCR + 上传云存储
    */
   onChooseVideo: function () {
     var that = this;
@@ -152,36 +152,206 @@ Page({
           ocrProgress: { current: 0, total: 1 },
         });
 
-        wx.showLoading({ title: '上传视频中...', mask: true });
+        // 先上传原视频到云存储（作为证据附件）
+        var uploadPromise = evidenceService.uploadVideoToCloud(videoPath, that.data.caseId);
 
-        // 上传视频到云存储
-        evidenceService.uploadVideoToCloud(videoPath, that.data.caseId).then(function (videoFileID) {
-          wx.hideLoading();
-
-          var infoText = '[视频证据已上传]\n' +
-            '时长: ' + duration + ' 秒\n' +
-            '大小: ' + fileSizeMB + ' MB\n' +
-            '视频已保存至云端，作为证据附件。\n' +
-            '如需提取视频中的聊天文字，建议同时粘贴文本内容，或使用截图方式上传。';
-
-          that.setData({
-            ocrProcessing: false,
-            selectedImageCount: 1,
-            ocrProgress: { current: 1, total: 1 },
-            chatText: infoText,
-            uploadedFileIds: [videoFileID],
-          });
-
-          wx.showToast({ title: '视频上传成功', icon: 'success' });
-        }).catch(function (err) {
-          wx.hideLoading();
-          that.setData({
-            ocrProcessing: false,
-            chatText: '[视频上传失败: ' + (err.message || '请重试') + '。建议改用截图方式上传。]',
-          });
-          wx.showToast({ title: '上传失败', icon: 'none' });
-        });
+        // 同时开始抽帧 OCR
+        that._extractAndOcrVideoFrames(videoPath, duration, uploadPromise);
       },
+    });
+  },
+
+  /**
+   * 从视频中提取关键帧并 OCR 识别聊天文字
+   * @param {string} videoPath 本地视频路径
+   * @param {number} duration 视频时长（秒）
+   * @param {Promise} uploadPromise 视频上传 Promise
+   */
+  _extractAndOcrVideoFrames: function (videoPath, duration, uploadPromise) {
+    var that = this;
+
+    // 均匀采样 2 帧（头尾各一，速度优先）
+    var totalFrames = Math.min(2, duration);
+    var frameTimes = [];
+    if (totalFrames === 2) {
+      frameTimes = [Math.round(duration * 0.3), Math.round(duration * 0.7)];
+    } else {
+      frameTimes = [Math.round(duration * 0.5)];
+    }
+
+    var frameBase64List = [];
+    var fileIds = [];
+    var frameIndex = 0;
+
+    // 视频上传放到后台，不阻塞
+    uploadPromise.then(function (fid) { fileIds.push(fid); }).catch(function () {});
+
+    // ═══ 阶段 1: 快速抽帧 ═══
+    var decoder = wx.createVideoDecoder();
+
+    decoder.on('start', function () {
+      wx.showLoading({ title: '抽帧中 0/' + totalFrames, mask: true });
+      processNextFrame();
+    });
+
+    decoder.on('stop', function () {
+      decoder.remove();
+      wx.showLoading({ title: '抽帧完成，开始识别...', mask: true });
+      // ═══ 阶段 2: 批量 OCR ═══
+      that._ocrFrameBatch(frameBase64List, frameTimes, fileIds);
+    });
+
+    decoder.on('seek', function () {
+      try {
+        var frameData = decoder.getFrameData();
+        if (frameData && frameData.data) {
+          that._frameDataToBase64(frameData, decoder.width, decoder.height)
+            .then(function (base64) {
+              frameBase64List.push({ base64: base64, timeIndex: frameIndex });
+            })
+            .catch(function () {})
+            .finally(function () {
+              frameIndex++;
+              wx.showLoading({ title: '抽帧中 ' + frameIndex + '/' + totalFrames, mask: true });
+              processNextFrame();
+            });
+        } else {
+          frameIndex++;
+          wx.showLoading({ title: '抽帧中 ' + frameIndex + '/' + totalFrames, mask: true });
+          processNextFrame();
+        }
+      } catch (e) {
+        frameIndex++;
+        processNextFrame();
+      }
+    });
+
+    function processNextFrame() {
+      if (frameIndex >= totalFrames) {
+        decoder.stop();
+        return;
+      }
+      try {
+        decoder.seek({ position: frameTimes[frameIndex] / 1000 });
+      } catch (e) {
+        frameIndex++;
+        processNextFrame();
+      }
+    }
+
+    // 启动解码器（旧版基础库可能不支持，降级为纯上传）
+    try {
+      decoder.source = videoPath;
+      decoder.start();
+    } catch (e) {
+      wx.hideLoading();
+      that._videoComplete(fileIds, [], Date.now());
+    }
+  },
+
+  /**
+   * 批量 OCR 已抽取的视频帧（并行加速）
+   */
+  _ocrFrameBatch: function (frameBase64List, frameTimes, fileIds) {
+    var that = this;
+    var totalStart = Date.now();
+
+    if (frameBase64List.length === 0) {
+      wx.hideLoading();
+      that._videoComplete(fileIds, [], totalStart);
+      return;
+    }
+
+    wx.showLoading({ title: '识别中 0/' + frameBase64List.length, mask: true });
+
+    // 全部帧并行 OCR
+    var promises = frameBase64List.map(function (item, index) {
+      return evidenceService.ocrImageBase64(item.base64).then(function (ocrResult) {
+        if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
+          var text = ocrResult.data.text.trim();
+          if (text) {
+            var sec = frameTimes[item.timeIndex];
+            var m = Math.floor(sec / 60);
+            var s = sec % 60;
+            return '[视频 ' + m + ':' + (s < 10 ? '0' : '') + s + ']\n' + text;
+          }
+        }
+        return null;
+      }).catch(function () { return null; });
+    });
+
+    var doneCount = 0;
+    promises.forEach(function (p) {
+      p.then(function () {
+        doneCount++;
+        wx.showLoading({ title: '识别中 ' + doneCount + '/' + frameBase64List.length, mask: true });
+      });
+    });
+
+    Promise.all(promises).then(function (results) {
+      wx.hideLoading();
+      var frameTexts = results.filter(function (r) { return r !== null; });
+      that._videoComplete(fileIds, frameTexts, totalStart);
+    });
+  },
+
+  /**
+   * 视频处理完成，汇总结果
+   */
+  _videoComplete: function (fileIds, frameTexts, startTime) {
+    var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+    var combinedText = frameTexts.join('\n\n');
+    if (!combinedText.trim()) {
+      combinedText = '[视频抽帧未识别到文字。建议截取聊天截图上传，或直接粘贴文本。]';
+    }
+
+    this.setData({
+      ocrProcessing: false,
+      selectedImageCount: 1,
+      ocrProgress: { current: 1, total: 1 },
+      chatText: combinedText,
+      uploadedFileIds: fileIds,
+    });
+
+    wx.showToast({
+      title: frameTexts.length > 0 ? '提取 ' + frameTexts.length + ' 帧文字，' + elapsed + 's' : '未提取到文字',
+      icon: frameTexts.length > 0 ? 'success' : 'none',
+    });
+  },
+
+  /**
+   * 将视频帧数据转为 base64（通过离屏 Canvas）
+   */
+  _frameDataToBase64: function (frameData, width, height) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var canvas = wx.createOffscreenCanvas({
+          type: '2d',
+          width: width,
+          height: height,
+        });
+        var ctx = canvas.getContext('2d');
+
+        // 将 RGBA 像素数据画到 Canvas
+        var clampedData = new Uint8ClampedArray(frameData.data);
+        var imageData = ctx.createImageData(width, height);
+        imageData.data.set(clampedData);
+        ctx.putImageData(imageData, 0, 0);
+
+        // 导出为图片
+        canvas.toDataURL({
+          type: 'image/jpeg',
+          quality: 0.7,
+          success: function (res) {
+            // 去掉 data:image/jpeg;base64, 前缀
+            var base64 = (res.data || '').replace(/^data:image\/\w+;base64,/, '');
+            resolve(base64);
+          },
+          fail: reject,
+        });
+      } catch (e) {
+        reject(e);
+      }
     });
   },
 
@@ -244,19 +414,25 @@ Page({
     var that = this;
     var picker = this.selectComponent('#personalityPicker');
 
+    // 先触发订阅消息（必须在 tap 手势内同步调用，不能异步延迟）
     if (picker && picker.hasAnyData()) {
       var data = picker.getData();
-      caseService.updatePersonality(
-        this.data.caseId,
-        data.personalityA,
-        data.personalityB
-      ).then(function () {
-        that._requestSubscribeThenAnalyze();
-      }).catch(function () {
-        that._requestSubscribeThenAnalyze();
+      // 请求订阅后，再异步保存性格信息 + 开始分析
+      that._requestSubscribe(function () {
+        caseService.updatePersonality(
+          that.data.caseId,
+          data.personalityA,
+          data.personalityB
+        ).then(function () {
+          that._startAnalysis();
+        }).catch(function () {
+          that._startAnalysis();
+        });
       });
     } else {
-      this._requestSubscribeThenAnalyze();
+      that._requestSubscribe(function () {
+        that._startAnalysis();
+      });
     }
   },
 
@@ -264,20 +440,20 @@ Page({
    * 跳过性格信息，先请求订阅再分析
    */
   onPersonalitySkip: function () {
-    this._requestSubscribeThenAnalyze();
+    var that = this;
+    that._requestSubscribe(function () {
+      that._startAnalysis();
+    });
   },
 
   /**
-   * 请求订阅消息授权，无论用户是否同意都继续分析
+   * 请求订阅消息授权，完成后执行 callback（无论用户是否同意）
+   * 注意：必须由用户 tap 手势同步触发，不能放在异步回调后
    */
-  _requestSubscribeThenAnalyze: function () {
-    var that = this;
-
-    // 请求订阅消息
+  _requestSubscribe: function (callback) {
     wx.requestSubscribeMessage({
       tmplIds: ['MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M'],
       success: function (res) {
-        // 检查用户对模板的授权状态
         var accepted = res['MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M'] === 'accept';
         console.log('订阅消息授权:', accepted ? '已同意' : '已拒绝');
       },
@@ -285,34 +461,42 @@ Page({
         console.warn('订阅消息请求失败:', err);
       },
       complete: function () {
-        // 无论订阅结果如何，都继续分析
-        that._startAnalysis();
+        if (callback) callback();
       },
     });
   },
 
   /**
-   * 开始分析并跳转
+   * @deprecated 使用 _requestSubscribe(callback) 替代
+   */
+  _requestSubscribeThenAnalyze: function () {
+    var that = this;
+    this._requestSubscribe(function () {
+      that._startAnalysis();
+    });
+  },
+
+  /**
+   * 开始分析（后台异步），跳转到首页等待推送通知
    */
   _startAnalysis: function () {
     var that = this;
     this.setData({ showPersonalityModal: false });
 
+    // 触发分析（不等待结果，云函数后台跑完会发订阅消息推送）
     analysisService.analyzeCase(this.data.caseId).then(function (analysisRes) {
       if (analysisRes.code === 0) {
-        wx.redirectTo({
-          url: '/pages/report/report?caseId=' + that.data.caseId,
-        });
+        console.log('分析已启动, analysisId:', analysisRes.data && analysisRes.data.analysisId);
       } else {
-        wx.showToast({ title: analysisRes.message || '分析启动失败', icon: 'none' });
-        wx.redirectTo({
-          url: '/pages/report/report?caseId=' + that.data.caseId,
-        });
+        console.warn('分析启动返回非预期:', analysisRes.message);
       }
-    }).catch(function () {
-      wx.redirectTo({
-        url: '/pages/report/report?caseId=' + that.data.caseId,
-      });
+    }).catch(function (err) {
+      console.warn('分析启动调用异常:', err);
+    });
+
+    // 立刻跳转到报告页（报告页会显示"分析中"等待态）
+    wx.redirectTo({
+      url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1',
     });
   },
 });

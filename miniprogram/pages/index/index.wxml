@@ -4,7 +4,7 @@
   <!-- Hero CTA 卡片 -->
   <view class="hero-cta card" bindtap="onStartAnalyze">
     <view class="hero-icon">
-      <text class="hero-emoji">&#x1F916;</text>
+      <text class="hero-emoji">🤖</text>
     </view>
     <view class="hero-title">你的聊天记录，谁更有理？</view>
     <view class="hero-desc">粘贴聊天记录或上传截图</view>

@@ -84,12 +84,12 @@ exports.main = async function (event, context) {
         caseId: caseId,
         schemaVersion: 'v2',
         mode: mode,
-        coreConclusion: null,
+        coreConclusion: {},
         evidenceWeights: [],
         emotionCurve: [],
         mediationStrategy: [],
-        detailedAnalysis: null,
-        advice: null,
+        detailedAnalysis: {},
+        advice: { toA: [], toB: [], toBoth: [] },
         progress: {
           step: 'parsing',
           message: initialMessage,
@@ -284,6 +284,28 @@ exports.main = async function (event, context) {
         updatedAt: new Date().toISOString(),
       },
     });
+
+    // 9. 发送订阅消息推送通知用户
+    try {
+      var title = caseData.title || '调解案例';
+      var oneLineResult = (analysis.coreConclusion && analysis.coreConclusion.oneLineVerdict) || '已完成分析';
+      if (oneLineResult.length > 20) oneLineResult = oneLineResult.substring(0, 20) + '...';
+
+      await cloud.openapi.subscribeMessage.send({
+        touser: openid,
+        templateId: 'MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M',
+        page: 'pages/report/report?caseId=' + caseId,
+        miniprogramState: 'developer',
+        data: {
+          phrase1: { value: '分析完成' },
+          thing2: { value: title },
+          thing3: { value: oneLineResult },
+        },
+      });
+      console.log('订阅消息推送成功');
+    } catch (subErr) {
+      console.warn('订阅消息推送失败（用户可能未授权）:', subErr.message);
+    }
 
     return {
       code: 0,

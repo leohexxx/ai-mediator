@@ -1,0 +1,70 @@
+{
+  "round": 1,
+  "elapsed": "69.5s",
+  "checks": {
+    "hasCoreConclusion": true,
+    "hasVerdict": true,
+    "hasEvidence": true,
+    "hasEmotion": true,
+    "hasStrategy": true,
+    "hasAdvice": true,
+    "hasDetailedAnalysis": true,
+    "hasCharacters": true,
+    "hasPersonalityInChars": true
+  },
+  "passed": "9/9",
+  "passedAll": true,
+  "steps": [
+    {
+      "step": "understanding",
+      "progress": 15,
+      "time": 0
+    },
+    {
+      "step": "personality",
+      "progress": 30,
+      "time": 69523
+    },
+    {
+      "step": "evidence",
+      "progress": 50,
+      "time": 69523
+    },
+    {
+      "step": "emotion",
+      "progress": 65,
+      "time": 69523
+    },
+    {
+      "step": "judging",
+      "progress": 80,
+      "time": 69524
+    },
+    {
+      "step": "strategy",
+      "progress": 92,
+      "time": 69524
+    },
+    {
+      "step": "done",
+      "progress": 100,
+      "time": 69524
+    }
+  ],
+  "conclusion": {
+    "verdict": "双方在恋爱观念上存在本质差异（INFJ巨蟹的情感融合需求 vs ISTP摩羯的独立理性需求），但都展现出了愿意沟通和调整的诚意，争议的核心并非对错，而是性格类型天然冲突下的匹配度与磨合意愿。",
+    "scoreA": 50,
+    "scoreB": 50,
+    "confidence": 85
+  },
+  "personality": [
+    {
+      "name": "甲方",
+      "personality": "【性格分析】MBTI为INFJ（提倡者），这使其具有极强的洞察力、同理心和对深层精神连接的渴望，在对话中她主动剖析问题、提出系统方案，追求情感上的理解与共鸣。星座为巨蟹座，这强化了她对情感安全的极度需"
+    },
+    {
+      "name": "乙方",
+      "personality": "【性格分析】MBTI为ISTP（鉴赏家），这决定了其务实、理性、尊重界限、喜欢动手解决问题而非空谈的性格底色。在沟通中倾向于简短直接，回避无意义的情绪消耗。星座为摩羯座，这使其在关系中具有天然的责任感"
+    }
+  ]
+}

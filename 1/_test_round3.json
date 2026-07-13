@@ -1,0 +1,70 @@
+{
+  "round": 3,
+  "elapsed": "51.5s",
+  "checks": {
+    "hasCoreConclusion": true,
+    "hasVerdict": true,
+    "hasEvidence": true,
+    "hasEmotion": true,
+    "hasStrategy": true,
+    "hasAdvice": true,
+    "hasDetailedAnalysis": true,
+    "hasCharacters": true,
+    "hasPersonalityInChars": true
+  },
+  "passed": "9/9",
+  "passedAll": true,
+  "steps": [
+    {
+      "step": "understanding",
+      "progress": 15,
+      "time": 0
+    },
+    {
+      "step": "personality",
+      "progress": 30,
+      "time": 51456
+    },
+    {
+      "step": "evidence",
+      "progress": 50,
+      "time": 51456
+    },
+    {
+      "step": "emotion",
+      "progress": 65,
+      "time": 51456
+    },
+    {
+      "step": "judging",
+      "progress": 80,
+      "time": 51456
+    },
+    {
+      "step": "strategy",
+      "progress": 92,
+      "time": 51456
+    },
+    {
+      "step": "done",
+      "progress": 100,
+      "time": 51456
+    }
+  ],
+  "conclusion": {
+    "verdict": "双方都是高敏感、高反思型人格（INFJ vs INTP倾向），在恋爱观念上存在结构性差异，但双方都表现出积极沟通、寻求共识的意愿，没有一方明显更有理，而是需要更有效的调和。",
+    "scoreA": 50,
+    "scoreB": 50,
+    "confidence": 80
+  },
+  "personality": [
+    {
+      "name": "甲方",
+      "personality": "甲方表现出典型的INFJ（提倡者）倾向和巨蟹座/水象星座特质。天然倾向于深度、高共鸣的情感连接，对安全感和未来承诺有强烈需求（MBTI中的Ni-Fe轴）。聊天记录中，她主动剖析自己的焦虑来源、提出具体"
+    },
+    {
+      "name": "乙方",
+      "personality": "乙方表现出明显的INTP（逻辑学家）倾向和土象/风象星座特质。天然倾向于逻辑分析、追求自主性和精神上的轻松感（MBTI中的Ti-Ne轴）。聊天记录中，他坚持认为双方需求是“不可调和”的，表现出对“过度"
+    }
+  ]
+}

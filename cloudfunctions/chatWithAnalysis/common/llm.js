@@ -267,11 +267,12 @@ function httpPostStream(url, headers, bodyStr, timeoutMs, onChunk) {
 // ── CoT progress step definitions ────────────────────────────────
 
 var COT_STEPS = [
-  { step: 'understanding', message: '正在理解对话上下文...', progress: 20 },
-  { step: 'evidence', message: '正在提取关键证据...', progress: 40 },
-  { step: 'emotion', message: '正在分析情绪变化...', progress: 55 },
-  { step: 'judging', message: '正在综合判断...', progress: 75 },
-  { step: 'strategy', message: '正在制定调解策略...', progress: 90 },
+  { step: 'understanding', message: '正在理解对话上下文...', progress: 15 },
+  { step: 'personality', message: '正在分析性格特质...', progress: 30 },
+  { step: 'evidence', message: '正在提取关键证据...', progress: 50 },
+  { step: 'emotion', message: '正在分析情绪变化...', progress: 65 },
+  { step: 'judging', message: '正在综合判断...', progress: 80 },
+  { step: 'strategy', message: '正在制定调解策略...', progress: 92 },
   { step: 'done', message: '分析完成', progress: 100 },
 ];
 
@@ -327,6 +328,7 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
 
   if (onProgress) {
     onProgress(COT_STEPS[5].step, COT_STEPS[5].progress);
+    onProgress(COT_STEPS[6].step, COT_STEPS[6].progress);
   }
 
   return parsed;

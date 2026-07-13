@@ -32,7 +32,29 @@ Page({
   },
 
   onLoad: function (options) {
-    this.setData({ caseId: options.caseId || '' });
+    // 每次进入报告页都强制刷新——防止导航栈中遗留旧案例数据
+    this._analysisId = null;
+    if (this._progressWatcher) {
+      this._progressWatcher.close();
+      this._progressWatcher = null;
+    }
+
+    this.setData({
+      caseId: options.caseId || '',
+      analysis: null,
+      progress: null,
+      progressStuck: false,
+      loading: true,
+    });
+
+    // 如果是从上传页跳过来的（analysis 刚刚提交），先显示分析中
+    if (options.analyzing === '1') {
+      this.setData({
+        loading: false,
+        progress: { step: 'parsing', message: '分析已提交，正在准备中...', progress: 0 },
+      });
+    }
+
     this.loadReport();
   },
 
@@ -40,6 +62,31 @@ Page({
     if (this._progressWatcher) {
       this._progressWatcher.close();
       this._progressWatcher = null;
+    }
+  },
+
+  onShow: function () {
+    // 确保每次页面显示时都刷新（解决返回再进入时数据不更新）
+    var pages = getCurrentPages();
+    var currentPage = pages[pages.length - 1];
+    var options = currentPage.options || {};
+    var newCaseId = options.caseId || '';
+
+    if (newCaseId && newCaseId !== this.data.caseId) {
+      // caseId 变了，完全重新加载
+      if (this._progressWatcher) {
+        this._progressWatcher.close();
+        this._progressWatcher = null;
+      }
+      this.setData({
+        caseId: newCaseId,
+        caseData: null,
+        analysis: null,
+        progress: null,
+        progressStuck: false,
+        loading: true,
+      });
+      this.loadReport();
     }
   },
 

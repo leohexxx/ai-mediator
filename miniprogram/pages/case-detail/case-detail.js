@@ -34,7 +34,16 @@ Page({
 
   onLoad: function (options) {
     var caseId = options.caseId;
-    this.setData({ caseId: caseId });
+    // 强制重置状态，防止旧案例数据残留
+    this.setData({
+      caseId: caseId,
+      caseData: null,
+      analysis: null,
+      myEvidence: null,
+      otherEvidence: null,
+      loading: true,
+    });
+    if (this._watcher) { this._watcher.close(); this._watcher = null; }
 
     if (options.action === 'share') {
       this.setData({ showInvitePanel: true });
@@ -42,6 +51,22 @@ Page({
 
     this.loadDetail();
     this.startWatch();
+  },
+
+  onShow: function () {
+    // 从其他页面返回时重新加载，确保数据最新
+    var pages = getCurrentPages();
+    var currentPage = pages[pages.length - 1];
+    var options = currentPage.options || {};
+    if (options.caseId && options.caseId !== this.data.caseId) {
+      if (this._watcher) { this._watcher.close(); this._watcher = null; }
+      this.setData({ caseId: options.caseId, caseData: null, analysis: null, loading: true });
+      this.loadDetail();
+      this.startWatch();
+    } else {
+      // 同一个案例，刷新数据
+      this.loadDetail();
+    }
   },
 
   onUnload: function () {

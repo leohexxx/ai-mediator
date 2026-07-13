@@ -3,6 +3,12 @@
   "functionRoot": "./cloudfunctions",
   "functions": [
     {
+      "name": "login",
+      "timeout": 5,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
       "name": "ocrImage",
       "timeout": 60,
       "runtime": "Nodejs20.19",
@@ -23,6 +29,12 @@
     {
       "name": "chatWithAnalysis",
       "timeout": 30,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "updatePersonality",
+      "timeout": 10,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
     }

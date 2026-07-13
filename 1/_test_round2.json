@@ -1,0 +1,70 @@
+{
+  "round": 2,
+  "elapsed": "54.0s",
+  "checks": {
+    "hasCoreConclusion": true,
+    "hasVerdict": true,
+    "hasEvidence": true,
+    "hasEmotion": true,
+    "hasStrategy": true,
+    "hasAdvice": true,
+    "hasDetailedAnalysis": true,
+    "hasCharacters": true,
+    "hasPersonalityInChars": true
+  },
+  "passed": "9/9",
+  "passedAll": true,
+  "steps": [
+    {
+      "step": "understanding",
+      "progress": 15,
+      "time": 0
+    },
+    {
+      "step": "personality",
+      "progress": 30,
+      "time": 53993
+    },
+    {
+      "step": "evidence",
+      "progress": 50,
+      "time": 53993
+    },
+    {
+      "step": "emotion",
+      "progress": 65,
+      "time": 53993
+    },
+    {
+      "step": "judging",
+      "progress": 80,
+      "time": 53993
+    },
+    {
+      "step": "strategy",
+      "progress": 92,
+      "time": 53993
+    },
+    {
+      "step": "done",
+      "progress": 100,
+      "time": 53993
+    }
+  ],
+  "conclusion": {
+    "verdict": "甲方（ENFP/双子座）在沟通中更主动地识别问题、提出解决方案并寻求情感确认，虽然情绪需求较高但表达清晰且具有建设性；乙方（INTJ/处女座）虽然逻辑清晰且坦诚，但在情感回应和支持上显得被动和回避，对甲方核心焦虑缺乏充分的理解与配合。",
+    "scoreA": 65,
+    "scoreB": 35,
+    "confidence": 75
+  },
+  "personality": [
+    {
+      "name": "甲方",
+      "personality": "MBTI: ENFP（竞选家）—— 天然性格倾向是热情、理想化、渴望深度情感连接和共鸣，对关系中的新鲜感和刺激有较高需求，但容易因忽视细节而感到焦虑。星座: 双子座—— 善于沟通、思维活跃，倾向于用语"
+    },
+    {
+      "name": "乙方",
+      "personality": "MBTI: INTJ（建筑师）—— 天然性格倾向是理性、独立、注重效率和逻辑，倾向于用分析和计划解决问题，情感表达克制，对低效和不确定性容忍度低。星座: 处女座—— 注重细节、追求完美、有批判性思维，"
+    }
+  ]
+}
