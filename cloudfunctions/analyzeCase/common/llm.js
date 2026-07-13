@@ -1,37 +1,24 @@
 // ═══════════════════════════════════════════════
 // LLM API 调用封装（云函数 CommonJS 版本）
-// 来源: server/src/services/llm.ts
+// 使用 Node.js 原生 https 模块，不依赖 fetch
 // ═══════════════════════════════════════════════
 
+var https = require('https');
 var analysisPrompt = require('./prompts/analysisPrompt');
 var chatPrompt = require('./prompts/chatPrompt');
 
-/**
- * @typedef {'anthropic'|'deepseek'|'openai'} LLMProvider
- */
+var DEFAULT_PROVIDER = 'deepseek';
+var FALLBACK_API_KEY = 'sk-23bd49439b414f57befed541eb8ed185';
 
-/**
- * @typedef {Object} LLMConfig
- * @property {LLMProvider} provider
- * @property {string} apiKey
- * @property {string} model
- * @property {string} baseUrl
- */
-
-/**
- * 获取 LLM 配置。
- * 优先从云函数环境变量读取，支持 process.env。
- *
- * @returns {LLMConfig}
- */
 function getConfig() {
-  var provider = (process.env.LLM_PROVIDER || 'anthropic');
+  var provider = (process.env.LLM_PROVIDER || DEFAULT_PROVIDER);
 
   var apiKey =
     process.env.LLM_API_KEY ||
+    process.env.DEEPSEEK_API_KEY ||
     process.env.ANTHROPIC_API_KEY ||
     process.env.OPENAI_API_KEY ||
-    '';
+    FALLBACK_API_KEY;
 
   var defaultBaseUrl;
   if (provider === 'anthropic') {
@@ -59,13 +46,6 @@ function getConfig() {
   };
 }
 
-// ── API call helpers ─────────────────────────────────────────────
-
-/**
- * 构建请求头
- * @param {LLMConfig} config
- * @returns {Record<string, string>}
- */
 function buildHeaders(config) {
   if (config.provider === 'anthropic') {
     return {
@@ -74,18 +54,12 @@ function buildHeaders(config) {
       'anthropic-version': '2023-06-01',
     };
   }
-  // OpenAI-compatible (DeepSeek, OpenAI, etc.)
   return {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ' + config.apiKey,
   };
 }
 
-/**
- * 获取 Chat API 端点 URL
- * @param {LLMConfig} config
- * @returns {string}
- */
 function buildChatEndpoint(config) {
   if (config.provider === 'anthropic') {
     return config.baseUrl + '/messages';
@@ -93,17 +67,8 @@ function buildChatEndpoint(config) {
   return config.baseUrl + '/chat/completions';
 }
 
-/**
- * 构建请求体
- * @param {LLMConfig} config
- * @param {{role: string, content: string}[]} messages
- * @param {number} maxTokens
- * @param {boolean} stream
- * @returns {string} JSON 字符串
- */
 function buildRequestBody(config, messages, maxTokens, stream) {
   if (config.provider === 'anthropic') {
-    // Extract system message if present
     var systemMsg = null;
     for (var i = 0; i < messages.length; i++) {
       if (messages[i].role === 'system') {
@@ -132,7 +97,6 @@ function buildRequestBody(config, messages, maxTokens, stream) {
     return JSON.stringify(body);
   }
 
-  // OpenAI-compatible format
   return JSON.stringify({
     model: config.model,
     max_tokens: maxTokens,
@@ -141,30 +105,17 @@ function buildRequestBody(config, messages, maxTokens, stream) {
   });
 }
 
-/**
- * 从非流式响应中提取文本
- * @param {LLMConfig} config
- * @param {Object} data
- * @returns {string}
- */
 function extractTextFromResponse(config, data) {
   if (config.provider === 'anthropic') {
     var content = data.content;
     var rawText = content && content[0] ? content[0].text : '';
     return typeof rawText === 'string' ? rawText : rawText != null ? String(rawText) : '';
   }
-  // OpenAI-compatible
   var choices = data.choices;
   var rawText2 = choices && choices[0] && choices[0].message ? choices[0].message.content : '';
   return typeof rawText2 === 'string' ? rawText2 : rawText2 != null ? String(rawText2) : '';
 }
 
-/**
- * 从流式 SSE delta 中提取文本片段
- * @param {LLMConfig} config
- * @param {Object} parsed
- * @returns {string}
- */
 function extractStreamDelta(config, parsed) {
   if (config.provider === 'anthropic') {
     if (parsed.type === 'content_block_delta') {
@@ -172,23 +123,149 @@ function extractStreamDelta(config, parsed) {
     }
     return '';
   }
-  // OpenAI-compatible
   var deltaContent = parsed.choices && parsed.choices[0] && parsed.choices[0].delta
     ? parsed.choices[0].delta.content
     : '';
   return deltaContent || '';
 }
 
+// ── HTTP helpers (https.request, no fetch) ───────────────────────
+
+function httpPost(url, headers, bodyStr, timeoutMs) {
+  return new Promise(function (resolve, reject) {
+    var urlObj = new URL(url);
+    var payload = Buffer.from(bodyStr, 'utf8');
+
+    var options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: Object.assign({}, headers, {
+        'Content-Length': payload.length,
+      }),
+    };
+
+    var timer = setTimeout(function () {
+      req.destroy();
+      reject(new Error('HTTP request timeout after ' + (timeoutMs || 120000) + 'ms'));
+    }, timeoutMs || 120000);
+
+    var req = https.request(options, function (res) {
+      var chunks = [];
+      res.on('data', function (chunk) { chunks.push(chunk); });
+      res.on('end', function () {
+        clearTimeout(timer);
+        var responseText = Buffer.concat(chunks).toString('utf8');
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ ok: true, status: res.statusCode, text: function () { return Promise.resolve(responseText); }, json: function () { return Promise.resolve(JSON.parse(responseText)); } });
+        } else {
+          resolve({ ok: false, status: res.statusCode, text: function () { return Promise.resolve(responseText); }, json: function () { try { return Promise.resolve(JSON.parse(responseText)); } catch (e) { return Promise.resolve({}); } } });
+        }
+      });
+    });
+
+    req.on('error', function (err) {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
+function httpPostStream(url, headers, bodyStr, timeoutMs, onChunk) {
+  return new Promise(function (resolve, reject) {
+    var urlObj = new URL(url);
+    var payload = Buffer.from(bodyStr, 'utf8');
+
+    var options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: Object.assign({}, headers, {
+        'Content-Length': payload.length,
+      }),
+    };
+
+    var timer = setTimeout(function () {
+      req.destroy();
+      reject(new Error('HTTP stream timeout after ' + (timeoutMs || 120000) + 'ms'));
+    }, timeoutMs || 120000);
+
+    var fullText = '';
+    var buffer = '';
+
+    var req = https.request(options, function (res) {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        var errChunks = [];
+        res.on('data', function (c) { errChunks.push(c); });
+        res.on('end', function () {
+          clearTimeout(timer);
+          var errText = Buffer.concat(errChunks).toString('utf8');
+          reject(new Error('LLM chat error: ' + res.statusCode + ' ' + errText));
+        });
+        return;
+      }
+
+      res.setEncoding('utf8');
+      res.on('data', function (chunk) {
+        buffer += chunk;
+        var lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].trim();
+          if (line.indexOf('data: ') !== 0) continue;
+          var data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            var parsed = JSON.parse(data);
+            var text = extractStreamDelta(getConfig(), parsed);
+            if (text) {
+              fullText += text;
+              if (onChunk) onChunk(text);
+            }
+          } catch (_) {}
+        }
+      });
+
+      res.on('end', function () {
+        clearTimeout(timer);
+        if (buffer) {
+          var line = buffer.trim();
+          if (line.indexOf('data: ') === 0) {
+            var data = line.slice(6);
+            if (data !== '[DONE]') {
+              try {
+                var parsed = JSON.parse(data);
+                var text = extractStreamDelta(getConfig(), parsed);
+                if (text) {
+                  fullText += text;
+                  if (onChunk) onChunk(text);
+                }
+              } catch (_) {}
+            }
+          }
+        }
+        resolve(fullText);
+      });
+    });
+
+    req.on('error', function (err) {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
 // ── CoT progress step definitions ────────────────────────────────
 
-/**
- * @typedef {Object} CoTStep
- * @property {string} step
- * @property {string} message
- * @property {number} progress
- */
-
-/** @type {CoTStep[]} */
 var COT_STEPS = [
   { step: 'understanding', message: '正在理解对话上下文...', progress: 20 },
   { step: 'evidence', message: '正在提取关键证据...', progress: 40 },
@@ -200,40 +277,30 @@ var COT_STEPS = [
 
 // ── Public API ───────────────────────────────────────────────────
 
-/**
- * 分析聊天记录，返回 v2 分层 Analysis 结构。
- *
- * @param {string} formattedChat - 格式化后的聊天记录
- * @param {{name: string, role: string}[]} parties - 当事人信息
- * @param {string} caseContext - 案件背景
- * @param {function(string, number): void} [onProgress] - 进度回调
- * @returns {Promise<Object>} Analysis 对象
- */
 async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
   var config = getConfig();
   if (!config.apiKey) {
-    throw new Error('Missing API key. Set LLM_API_KEY (or ANTHROPIC_API_KEY) environment variable.');
+    throw new Error('Missing API key. Set LLM_API_KEY environment variable.');
   }
 
   var userPrompt = analysisPrompt.buildAnalysisUserPrompt(formattedChat, parties, caseContext);
 
-  // CoT Step 1: Understanding
   if (onProgress) {
     onProgress(COT_STEPS[0].step, COT_STEPS[0].progress);
   }
 
-  var response = await fetch(buildChatEndpoint(config), {
-    method: 'POST',
-    headers: buildHeaders(config),
-    body: buildRequestBody(config, [{ role: 'user', content: userPrompt }], 8192, false),
-  });
+  var response = await httpPost(
+    buildChatEndpoint(config),
+    buildHeaders(config),
+    buildRequestBody(config, [{ role: 'user', content: userPrompt }], 8192, false),
+    150000
+  );
 
   if (!response.ok) {
     var err = await response.text();
     throw new Error('LLM API error: ' + response.status + ' ' + err);
   }
 
-  // CoT Steps 2-3: Evidence & Emotion (simulated while waiting for response body)
   if (onProgress) {
     onProgress(COT_STEPS[1].step, COT_STEPS[1].progress);
     onProgress(COT_STEPS[2].step, COT_STEPS[2].progress);
@@ -241,7 +308,6 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
 
   var data = await response.json();
 
-  // CoT Step 4: Judging
   if (onProgress) {
     onProgress(COT_STEPS[3].step, COT_STEPS[3].progress);
   }
@@ -253,14 +319,12 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
     throw new Error('Failed to parse JSON from LLM response');
   }
 
-  // CoT Step 5: Strategy
   if (onProgress) {
     onProgress(COT_STEPS[4].step, COT_STEPS[4].progress);
   }
 
   var parsed = JSON.parse(jsonMatch[0]);
 
-  // CoT Step 6: Done
   if (onProgress) {
     onProgress(COT_STEPS[5].step, COT_STEPS[5].progress);
   }
@@ -268,25 +332,13 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
   return parsed;
 }
 
-/**
- * 基于已有分析报告的追问（流式输出）。
- *
- * @param {string} context - 分析报告上下文（JSON 字符串）
- * @param {{role: string, content: string}[]} history - 历史消息
- * @param {string} newMessage - 新消息
- * @param {function(string): void} onChunk - 流式 chunk 回调
- * @returns {Promise<string>} 完整回答文本
- */
 async function chatWithAnalysis(context, history, newMessage, onChunk) {
   var config = getConfig();
 
   var systemPrompt = chatPrompt.buildChatSystemPrompt(context);
 
   var messages = [
-    {
-      role: 'system',
-      content: systemPrompt,
-    },
+    { role: 'system', content: systemPrompt },
   ];
   for (var i = 0; i < history.length; i++) {
     messages.push({
@@ -296,45 +348,13 @@ async function chatWithAnalysis(context, history, newMessage, onChunk) {
   }
   messages.push({ role: 'user', content: newMessage });
 
-  var response = await fetch(buildChatEndpoint(config), {
-    method: 'POST',
-    headers: buildHeaders(config),
-    body: buildRequestBody(config, messages, 2048, true),
-  });
-
-  if (!response.ok) {
-    throw new Error('LLM chat error: ' + response.status);
-  }
-
-  var reader = response.body.getReader();
-  var decoder = new TextDecoder();
-  var fullText = '';
-
-  while (true) {
-    var result = await reader.read();
-    if (result.done) break;
-
-    var chunk = decoder.decode(result.value, { stream: true });
-    var lines = chunk.split('\n').filter(function (l) { return l.startsWith('data: '); });
-
-    for (var j = 0; j < lines.length; j++) {
-      var line = lines[j];
-      var data = line.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        var parsed = JSON.parse(data);
-        var text = extractStreamDelta(config, parsed);
-        if (text) {
-          fullText += text;
-          if (onChunk) {
-            onChunk(text);
-          }
-        }
-      } catch (_) {
-        // skip unparseable chunks
-      }
-    }
-  }
+  var fullText = await httpPostStream(
+    buildChatEndpoint(config),
+    buildHeaders(config),
+    buildRequestBody(config, messages, 2048, true),
+    120000,
+    onChunk
+  );
 
   return fullText;
 }
