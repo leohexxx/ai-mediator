@@ -57,9 +57,9 @@ App({
   onHide: function () {},
 
   /**
-   * 登录流程 (v2)
-   * 不再需要 wx.login + code2Session
-   * 直接调用 login 云函数，通过 getWXContext 获取 openid
+   * 登录流程 (v3)
+   * 1. wx.login() 建立微信会话（云函数调用前置条件）
+   * 2. 调用 login 云函数，通过 getWXContext 获取 openid
    */
   doLogin: function () {
     var that = this;
@@ -78,23 +78,31 @@ App({
         return;
       }
 
-      // 直接调用 login 云函数（不需要 wx.login code）
-      wx.cloud.callFunction({
-        name: 'login',
-        data: {},
-        success: function (cfRes) {
-          var result = cfRes.result;
-          if (result && result.code === 0 && result.data && result.data.openid) {
-            var openid = result.data.openid;
-            wx.setStorageSync('openid', openid);
-            that.globalData.openid = openid;
-            resolve(openid);
-          } else {
-            reject(new Error(result && result.message || '登录失败'));
-          }
+      // Step 1: wx.login 建立会话（云函数调用的前置条件）
+      wx.login({
+        success: function () {
+          // Step 2: 调用 login 云函数获取 openid
+          wx.cloud.callFunction({
+            name: 'login',
+            data: {},
+            success: function (cfRes) {
+              var result = cfRes.result;
+              if (result && result.code === 0 && result.data && result.data.openid) {
+                var openid = result.data.openid;
+                wx.setStorageSync('openid', openid);
+                that.globalData.openid = openid;
+                resolve(openid);
+              } else {
+                reject(new Error((result && result.message) || '登录失败'));
+              }
+            },
+            fail: function (err) {
+              reject(err);
+            },
+          });
         },
         fail: function (err) {
-          reject(err);
+          reject(new Error('微信登录失败: ' + (err.errMsg || '')));
         },
       });
     });

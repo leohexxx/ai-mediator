@@ -19,7 +19,5 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "cloud": true,
-  "cloudfunctionRoot": "../cloudfunctions/",
-  "usePrivacyCheck": true
+  "cloud": true
 }
