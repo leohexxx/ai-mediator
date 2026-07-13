@@ -107,10 +107,103 @@ function uploadImageToCloud(filePath, caseId) {
   });
 }
 
+/**
+ * 上传视频/录屏到云存储
+ * @param {string} filePath - 本地视频路径
+ * @param {string} caseId - 案例 ID
+ * @returns {Promise<string>} fileID
+ */
+function uploadVideoToCloud(filePath, caseId) {
+  var timestamp = Date.now();
+  var random = Math.random().toString(36).substring(2, 8);
+  var cloudPath = 'evidence/' + caseId + '/' + timestamp + '_' + random + '.mp4';
+  return cloudUtil.uploadFile(cloudPath, filePath).then(function (res) {
+    return res.fileID;
+  });
+}
+
+/**
+ * OCR 识别本地图片（前端转 base64 后传给云函数）
+ * @param {string} filePath - 本地文件路径
+ * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
+ */
+function ocrImage(filePath) {
+  return new Promise(function (resolve, reject) {
+    var fs = wx.getFileSystemManager();
+    var ext = (filePath.split('.').pop() || 'jpg').toLowerCase();
+    var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+
+    fs.readFile({
+      filePath: filePath,
+      encoding: 'base64',
+      success: function (readRes) {
+        cloudUtil.callFunction('ocrImage', {
+          base64: readRes.data,
+          mimeType: mimeType,
+        }).then(resolve).catch(reject);
+      },
+      fail: function (err) {
+        reject(new Error('读取图片失败: ' + (err.errMsg || err.message)));
+      },
+    });
+  });
+}
+
+/**
+ * 批量上传图片并做 OCR 识别
+ * @param {string[]} tempFilePaths - 本地文件路径列表
+ * @param {string} caseId - 案例 ID
+ * @param {function(number, number): void} [onProgress] - 进度回调 (current, total)
+ * @returns {Promise<{text: string, fileIds: string[]}>}
+ */
+function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
+  var totalCount = tempFilePaths.length;
+  var textResults = [];
+  var fileIds = [];
+
+  function uploadOne(index) {
+    if (index >= totalCount) {
+      return {
+        text: textResults.join('\n\n--- 截图 ' + (index) + ' 结束 ---\n\n'),
+        fileIds: fileIds,
+      };
+    }
+
+    if (onProgress) onProgress(index + 1, totalCount);
+
+    var filePath = tempFilePaths[index];
+
+    // 先 OCR（用本地路径），同时上传云存储保存证据
+    var ocrPromise = ocrImage(filePath);
+    var uploadPromise = uploadImageToCloud(filePath, caseId);
+
+    return Promise.all([ocrPromise.catch(function (e) {
+      return { code: -1, data: null, message: e.message || 'OCR 失败' };
+    }), uploadPromise]).then(function (results) {
+      var ocrResult = results[0];
+      var fileID = results[1];
+
+      if (fileID) fileIds.push(fileID);
+
+      if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
+        textResults.push(ocrResult.data.text);
+      } else {
+        textResults.push('[截图' + (index + 1) + ' OCR 未识别到文字: ' + (ocrResult.message || '') + ']');
+      }
+      return uploadOne(index + 1);
+    });
+  }
+
+  return uploadOne(0);
+}
+
 module.exports = {
   uploadEvidence: uploadEvidence,
   chooseMessageFile: chooseMessageFile,
   chooseMedia: chooseMedia,
   getClipboardText: getClipboardText,
   uploadImageToCloud: uploadImageToCloud,
+  uploadVideoToCloud: uploadVideoToCloud,
+  ocrImage: ocrImage,
+  uploadImagesAndOCR: uploadImagesAndOCR,
 };

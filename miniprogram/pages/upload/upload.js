@@ -18,6 +18,13 @@ Page({
     selectedImageCount: 0,
     selectedFileName: '',
     showGuide: true,
+    // 图片/视频 OCR 进度
+    ocrProgress: { current: 0, total: 0 },
+    ocrProcessing: false,
+    uploadedFileIds: [],
+    // 视频
+    videoPath: '',
+    videoContext: null,
 
     // 性格弹窗
     showPersonalityModal: false,
@@ -51,21 +58,135 @@ Page({
 
   onChooseMedia: function () {
     var that = this;
+
     evidenceService.chooseMedia(9).then(function (result) {
+      var imageCount = result.tempFilePaths.length;
+
+      // 先显示选中状态
       that.setData({
         uploadMode: 'album',
-        selectedImageCount: result.tempFilePaths.length,
-        chatText: '[截图已选择] ' + result.tempFilePaths.length + ' 张截图。OCR 识别将在后续版本支持，建议使用方法一（粘贴文本）获得最佳体验。',
+        selectedImageCount: imageCount,
+        chatText: '',
         showGuide: false,
+        ocrProcessing: true,
+        ocrProgress: { current: 0, total: imageCount },
+      });
+
+      wx.showLoading({ title: '上传并识别中...', mask: true });
+
+      // 上传图片 + OCR 识别
+      evidenceService.uploadImagesAndOCR(
+        result.tempFilePaths,
+        that.data.caseId,
+        function (current, total) {
+          // 更新进度
+          that.setData({
+            ocrProgress: { current: current, total: total },
+          });
+          wx.showLoading({
+            title: '识别中 ' + current + '/' + total + '...',
+            mask: true,
+          });
+        }
+      ).then(function (ocrResult) {
+        wx.hideLoading();
+
+        var extractedText = ocrResult.text || '';
+        that.setData({
+          ocrProcessing: false,
+          ocrProgress: { current: imageCount, total: imageCount },
+          chatText: extractedText,
+          uploadedFileIds: ocrResult.fileIds,
+        });
+
+        if (extractedText.trim()) {
+          wx.showToast({ title: '识别成功 ' + imageCount + ' 张', icon: 'success' });
+        } else {
+          wx.showToast({ title: '未识别到文字', icon: 'none' });
+        }
+      }).catch(function (err) {
+        wx.hideLoading();
+        console.error('OCR 失败:', err);
+
+        that.setData({
+          ocrProcessing: false,
+          chatText: '[截图处理失败: ' + (err.message || '请重试') + '。您可以改用"直接粘贴文本"方式上传。]',
+        });
+        wx.showToast({ title: '识别失败，请重试', icon: 'none' });
       });
     }).catch(function (err) {
       if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+      console.error('选择图片失败:', err);
     });
   },
 
   onPasteText: function () {
     this.setData({ uploadMode: 'paste', showGuide: false });
   },
+
+  // ===== 视频/录屏上传 =====
+
+  /**
+   * 选择视频或录屏 — 上传到云存储，作为证据保存
+   */
+  onChooseVideo: function () {
+    var that = this;
+
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['video'],
+      sourceType: ['album', 'camera'],
+      maxDuration: 300,
+      success: function (res) {
+        var videoFile = res.tempFiles[0];
+        var videoPath = videoFile.tempFilePath;
+        var fileSizeMB = (videoFile.size / 1024 / 1024).toFixed(1);
+        var duration = Math.floor(videoFile.duration || 0);
+
+        that.setData({
+          uploadMode: 'video',
+          videoPath: videoPath,
+          showGuide: false,
+          ocrProcessing: true,
+          selectedImageCount: 1,
+          ocrProgress: { current: 0, total: 1 },
+        });
+
+        wx.showLoading({ title: '上传视频中...', mask: true });
+
+        // 上传视频到云存储
+        evidenceService.uploadVideoToCloud(videoPath, that.data.caseId).then(function (videoFileID) {
+          wx.hideLoading();
+
+          var infoText = '[视频证据已上传]\n' +
+            '时长: ' + duration + ' 秒\n' +
+            '大小: ' + fileSizeMB + ' MB\n' +
+            '视频已保存至云端，作为证据附件。\n' +
+            '如需提取视频中的聊天文字，建议同时粘贴文本内容，或使用截图方式上传。';
+
+          that.setData({
+            ocrProcessing: false,
+            selectedImageCount: 1,
+            ocrProgress: { current: 1, total: 1 },
+            chatText: infoText,
+            uploadedFileIds: [videoFileID],
+          });
+
+          wx.showToast({ title: '视频上传成功', icon: 'success' });
+        }).catch(function (err) {
+          wx.hideLoading();
+          that.setData({
+            ocrProcessing: false,
+            chatText: '[视频上传失败: ' + (err.message || '请重试') + '。建议改用截图方式上传。]',
+          });
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        });
+      },
+    });
+  },
+
+  /** 视频 seek 完成（预留，video 组件需要） */
+  onVideoSeeked: function () {},
 
   onTextInput: function (e) {
     this.setData({ chatText: e.detail.value });
@@ -92,6 +213,7 @@ Page({
       caseId: this.data.caseId,
       rawText: this.data.chatText,
       note: this.data.note,
+      fileIds: this.data.uploadedFileIds || [],
     }).then(function (res) {
       wx.hideLoading();
 
@@ -129,21 +251,44 @@ Page({
         data.personalityA,
         data.personalityB
       ).then(function () {
-        that._startAnalysis();
+        that._requestSubscribeThenAnalyze();
       }).catch(function () {
-        // 性格保存失败也继续分析
-        that._startAnalysis();
+        that._requestSubscribeThenAnalyze();
       });
     } else {
-      this._startAnalysis();
+      this._requestSubscribeThenAnalyze();
     }
   },
 
   /**
-   * 跳过性格信息，直接分析
+   * 跳过性格信息，先请求订阅再分析
    */
   onPersonalitySkip: function () {
-    this._startAnalysis();
+    this._requestSubscribeThenAnalyze();
+  },
+
+  /**
+   * 请求订阅消息授权，无论用户是否同意都继续分析
+   */
+  _requestSubscribeThenAnalyze: function () {
+    var that = this;
+
+    // 请求订阅消息
+    wx.requestSubscribeMessage({
+      tmplIds: ['MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M'],
+      success: function (res) {
+        // 检查用户对模板的授权状态
+        var accepted = res['MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M'] === 'accept';
+        console.log('订阅消息授权:', accepted ? '已同意' : '已拒绝');
+      },
+      fail: function (err) {
+        console.warn('订阅消息请求失败:', err);
+      },
+      complete: function () {
+        // 无论订阅结果如何，都继续分析
+        that._startAnalysis();
+      },
+    });
   },
 
   /**

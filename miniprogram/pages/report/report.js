@@ -13,6 +13,7 @@ Page({
     analysis: null,
     role: '',
     progress: null,
+    progressStuck: false,
     loading: true,
     restricted: false,
     restrictedMessage: '',
@@ -95,12 +96,26 @@ Page({
 
   watchProgress: function (analysisId) {
     var that = this;
+    var stuckTimer = null;
+
+    function setStuckTimer() {
+      if (stuckTimer) clearTimeout(stuckTimer);
+      stuckTimer = setTimeout(function () {
+        that.setData({ progressStuck: true });
+      }, 90000);
+    }
+
     this._progressWatcher = analysisService.watchAnalysisProgress(analysisId, function (progress) {
-      that.setData({ progress: progress });
-      if (progress.step === 'done') {
+      that.setData({ progress: progress, progressStuck: false });
+      setStuckTimer();
+
+      if (progress.step === 'done' || progress.step === 'error') {
+        if (stuckTimer) clearTimeout(stuckTimer);
         that.loadReport();
       }
     });
+
+    setStuckTimer();
   },
 
   onTabChange: function (e) {
@@ -206,6 +221,7 @@ Page({
     analysisService.analyzeCase(this.data.caseId).then(function (res) {
       wx.hideLoading();
       if (res.code === 0) {
+        that.setData({ progressStuck: false });
         that.loadReport();
       } else {
         wx.showToast({ title: res.message || '分析失败', icon: 'none' });
@@ -213,6 +229,34 @@ Page({
     }).catch(function () {
       wx.hideLoading();
       wx.showToast({ title: '分析失败，请重试', icon: 'none' });
+    });
+  },
+
+  /**
+   * 分析卡住后重新分析
+   */
+  onRetryAnalyze: function () {
+    var that = this;
+
+    if (this._progressWatcher) {
+      this._progressWatcher.close();
+    }
+
+    this.setData({ progressStuck: false, progress: null });
+    wx.showLoading({ title: '正在重新分析...', mask: true });
+
+    analysisService.analyzeCase(this.data.caseId).then(function (res) {
+      wx.hideLoading();
+      if (res.code === 0) {
+        that.loadReport();
+      } else {
+        wx.showToast({ title: res.message || '启动失败', icon: 'none' });
+        that.setData({ progressStuck: true });
+      }
+    }).catch(function () {
+      wx.hideLoading();
+      wx.showToast({ title: '网络错误，请重试', icon: 'none' });
+      that.setData({ progressStuck: true });
     });
   },
 
@@ -250,27 +294,26 @@ Page({
     wx.showLoading({ title: '正在保存并重新分析...', mask: true });
 
     caseService.updatePersonality(
-      this.data.caseId,
-      data.personalityA,
-      data.personalityB
-    ).then(function () {
-      // 重新触发分析
-      return analysisService.analyzeCase(that.data.caseId);
-    }).then(function (analysisRes) {
-      wx.hideLoading();
-      that.setData({ reanalyzing: false });
+          that.data.caseId,
+          data.personalityA,
+          data.personalityB
+        ).then(function () {
+          return analysisService.analyzeCase(that.data.caseId);
+        }).then(function (analysisRes) {
+          wx.hideLoading();
+          that.setData({ reanalyzing: false });
 
-      if (analysisRes.code === 0) {
-        wx.showToast({ title: '分析已重新开始', icon: 'success' });
-        that.loadReport();
-      } else {
-        wx.showToast({ title: analysisRes.message || '分析失败', icon: 'none' });
-      }
-    }).catch(function () {
-      wx.hideLoading();
-      that.setData({ reanalyzing: false });
-      wx.showToast({ title: '操作失败，请重试', icon: 'none' });
-    });
+          if (analysisRes.code === 0) {
+            wx.showToast({ title: '分析已重新开始', icon: 'success' });
+            that.loadReport();
+          } else {
+            wx.showToast({ title: analysisRes.message || '分析失败', icon: 'none' });
+          }
+        }).catch(function () {
+          wx.hideLoading();
+          that.setData({ reanalyzing: false });
+          wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+        });
   },
 
   /**

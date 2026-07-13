@@ -17,13 +17,29 @@
       </view>
     </view>
 
-    <!-- 方式二：从相册选择 -->
+    <!-- 方式二：从相册选择截图 -->
     <view class="upload-card {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
       <view class="upload-icon">🖼️</view>
       <view class="upload-title">从相册选择截图</view>
-      <view class="upload-desc">支持微信聊天截图（OCR 将在后续版本支持）</view>
-      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && selectedImageCount > 0}}">
-        ✓ 已选择 {{selectedImageCount}} 张
+      <view class="upload-desc">支持微信聊天截图，自动识别文字</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && ocrProcessing}}">
+        🔄 正在识别 {{ocrProgress.current}}/{{ocrProgress.total}}...
+      </view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
+        ✓ 已识别 {{selectedImageCount}} 张截图
+      </view>
+    </view>
+
+    <!-- 方式三：录屏/视频上传 -->
+    <view class="upload-card {{uploadMode === 'video' ? 'active' : ''}}" bindtap="onChooseVideo">
+      <view class="upload-icon">🎬</view>
+      <view class="upload-title">录屏/视频上传</view>
+      <view class="upload-desc">上传聊天录屏作为证据保存</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && ocrProcessing}}">
+        🔄 正在上传视频...
+      </view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && !ocrProcessing && selectedImageCount > 0}}">
+        ✓ 视频已上传至云端
       </view>
     </view>
   </view>

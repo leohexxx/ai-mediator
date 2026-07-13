@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合规审查报告 — AI 调解员</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1a1a2e;
+    --text-secondary: #4a4a6a;
+    --border: #e2e8f0;
+    --accent: #c41e3a;
+    --accent-light: #fef2f2;
+    --green: #166534;
+    --green-bg: #f0fdf4;
+    --orange: #9a3412;
+    --orange-bg: #fff7ed;
+    --blue: #1e40af;
+    --blue-bg: #eff6ff;
+    --gray-bg: #f8fafc;
+    --radius: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  /* Cover */
+  .cover {
+    text-align: center;
+    padding: 60px 20px;
+    border-bottom: 3px solid var(--accent);
+    margin-bottom: 40px;
+  }
+  .cover .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+  .cover h1 { font-size: 32px; margin-bottom: 12px; }
+  .cover .subtitle { color: var(--text-secondary); font-size: 16px; margin-bottom: 8px; }
+  .cover .meta { color: var(--text-secondary); font-size: 14px; margin-top: 20px; line-height: 2; }
+  /* Overall Score */
+  .score-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    background: var(--accent-light);
+    border: 1px solid #fecaca;
+    border-radius: var(--radius);
+    margin: 32px 0;
+  }
+  .score-circle {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .score-circle .num { font-size: 36px; font-weight: 700; line-height: 1; }
+  .score-circle .label { font-size: 11px; opacity: 0.85; }
+  .score-detail { flex: 1; }
+  .score-detail h3 { font-size: 18px; color: var(--accent); margin-bottom: 8px; }
+  .score-detail p { font-size: 14px; color: var(--text-secondary); }
+  /* Sections */
+  .section { margin: 32px 0; }
+  .section h2 {
+    font-size: 22px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .section h3 { font-size: 17px; margin: 20px 0 10px; }
+  /* Issue Cards */
+  .issue {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .issue .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .issue .severity {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .severity-critical { background: var(--accent-light); color: var(--accent); }
+  .severity-high { background: var(--orange-bg); color: var(--orange); }
+  .severity-medium { background: var(--blue-bg); color: var(--blue); }
+  .severity-low { background: var(--gray-bg); color: var(--text-secondary); }
+  .issue .title { font-weight: 600; font-size: 15px; }
+  .issue .detail { font-size: 14px; color: var(--text-secondary); margin: 6px 0; }
+  .issue .detail p { margin: 4px 0; }
+  .issue .code-ref {
+    background: #f1f5f9;
+    border-left: 3px solid #94a3b8;
+    padding: 8px 12px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-radius: 0 4px 4px 0;
+    margin-top: 8px;
+  }
+  .issue .citation {
+    font-size: 13px;
+    color: var(--blue);
+    margin-top: 6px;
+    padding: 8px;
+    background: var(--blue-bg);
+    border-radius: 4px;
+  }
+  /* Summary Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .stat {
+    text-align: center;
+    padding: 20px;
+    background: var(--gray-bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .stat .num { font-size: 28px; font-weight: 700; }
+  .stat .label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .stat.crit .num { color: var(--accent); }
+  .stat.high .num { color: var(--orange); }
+  .stat.med .num { color: var(--blue); }
+  /* Roadmap Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+  }
+  th { background: var(--gray-bg); font-weight: 600; }
+  td.p0 { color: var(--accent); font-weight: 600; }
+  td.p1 { color: var(--orange); font-weight: 600; }
+  td.p2 { color: var(--blue); }
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 2px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 2;
+  }
+  .footer strong { color: var(--accent); }
+  /* Regulated Entities */
+  .reg-frameworks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .reg-card {
+    background: var(--gray-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .reg-card .name { font-weight: 600; font-size: 14px; }
+  .reg-card .status { font-size: 13px; color: var(--accent); margin-top: 4px; }
+  .reg-card .desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">合规审查</div>
+  <h1>⚖️ AI 调解员</h1>
+  <div class="subtitle">法规合规审查报告</div>
+  <div class="meta">
+    审查日期：2026年7月13日<br>
+    审查范围：Web 前端 · Node.js 后端 · 微信小程序 · 云函数<br>
+    适用法规：PIPL · DSL · CSL · 生成式AI管理办法 · 微信小程序平台规范
+  </div>
+</div>
+
+<!-- 整体评分 -->
+<div class="score-card">
+  <div class="score-circle">
+    <span class="num">22</span>
+    <span class="label">/ 100</span>
+  </div>
+  <div class="score-detail">
+    <h3>合规评分：22/100 — 严重不合规</h3>
+    <p>项目当前处于早期开发阶段（MVP），在法律合规方面存在<strong>重大缺失</strong>。未建立任何隐私政策、用户协议或数据处理规范。核心功能涉及高度敏感的个人信息处理（微信聊天记录、人际关系、情绪分析），但在数据采集、存储、传输、AI处理等各环节均缺乏合规保障机制。</p>
+  </div>
+</div>
+
+<!-- 关键统计 -->
+<div class="stats">
+  <div class="stat crit">
+    <div class="num">8</div>
+    <div class="label">严重风险 (P0)</div>
+  </div>
+  <div class="stat high">
+    <div class="num">5</div>
+    <div class="label">高风险 (P1)</div>
+  </div>
+  <div class="stat med">
+    <div class="num">4</div>
+    <div class="label">中风险 (P2)</div>
+  </div>
+  <div class="stat">
+    <div class="num">6</div>
+    <div class="label">适用法规框架</div>
+  </div>
+</div>
+
+<!-- 适用法规 -->
+<div class="section">
+  <h2>一、适用法规框架</h2>
+  <p style="color:var(--text-secondary);font-size:14px;">"AI 调解员"作为运行在微信生态中的 AI 应用，涉及数据处理、AI生成内容和平台运营，以下法规均对其有约束力：</p>
+  <div class="reg-frameworks">
+    <div class="reg-card">
+      <div class="name">🇨🇳 《个人信息保护法》(PIPL)</div>
+      <div class="status">严重不合规</div>
+      <div class="desc">处理微信聊天记录等敏感个人信息，缺少合法性基础、知情同意、用户权利保障</div>
+    </div>
+    <div class="reg-card">
+      <div class="name">🇨🇳 《数据安全法》(DSL)</div>
+      <div class="status">不合规</div>
+      <div class="desc">缺乏数据分类分级、安全保护义务、风险评估报告制度</div>
+    </div>
+    <div class="reg-card">
+      <div class="name">🇨🇳 《网络安全法》(CSL)</div>
+      <div class="status">部分不合规</div>
+      <div class="desc">缺少个人信息保护制度、网络运营者安全义务落实</div>
+    </div>
+    <div class="reg-card">
+      <div class="name">🇨🇳 《生成式人工智能服务管理暂行办法》</div>
+      <div class="status">严重不合规</div>
+      <div class="desc">AI生成内容涉及人格评判，缺少算法备案、内容标识、投诉举报机制</div>
+    </div>
+    <div class="reg-card">
+      <div class="name">🇨🇳 《互联网信息服务深度合成管理规定》</div>
+      <div class="status">不合规</div>
+      <div class="desc">涉及对自然人特征的分析判断，未进行安全评估</div>
+    </div>
+    <div class="reg-card">
+      <div class="name">🇨🇳 微信小程序平台运营规范</div>
+      <div class="status">不合规</div>
+      <div class="desc">缺少隐私弹窗、数据收集声明；云开发环境存储敏感数据</div>
+    </div>
+  </div>
+</div>
+
+<!-- 严重风险 -->
+<div class="section">
+  <h2>二、严重风险项 (P0) — 需立即整改</h2>
+  <p style="color:var(--accent);font-size:14px;margin-bottom:16px;">以下问题可能直接导致行政处罚、应用下架或法律诉讼，必须在产品上线前解决。</p>
+
+  <!-- P0-1 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#1 API 密钥硬编码暴露</span>
+    </div>
+    <div class="detail">
+      <p><strong>发现：</strong>文件 <code>server/.env</code> 中包含有效的 DeepSeek API 密钥，且该文件在项目目录中。虽然 <code>.env</code> 在 <code>.gitignore</code> 中，但存在被误提交或通过其他途径泄露的风险。</p>
+    </div>
+    <div class="code-ref">server/.env → LLM_API_KEY=sk-23bd49439b4********（已暴露）</div>
+    <div class="citation">⚠️ 密钥泄露可导致 API 资金被盗用、用户数据被第三方访问。建议立即轮换密钥并移除本地 .env 文件中的硬编码值。</div>
+  </div>
+
+  <!-- P0-2 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#2 无隐私政策 — 违反 PIPL 第17条</span>
+    </div>
+    <div class="detail">
+      <p>项目完全没有任何隐私政策文件。用户上传微信聊天截图、录屏、文本等包含<strong>大量敏感个人信息</strong>（对话内容、人际关系、情感状态、人格特征），但用户完全不知情数据将被如何处理。</p>
+      <p>PIPL 第17条要求处理者在处理个人信息前，以显著方式、清晰易懂的语言告知处理目的、方式、种类、保存期限等。</p>
+    </div>
+    <div class="citation">📜 PIPL 第17条：「个人信息处理者在处理个人信息前，应当以显著方式、清晰易懂的语言真实、准确、完整地向个人告知下列事项……」<br>📜 PIPL 第66条：违反规定可处五千万元以下或上一年度营业额百分之五以下罚款。</div>
+  </div>
+
+  <!-- P0-3 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#3 无用户协议/服务条款</span>
+    </div>
+    <div class="detail">
+      <p>项目没有服务条款（Terms of Service）。用户在使用"AI 调解员"给出人格判断、行为评价、关系建议等功能时，没有任何法律约定来限定服务性质（非法律意见、仅供参考等免责声明）。</p>
+    </div>
+    <div class="citation">⚠️ AI 对用户的"对错判断"可能被误解为专业法律/心理意见，产生法律责任风险。</div>
+  </div>
+
+  <!-- P0-4 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#4 第三方 AI 服务数据传输无告知 — 违反 PIPL 第23条</span>
+    </div>
+    <div class="detail">
+      <p>用户的聊天记录（含个人身份、关系、情感等敏感信息）被完整发送至第三方 AI 服务商（DeepSeek / OpenAI / Anthropic）进行处理。依据 PIPL 第23条，向第三方提供个人信息需告知接收方信息并获得单独同意。</p>
+      <p>当前代码直接将用户聊天原文作为 LLM prompt 发送，无任何脱敏处理：</p>
+    </div>
+    <div class="code-ref">server/src/services/llm.ts:158 → userPrompt 包含完整聊天记录原文<br>server/src/prompts/analysisPrompt.ts:152 → buildAnalysisUserPrompt 未做数据脱敏</div>
+    <div class="citation">📜 PIPL 第23条：「个人信息处理者向其他个人信息处理者提供其处理的个人信息的，应当向个人告知接收方的名称或者姓名、联系方式、处理目的、处理方式和个人信息的种类，并取得个人的单独同意。」<br>📜 PIPL 第39条：向境外提供需取得单独同意（OpenAI/Anthropic 服务器在美国）。</div>
+  </div>
+
+  <!-- P0-5 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#5 缺少数据处理合法性基础 — 违反 PIPL 第13条</span>
+    </div>
+    <div class="detail">
+      <p>PIPL 第13条要求个人信息处理必须具有合法性基础（如取得同意、履行合同所必需等）。项目未建立任何同意机制（如隐私弹窗、勾选框），也未明确处理的法律基础。</p>
+    </div>
+    <div class="citation">📜 PIPL 第13条：处理个人信息应取得个人同意（或满足其他法定情形）。</div>
+  </div>
+
+  <!-- P0-6 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#6 敏感个人信息处理无单独同意 — 违反 PIPL 第29条</span>
+    </div>
+    <div class="detail">
+      <p>聊天记录中包含大量敏感个人信息：人际关系、情感状态、MBTI性格类型、冲突细节等。PIPL 将"特定身份、医疗健康、金融账户"等列为敏感个人信息，处理需取得<strong>单独同意</strong>且具有特定目的和充分必要性。</p>
+      <p>此外，项目还收集微信用户的 openid、昵称、头像等信息。</p>
+    </div>
+    <div class="citation">📜 PIPL 第28-29条：敏感个人信息的处理需单独同意、告知必要性及对个人权益的影响。</div>
+  </div>
+
+  <!-- P0-7 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#7 生成式 AI 服务违规 — 违反《生成式人工智能服务管理暂行办法》</span>
+    </div>
+    <div class="detail">
+      <p>应用核心功能是"AI 判断谁对谁错"，属于对人格和行为的评判。根据《生成式人工智能服务管理暂行办法》：</p>
+      <p>① 未进行算法备案（第17条）<br>
+      ② AI 生成内容未进行标识（第12条）<br>
+      ③ 未建立投诉举报机制（第15条）<br>
+      ④ 未对训练数据和生成内容进行合规审查<br>
+      ⑤ 涉及"舆论属性或社会动员能力"，需进行安全评估</p>
+    </div>
+    <div class="citation">📜 《生成式人工智能服务管理暂行办法》第17条：提供具有舆论属性或者社会动员能力的生成式人工智能服务的，应当开展安全评估，并履行算法备案手续。</div>
+  </div>
+
+  <!-- P0-8 -->
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-critical">P0</span>
+      <span class="title">#8 数据存储安全严重不足</span>
+    </div>
+    <div class="detail">
+      <p><strong>Web 端：</strong>聊天记录存储在浏览器 IndexedDB 中，<strong>无任何加密措施</strong>。任何人访问浏览器即可读取全部案例数据。<br>
+      <strong>服务端（Express）：</strong>所有案例数据存储在内存 Map 中，服务器重启数据全部丢失，但运行期间数据无访问控制。<br>
+      <strong>小程序端：</strong>openid 存储在 wx.StorageSync 中；聊天记录、分析结果存储在腾讯云 CloudBase 数据库中，但未配置字段级加密。<br>
+      <strong>文件上传：</strong>multer 将上传的截图/录屏存储到磁盘 <code>server/uploads/</code>，无访问控制、无定期清理。</p>
+    </div>
+    <div class="code-ref">src/utils/storage.ts → IndexedDB 明文存储案例数据<br>server/src/routes/cases.ts:15 → const cases = new Map<string, Case>()<br>miniprogram/app.js:68 → wx.setStorageSync('openid', openid)</div>
+    <div class="citation">📜 PIPL 第51条：应采取加密、去标识化等安全措施保护个人信息。<br>📜 DSL 第27条：开展数据处理活动应加强风险监测。</div>
+  </div>
+</div>
+
+<!-- 高风险 -->
+<div class="section">
+  <h2>三、高风险项 (P1) — 需在30天内整改</h2>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-high">P1</span>
+      <span class="title">#9 跨境数据传输合规 — OpenAI/Anthropic 服务器位于境外</span>
+    </div>
+    <div class="detail">
+      <p>当 LLM_PROVIDER 配置为 openai 或 anthropic 时，用户聊天数据（含大量个人信息）将被传输至美国服务器处理。根据 PIPL 第38-40条，向境外提供个人信息需满足条件之一（如通过安全评估、签订标准合同、取得认证），并进行个人信息保护影响评估。</p>
+      <p><strong>当前默认使用 DeepSeek（境内），但如果用户或运维切换到 OpenAI/Anthropic 则立即违规。</strong></p>
+    </div>
+    <div class="citation">📜 PIPL 第38条：向境外提供个人信息需通过国家网信部门安全评估或签订标准合同。<br>📜 PIPL 第55条：向境外提供个人信息前应进行个人信息保护影响评估。</div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-high">P1</span>
+      <span class="title">#10 未建立数据删除与用户权利响应机制 — 违反 PIPL 第45-47条</span>
+    </div>
+    <div class="detail">
+      <p>用户无法查看、更正或删除其个人数据。PIPL 赋予个人查阅、复制、更正、删除其个人信息的权利。项目目前：</p>
+      <p>• 删除按钮仅从前端 IndexedDB/服务端 Map 中移除<br>
+      • 无数据导出功能<br>
+      • 无法清除已发送至 AI 服务商的数据<br>
+      • 无数据留存期限设置</p>
+    </div>
+    <div class="citation">📜 PIPL 第45条（查阅复制权）、第46条（更正权）、第47条（删除权）。</div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-high">P1</span>
+      <span class="title">#11 未成年人个人信息保护缺失</span>
+    </div>
+    <div class="detail">
+      <p>应用未设置年龄验证机制。根据 PIPL 第31条，处理不满十四周岁未成年人个人信息应取得其父母或监护人同意，并制定专门的处理规则。</p>
+    </div>
+    <div class="citation">📜 PIPL 第31条：「个人信息处理者处理不满十四周岁未成年人个人信息的，应当取得未成年人的父母或者其他监护人的同意。」</div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-high">P1</span>
+      <span class="title">#12 缺少数据安全事件应急预案 — 违反 PIPL 第57条</span>
+    </div>
+    <div class="detail">
+      <p>项目无任何安全事件响应流程。一旦发生数据泄露（如 API 密钥泄露导致聊天记录被第三方获取），无法在规定时间内通知监管部门和用户。</p>
+    </div>
+    <div class="citation">📜 PIPL 第57条：发生个人信息泄露应通知履行个人信息保护职责的部门和个人。</div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-high">P1</span>
+      <span class="title">#13 微信小程序隐私合规缺失</span>
+    </div>
+    <div class="detail">
+      <p>微信小程序平台要求：<br>
+      • 收集用户信息前必须有隐私弹窗<br>
+      • app.json 中需声明使用的隐私接口<br>
+      • 云开发环境中敏感数据需加密存储<br>
+      当前项目均未实现。</p>
+    </div>
+    <div class="citation">📜 微信小程序平台运营规范 5.14 用户隐私及数据合规。</div>
+  </div>
+</div>
+
+<!-- 中风险 -->
+<div class="section">
+  <h2>四、中风险项 (P2) — 需在90天内整改</h2>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-medium">P2</span>
+      <span class="title">#14 CORS 配置过度开放</span>
+    </div>
+    <div class="detail">
+      <p><code>server/src/index.ts:12</code> 使用 <code>app.use(cors())</code> 允许所有源访问，可能导致 CSRF 攻击和信息泄露。</p>
+    </div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-medium">P2</span>
+      <span class="title">#15 前端 OCR 处理的隐私考量</span>
+    </div>
+    <div class="detail">
+      <p>前端使用 Tesseract.js 在客户端执行 OCR。虽然是本地处理，但仍然需要告知用户 OCR 的技术原理和数据安全性（Tesseract.js 为纯本地引擎，数据不离开设备——这实际上是个好做法，但需在隐私政策中说明）。</p>
+    </div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-medium">P2</span>
+      <span class="title">#16 缺少合规文档审计追踪</span>
+    </div>
+    <div class="detail">
+      <p>所有法律合规决策、数据处理记录、用户同意记录等均未建立日志和审计追踪机制，无法在监管审查时提供证据。</p>
+    </div>
+  </div>
+
+  <div class="issue">
+    <div class="header">
+      <span class="severity severity-medium">P2</span>
+      <span class="title">#17 AI 分析结果的透明度不足</span>
+    </div>
+    <div class="detail">
+      <p>AI 对用户做出"谁对谁错"的判断时，用户无法了解 AI 的判断依据和局限性。虽然 v2 版本的 CoT（思维链）分析提供了证据权重和置信度，但普通用户可能无法理解这些技术指标的含义。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 风险等级总览表 -->
+<div class="section">
+  <h2>五、风险总览</h2>
+  <table>
+    <tr>
+      <th>#</th><th>风险项</th><th>等级</th><th>法规依据</th><th>潜在后果</th>
+    </tr>
+    <tr><td>1</td><td>API密钥暴露</td><td class="p0">P0</td><td>安全基线</td><td>资金损失、数据泄露</td></tr>
+    <tr><td>2</td><td>无隐私政策</td><td class="p0">P0</td><td>PIPL 第17条</td><td>罚款最高5000万元或营收5%</td></tr>
+    <tr><td>3</td><td>无用户协议</td><td class="p0">P0</td><td>合同法/消保法</td><td>法律纠纷、责任不清</td></tr>
+    <tr><td>4</td><td>第三方AI数据传输无告知</td><td class="p0">P0</td><td>PIPL 第23条</td><td>行政处罚、民事赔偿</td></tr>
+    <tr><td>5</td><td>缺少数据处理合法性基础</td><td class="p0">P0</td><td>PIPL 第13条</td><td>数据处理被认定违法</td></tr>
+    <tr><td>6</td><td>敏感信息无单独同意</td><td class="p0">P0</td><td>PIPL 第29条</td><td>加重处罚</td></tr>
+    <tr><td>7</td><td>生成式AI服务违规</td><td class="p0">P0</td><td>AI管理办法</td><td>暂停服务、下架</td></tr>
+    <tr><td>8</td><td>数据存储安全不足</td><td class="p0">P0</td><td>PIPL第51条/DSL第27条</td><td>数据泄露、监管处罚</td></tr>
+    <tr><td>9</td><td>跨境数据传输合规</td><td class="p1">P1</td><td>PIPL 第38-40条</td><td>限制跨境传输</td></tr>
+    <tr><td>10</td><td>用户权利响应缺失</td><td class="p1">P1</td><td>PIPL 第45-47条</td><td>用户投诉、监管介入</td></tr>
+    <tr><td>11</td><td>未成年人信息保护缺失</td><td class="p1">P1</td><td>PIPL 第31条</td><td>加重处罚情节</td></tr>
+    <tr><td>12</td><td>数据安全应急预案缺失</td><td class="p1">P1</td><td>PIPL 第57条</td><td>通报延迟加重责任</td></tr>
+    <tr><td>13</td><td>小程序隐私合规缺失</td><td class="p1">P1</td><td>微信平台规范</td><td>审核不通过、下架</td></tr>
+    <tr><td>14</td><td>CORS配置过度开放</td><td class="p2">P2</td><td>安全基线</td><td>CSRF攻击风险</td></tr>
+    <tr><td>15</td><td>OCR隐私考量</td><td class="p2">P2</td><td>透明度要求</td><td>用户信任降低</td></tr>
+    <tr><td>16</td><td>合规审计追踪缺失</td><td class="p2">P2</td><td>PIPL 第69条</td><td>举证困难</td></tr>
+    <tr><td>17</td><td>AI结果透明度不足</td><td class="p2">P2</td><td>AI管理暂行办法第12条</td><td>用户投诉</td></tr>
+  </table>
+</div>
+
+<!-- 整改路线图 -->
+<div class="section">
+  <h2>六、整改实施路线图</h2>
+
+  <h3>🚨 Phase 1 — 紧急整改（7天内）</h3>
+  <table>
+    <tr><th>行动项</th><th>负责人</th><th>对应风险</th></tr>
+    <tr><td>1. 立即轮换暴露的 API 密钥，使用环境变量或密钥管理服务</td><td>后端开发</td><td>#1</td></tr>
+    <tr><td>2. 将 server/.env 从项目目录移除，改用 .env.example</td><td>后端开发</td><td>#1</td></tr>
+    <tr><td>3. 限制 CORS 为具体允许的域名</td><td>后端开发</td><td>#14</td></tr>
+    <tr><td>4. 初步编写隐私政策草案（至少包含数据收集种类、目的、第三方共享）</td><td>法务/产品</td><td>#2</td></tr>
+    <tr><td>5. 编写服务条款草案（含AI分析免责声明、非法律/心理建议声明）</td><td>法务/产品</td><td>#3</td></tr>
+    <tr><td>6. 确认当前 LLM_PROVIDER 仅使用境内服务（DeepSeek），禁止配置为 OpenAI/Anthropic</td><td>后端开发</td><td>#9</td></tr>
+  </table>
+
+  <h3>⚡ Phase 2 — 短期整改（30天内）</h3>
+  <table>
+    <tr><th>行动项</th><th>负责人</th><th>对应风险</th></tr>
+    <tr><td>7. 实现用户知情同意机制（首次使用弹窗 + 勾选框）</td><td>前端开发</td><td>#5, #6</td></tr>
+    <tr><td>8. 第三方 AI 数据共享告知（明确列出使用的 AI 服务商）</td><td>前端 + 法务</td><td>#4</td></tr>
+    <tr><td>9. 小程序隐私弹窗（符合微信平台规范）</td><td>小程序开发</td><td>#13</td></tr>
+    <tr><td>10. 数据加密存储（IndexedDB 加密 + 数据库字段加密）</td><td>全栈开发</td><td>#8</td></tr>
+    <tr><td>11. 实现用户数据删除功能（前端 + 服务端 + AI服务商数据清理请求）</td><td>全栈开发</td><td>#10</td></tr>
+    <tr><td>12. 建立数据留存策略（定期自动清理）</td><td>后端开发</td><td>#8, #10</td></tr>
+    <tr><td>13. 添加年龄验证机制（至少询问是否满14周岁）</td><td>前端开发</td><td>#11</td></tr>
+    <tr><td>14. AI 生成内容添加标识（"本分析由AI生成，仅供参考"）</td><td>前端 + 后端</td><td>#7, #17</td></tr>
+  </table>
+
+  <h3>🔧 Phase 3 — 中期完善（90天内）</h3>
+  <table>
+    <tr><th>行动项</th><th>负责人</th><th>对应风险</th></tr>
+    <tr><td>15. 数据安全应急预案制定与演练</td><td>安全/运维</td><td>#12</td></tr>
+    <tr><td>16. 建立合规审计日志系统</td><td>后端开发</td><td>#16</td></tr>
+    <tr><td>17. 个人信息保护影响评估（DPIA）</td><td>法务</td><td>#5, #6, #9</td></tr>
+    <tr><td>18. 算法备案（如适用）</td><td>法务/技术</td><td>#7</td></tr>
+    <tr><td>19. 建立投诉举报处理机制</td><td>运营/法务</td><td>#7</td></tr>
+    <tr><td>20. 数据脱敏机制（发送至AI前去除直接标识符）</td><td>后端开发</td><td>#4</td></tr>
+    <tr><td>21. 用户数据导出功能（PIPL 数据可携带权）</td><td>全栈开发</td><td>#10</td></tr>
+  </table>
+</div>
+
+<!-- 结论 -->
+<div class="section">
+  <h2>七、审查结论</h2>
+  <div class="issue" style="border-color: var(--accent);">
+    <div class="header">
+      <span class="severity severity-critical">结论</span>
+      <span class="title">不建议在当前状态下公开发布或上线运营</span>
+    </div>
+    <div class="detail">
+      <p>"AI 调解员"是一个具有创新性的产品，但在法律合规方面存在<strong>根本性缺陷</strong>。考虑到应用处理的聊天记录包含大量敏感个人信息，且核心功能涉及 AI 对人格的评判，一旦上线将面临严重的法律风险。</p>
+      <p style="margin-top:12px;"><strong>核心问题在于：</strong>项目在MVP阶段完全忽略了法律合规的并行建设。隐私政策、用户协议、数据安全措施等不是在"功能开发完成后再补"的，而应当是产品设计的出发点（Privacy by Design）。</p>
+      <p style="margin-top:12px;"><strong>最低上线标准：</strong>至少完成 Phase 1 全部项目和 Phase 2 中 #7-#14 项目，确保有基本的隐私政策、用户协议、同意机制和数据安全措施。</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>⚖️ 法律合规审查员</strong><br>
+  审查日期：2026年7月13日<br>
+  审查范围：D:\4.开发工具\code\app （完整项目代码库）<br>
+  审查状态：<strong>严重不合规 — 建议暂停公开发布</strong><br>
+  <br>
+  <em>声明：本报告基于对代码库的自动化分析，不构成正式法律意见。对于重大合规决策，建议咨询持牌专业律师。</em>
+</div>
+
+</body>
+</html>

@@ -44,9 +44,14 @@ exports.main = async function (event, context) {
       return { code: -1, data: null, message: '无权操作此案例' };
     }
 
-    // 检查状态
+    // 检查状态 — 如果 analyzing 超过 3 分钟，视为卡住，允许重试
     if (caseData.status === 'analyzing') {
-      return { code: -1, data: null, message: '分析正在进行中，请稍候...' };
+      var updatedTime = caseData.updatedAt ? new Date(caseData.updatedAt).getTime() : 0;
+      var elapsed = Date.now() - updatedTime;
+      if (elapsed < 180000) {
+        return { code: -1, data: null, message: '分析正在进行中，请稍候...' };
+      }
+      console.log('检测到卡住的分析（' + Math.round(elapsed / 1000) + '秒），允许重试');
     }
 
     // 如果已有分析结果，直接返回
@@ -261,6 +266,33 @@ exports.main = async function (event, context) {
         updatedAt: new Date().toISOString(),
       },
     });
+
+    // 9. 发送订阅消息通知（非阻塞，失败不影响分析结果）
+    try {
+      // 格式化时间为中文可读格式
+      var d = new Date(now);
+      var timeStr = d.getFullYear() + '年' +
+        (d.getMonth() + 1) + '月' +
+        d.getDate() + '日 ' +
+        String(d.getHours()).padStart(2, '0') + ':' +
+        String(d.getMinutes()).padStart(2, '0');
+
+      await cloud.openapi.subscribeMessage.send({
+        touser: openid,
+        templateId: 'MotJahkp5DN6k66kLHps__sxR25G7yjDfUdCQ4jAj6M',
+        page: 'pages/report/report?caseId=' + caseId,
+        data: {
+          time1: { value: timeStr },
+          thing3: { value: (caseData.title || '调解案例').substring(0, 20) },
+          time4: { value: timeStr },
+          time6: { value: timeStr },
+        },
+        miniprogramState: 'developer',
+      });
+      console.log('订阅消息已发送至:', openid);
+    } catch (notifyErr) {
+      console.warn('发送订阅消息失败（非致命）:', notifyErr.errMsg || notifyErr.message);
+    }
 
     return {
       code: 0,

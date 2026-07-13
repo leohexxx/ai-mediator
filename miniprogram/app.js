@@ -90,6 +90,6 @@ App({
   globalData: {
     openid: null,
     pendingCaseId: null,
-    envId: 'your-env-id',
+    envId: 'cloudbase-d4g5p82875fe1a5ce',
   },
 });

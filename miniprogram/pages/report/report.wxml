@@ -3,7 +3,15 @@
 <view class="container" wx:if="{{!loading}}">
 
   <!-- 分析进度 -->
-  <analysis-progress wx:if="{{progress && progress.step !== 'done'}}" progress="{{progress}}" />
+  <analysis-progress wx:if="{{progress && progress.step !== 'done' && !progressStuck}}" progress="{{progress}}" />
+
+  <!-- 分析卡住时显示重试 -->
+  <view class="stuck-section" wx:if="{{progressStuck}}">
+    <view class="stuck-icon">⏰</view>
+    <view class="stuck-title">分析似乎卡住了</view>
+    <view class="stuck-desc">可能是网络波动或服务器繁忙，请重试</view>
+    <button class="btn-primary retry-btn" bindtap="onRetryAnalyze">重新分析</button>
+  </view>
 
   <!-- 隐私限制 -->
   <view class="restricted-banner" wx:if="{{restricted}}">
