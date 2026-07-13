@@ -92,7 +92,7 @@
     </view>
     <view class="privacy-modal-actions">
       <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">不同意</button>
-      <button class="privacy-btn agree" bindtap="onAgreePrivacy">同意并继续</button>
+      <button class="privacy-btn agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意并继续</button>
     </view>
   </view>
 </view>

@@ -20,5 +20,6 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "cloud": true,
-  "cloudfunctionRoot": "cloudfunctions/"
+  "cloudfunctionRoot": "cloudfunctions/",
+  "usePrivacyCheck": true
 }

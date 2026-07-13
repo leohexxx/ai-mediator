@@ -24,9 +24,28 @@ Page({
   onLoad: function () {
     this.loadCases();
 
-    // 检查是否需要展示隐私弹窗（首次使用 或 微信主动触发）
-    if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
-      this.setData({ showPrivacyModal: true });
+    // 检查是否需要展示隐私弹窗
+    // 优先使用微信原生 getPrivacySetting，降级到 localStorage
+    var that = this;
+    if (wx.getPrivacySetting) {
+      wx.getPrivacySetting({
+        success: function (res) {
+          if (res.needAuthorization || app._pendingPrivacyAuth) {
+            that.setData({ showPrivacyModal: true });
+          }
+        },
+        fail: function () {
+          // 降级: 用 localStorage 判断
+          if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
+            that.setData({ showPrivacyModal: true });
+          }
+        },
+      });
+    } else {
+      // 低版本基础库降级
+      if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
+        that.setData({ showPrivacyModal: true });
+      }
     }
   },
 
@@ -209,13 +228,14 @@ Page({
   // ===== 隐私同意弹窗 (v3 合规新增) =====
 
   /**
-   * 用户同意隐私政策
+   * 用户同意隐私政策（bindagreeprivacyauthorization 事件回调）
+   * 微信在用户点击 open-type="agreePrivacyAuthorization" 按钮后自动处理授权
    */
   onAgreePrivacy: function () {
     app.agreePrivacy();
     this.setData({ showPrivacyModal: false });
 
-    // 联动微信原生隐私授权
+    // 联动微信原生隐私授权（兜底）
     if (app._privacyResolve) {
       app._privacyResolve({ event: 'agree', buttonId: 'agree-btn' });
       app._privacyResolve = null;

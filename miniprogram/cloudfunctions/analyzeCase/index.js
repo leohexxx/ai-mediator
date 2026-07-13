@@ -193,7 +193,21 @@ exports.main = async function (event, context) {
       parties.push({ name: '对方', role: 'other_party' });
     }
 
-    var formattedChat = parser.formatChatForLLM(allMessages, parties);
+    // 检查 parser 结果质量 — OCR 文本可能解析出垃圾数据
+    var avgContentLen = allMessages.length > 0
+      ? allMessages.reduce(function (sum, m) { return sum + (m.content || '').length; }, 0) / allMessages.length
+      : 0;
+
+    var formattedChat;
+    if (allMessages.length > 0 && avgContentLen >= 10) {
+      // Parser 结果有效，用格式化版本
+      formattedChat = parser.formatChatForLLM(allMessages, parties);
+    } else {
+      // Parser 失败（可能是 OCR 纯文本），直接用原始文本
+      var rawTextA = (evidenceA.data.length > 0 && evidenceA.data[0].rawText) || '';
+      formattedChat = rawTextA || '（无有效聊天内容）';
+      console.log('Parser 质量差(avgLen=' + avgContentLen.toFixed(1) + '), 使用原始文本, 长度=' + formattedChat.length);
+    }
 
     // 案件背景
     var caseContext = '关系: ' + (caseData.relationship || '未设置') +
