@@ -21,7 +21,6 @@ Page({
 
     // 分享相关
     showSharePanel: false,
-    shareCardData: null,
     shareLoading: false,
 
     // 性格信息
@@ -256,7 +255,6 @@ Page({
   },
 
   onSelectShareTemplate: function (e) {
-    var that = this;
     var template = e.currentTarget.dataset.template || 'verdict';
 
     this.setData({ shareLoading: true });
@@ -266,14 +264,9 @@ Page({
 
       if (res.code === 0 && res.data && res.data.cardData) {
         that.setData({
-          shareCardData: res.data.cardData,
           showSharePanel: false,
         });
-
-        var shareCard = that.selectComponent('#shareCard');
-        if (shareCard) {
-          shareCard.drawCard(res.data.cardData);
-        }
+        wx.showToast({ title: '卡片生成成功', icon: 'success' });
       } else {
         wx.showToast({ title: res.message || '生成卡片失败', icon: 'none' });
       }
