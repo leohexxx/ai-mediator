@@ -155,3 +155,6 @@
 <view class="loading-spinner" wx:if="{{loading}}">
   <text>加载报告中...</text>
 </view>
+
+<!-- 分享卡片 (Canvas 2D 绘制) -->
+<share-card id="shareCard" />
