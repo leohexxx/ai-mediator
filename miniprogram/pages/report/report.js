@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 分析报告页 (v3) — 性格信息展示 + 重新分析
+// 分析报告页 (v4) — 轮询保底 + 实时监听
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -32,12 +32,8 @@ Page({
   },
 
   onLoad: function (options) {
-    // 每次进入报告页都强制刷新——防止导航栈中遗留旧案例数据
-    this._analysisId = null;
-    if (this._progressWatcher) {
-      this._progressWatcher.close();
-      this._progressWatcher = null;
-    }
+    // 清理旧状态
+    this._cleanup();
 
     this.setData({
       caseId: options.caseId || '',
@@ -56,13 +52,11 @@ Page({
     }
 
     this.loadReport();
+    this._startPolling();
   },
 
   onUnload: function () {
-    if (this._progressWatcher) {
-      this._progressWatcher.close();
-      this._progressWatcher = null;
-    }
+    this._cleanup();
   },
 
   onShow: function () {
@@ -73,11 +67,7 @@ Page({
     var newCaseId = options.caseId || '';
 
     if (newCaseId && newCaseId !== this.data.caseId) {
-      // caseId 变了，完全重新加载
-      if (this._progressWatcher) {
-        this._progressWatcher.close();
-        this._progressWatcher = null;
-      }
+      this._cleanup();
       this.setData({
         caseId: newCaseId,
         caseData: null,
@@ -87,7 +77,77 @@ Page({
         loading: true,
       });
       this.loadReport();
+      this._startPolling();
     }
+  },
+
+  /**
+   * 清理所有定时器和监听器
+   */
+  _cleanup: function () {
+    this._analysisId = null;
+    if (this._progressWatcher) {
+      this._progressWatcher.close();
+      this._progressWatcher = null;
+    }
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+  },
+
+  /**
+   * 启动自动轮询（每 3 秒检查一次分析状态，作为 watch 的保底机制）
+   * 注意：_analysisId 可能延迟设置（loadReport 异步加载），首次 tick 若为 null
+   * 直接跳过继续等待下一轮，不可清除定时器。
+   */
+  _startPolling: function () {
+    var that = this;
+    if (this._pollTimer) clearInterval(this._pollTimer);
+    // 轮询最大次数：60 次 * 3s = 180s（云函数 120s timeout + 余量）
+    var maxTicks = 60;
+    var tickCount = 0;
+    this._pollTimer = setInterval(function () {
+      tickCount++;
+      // 超限则停止轮询，释放资源
+      if (tickCount > maxTicks) {
+        clearInterval(that._pollTimer);
+        that._pollTimer = null;
+        return;
+      }
+      // _analysisId 还没设上（loadReport 未完成），跳过本次等下一轮
+      if (!that._analysisId) return;
+      // 分析已完成，停止轮询
+      if (!that._isAnalyzing()) {
+        clearInterval(that._pollTimer);
+        that._pollTimer = null;
+        return;
+      }
+      // 通过 DB 直接查询分析进度
+      var db = wx.cloud.database();
+      db.collection('analyses').doc(that._analysisId).field({ progress: true }).get({
+        success: function (res) {
+          var progress = res.data && res.data.progress;
+          if (progress) {
+            that.setData({ progress: progress, progressStuck: false });
+            if (progress.step === 'done' || progress.step === 'error') {
+              clearInterval(that._pollTimer);
+              that._pollTimer = null;
+              that.loadReport();
+            }
+          }
+        },
+        fail: function () {},
+      });
+    }, 3000);
+  },
+
+  /**
+   * 判断当前是否处于分析中的状态
+   */
+  _isAnalyzing: function () {
+    var progress = this.data.progress;
+    return !progress || (progress.step !== 'done' && progress.step !== 'error');
   },
 
   loadReport: function () {
@@ -119,8 +179,14 @@ Page({
         if (analysis) {
           if (analysis.progress && analysis.progress.step === 'done') {
             that.setData({ analysis: analysis, progress: analysis.progress });
+            // 已完成，停止轮询
+            if (that._pollTimer) {
+              clearInterval(that._pollTimer);
+              that._pollTimer = null;
+            }
           } else if (analysis.progress) {
             that.setData({ analysis: analysis, progress: analysis.progress });
+            that._analysisId = analysis._id;
             that.watchProgress(analysis._id);
           } else {
             that.setData({ analysis: null, progress: null });
@@ -129,6 +195,7 @@ Page({
           (caseData.status === 'analyzing' || caseData.status === 'single_submitted') &&
           caseData.analysisId
         ) {
+          that._analysisId = caseData.analysisId;
           that.watchProgress(caseData.analysisId);
         }
       } else {
@@ -158,6 +225,11 @@ Page({
 
       if (progress.step === 'done' || progress.step === 'error') {
         if (stuckTimer) clearTimeout(stuckTimer);
+        // 清理轮询（已完成）
+        if (that._pollTimer) {
+          clearInterval(that._pollTimer);
+          that._pollTimer = null;
+        }
         that.loadReport();
       }
     });
@@ -173,25 +245,16 @@ Page({
     wx.navigateBack();
   },
 
-  // ===== 分享功能 (v2 新增) =====
+  // ===== 分享功能 =====
 
-  /**
-   * 打开分享面板
-   */
   onOpenShare: function () {
     this.setData({ showSharePanel: true });
   },
 
-  /**
-   * 关闭分享面板
-   */
   onCloseShare: function () {
     this.setData({ showSharePanel: false });
   },
 
-  /**
-   * 选择分享模板并获取卡片数据
-   */
   onSelectShareTemplate: function (e) {
     var that = this;
     var template = e.currentTarget.dataset.template || 'verdict';
@@ -207,7 +270,6 @@ Page({
           showSharePanel: false,
         });
 
-        // 通知 share-card 组件绘制
         var shareCard = that.selectComponent('#shareCard');
         if (shareCard) {
           shareCard.drawCard(res.data.cardData);
@@ -221,9 +283,6 @@ Page({
     });
   },
 
-  /**
-   * 分享到聊天
-   */
   onShareAppMessage: function () {
     var analysis = this.data.analysis;
     var caseData = this.data.caseData;
@@ -247,9 +306,6 @@ Page({
     };
   },
 
-  /**
-   * 分享到朋友圈
-   */
   onShareTimeline: function () {
     return {
       title: '啷个对 — 粘贴聊天记录，看谁更在理',
@@ -258,9 +314,6 @@ Page({
     };
   },
 
-  /**
-   * 手动触发分析
-   */
   onManualAnalyze: function () {
     var that = this;
     wx.showLoading({ title: '正在启动分析...', mask: true });
@@ -279,9 +332,6 @@ Page({
     });
   },
 
-  /**
-   * 分析卡住后重新分析
-   */
   onRetryAnalyze: function () {
     var that = this;
 
@@ -292,7 +342,7 @@ Page({
     this.setData({ progressStuck: false, progress: null });
     wx.showLoading({ title: '正在重新分析...', mask: true });
 
-    analysisService.analyzeCase(this.data.caseId).then(function (res) {
+    analysisService.analyzeCase(this.data.caseId, true).then(function (res) {
       wx.hideLoading();
       if (res.code === 0) {
         that.loadReport();
@@ -307,25 +357,16 @@ Page({
     });
   },
 
-  // ===== 性格信息 (v3 新增) =====
+  // ===== 性格信息 =====
 
-  /**
-   * 打开性格编辑器
-   */
   onEditPersonality: function () {
     this.setData({ showPersonalityEditor: true });
   },
 
-  /**
-   * 关闭性格编辑器
-   */
   onClosePersonalityEditor: function () {
     this.setData({ showPersonalityEditor: false });
   },
 
-  /**
-   * 保存性格信息并重新分析
-   */
   onSavePersonality: function () {
     var that = this;
     var picker = this.selectComponent('#reportPersonalityPicker');
@@ -345,7 +386,7 @@ Page({
           data.personalityA,
           data.personalityB
         ).then(function () {
-          return analysisService.analyzeCase(that.data.caseId);
+          return analysisService.analyzeCase(that.data.caseId, true);
         }).then(function (analysisRes) {
           wx.hideLoading();
           that.setData({ reanalyzing: false });
@@ -363,9 +404,6 @@ Page({
         });
   },
 
-  /**
-   * 格式化性格信息为展示文本
-   */
   _formatPersonalityDisplay: function (p) {
     if (!p) return null;
     var parts = [];

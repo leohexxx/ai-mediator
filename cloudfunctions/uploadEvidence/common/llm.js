@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════
 // LLM API 调用封装（云函数 CommonJS 版本）
 // 使用 Node.js 原生 https 模块，不依赖 fetch
+// v3: 分阶段分析（summarize/core/evidence/strategy），每阶段独立调用、输出受控
 // ═══════════════════════════════════════════════
 
 var https = require('https');
@@ -8,17 +9,61 @@ var analysisPrompt = require('./prompts/analysisPrompt');
 var chatPrompt = require('./prompts/chatPrompt');
 
 var DEFAULT_PROVIDER = 'deepseek';
-var FALLBACK_API_KEY = 'sk-23bd49439b414f57befed541eb8ed185';
+
+// ── 多 Key 池（轮询 + 故障切换）────────────────────
+// 支持 LLM_API_KEYS（逗号分隔）或 LLM_API_KEY/LLM_API_KEY_2..5 单个 env var
+var KEY_POOL = [];
+var KEY_INDEX = 0;
+var KEY_SKIP = {}; // 当前 invocation 中被跳过（401/403/429）的 key
+
+function buildKeyPool() {
+  // 1) 逗号分隔
+  var keysStr = process.env.LLM_API_KEYS;
+  if (keysStr) {
+    KEY_POOL = keysStr.split(',').map(function (k) { return k.trim(); }).filter(function (k) { return k; });
+    if (KEY_POOL.length > 0) return;
+  }
+  // 2) 逐个 env var
+  for (var i = 1; i <= 10; i++) {
+    var name = i === 1 ? 'LLM_API_KEY' : 'LLM_API_KEY_' + i;
+    var k = process.env[name];
+    if (k && k.trim()) KEY_POOL.push(k.trim());
+  }
+  if (KEY_POOL.length === 0) KEY_POOL = ['']; // getConfig 会检查空 key
+  // FIXME: 请在生产环境设置 LLM_API_KEY 环境变量，或在此处填入您自己的 DeepSeek API key
+  if (KEY_POOL.length === 1 && KEY_POOL[0] === '') {
+    var fallback = process.env.FALLBACK_API_KEY;
+    if (fallback && fallback.trim()) {
+      KEY_POOL = [fallback.trim()];
+    }
+  }
+}
+
+function getNextApiKey() {
+  if (KEY_POOL.length === 0) buildKeyPool();
+  // 跳过标记为坏的 key，最多循环一轮
+  for (var tries = 0; tries < KEY_POOL.length; tries++) {
+    var key = KEY_POOL[KEY_INDEX % KEY_POOL.length];
+    KEY_INDEX++;
+    if (!KEY_SKIP[key]) return key;
+  }
+  // 全部被跳过 → 重置并返回第一个
+  KEY_SKIP = {};
+  return KEY_POOL[0];
+}
+
+function markKeyBad(key) {
+  KEY_SKIP[key] = true;
+  console.warn('标记 key 不可用 (***' + (key.slice(-6)) + ')，尝试下一个');
+}
+
+// 单阶段 HTTP 超时：云函数上限 60s，留 10s 余量给回传响应前的 DB 操作
+var STAGE_TIMEOUT_MS = 50000;
 
 function getConfig() {
   var provider = (process.env.LLM_PROVIDER || DEFAULT_PROVIDER);
 
-  var apiKey =
-    process.env.LLM_API_KEY ||
-    process.env.DEEPSEEK_API_KEY ||
-    process.env.ANTHROPIC_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    FALLBACK_API_KEY;
+  var apiKey = getNextApiKey();
 
   var defaultBaseUrl;
   if (provider === 'anthropic') {
@@ -33,7 +78,8 @@ function getConfig() {
   if (provider === 'anthropic') {
     defaultModel = 'claude-sonnet-4-20250514';
   } else if (provider === 'deepseek') {
-    defaultModel = 'deepseek-chat';
+    // V4 Flash：单阶段 ~10s，稳定低于云函数 60s 上限；Pro 单阶段 ~45s 会超时
+    defaultModel = 'deepseek-v4-flash';
   } else {
     defaultModel = 'gpt-4o';
   }
@@ -264,75 +310,21 @@ function httpPostStream(url, headers, bodyStr, timeoutMs, onChunk) {
   });
 }
 
-// ── CoT progress step definitions ────────────────────────────────
+// ── JSON 清洗与解析（多级兜底）────────────────────────
 
-var COT_STEPS = [
-  { step: 'understanding', message: '正在理解对话上下文...', progress: 15 },
-  { step: 'personality', message: '正在分析性格特质...', progress: 30 },
-  { step: 'evidence', message: '正在提取关键证据...', progress: 50 },
-  { step: 'emotion', message: '正在分析情绪变化...', progress: 65 },
-  { step: 'judging', message: '正在综合判断...', progress: 80 },
-  { step: 'strategy', message: '正在制定调解策略...', progress: 92 },
-  { step: 'done', message: '分析完成', progress: 100 },
-];
-
-// ── Public API ───────────────────────────────────────────────────
-
-async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
-  var config = getConfig();
-  if (!config.apiKey) {
-    throw new Error('Missing API key. Set LLM_API_KEY environment variable.');
-  }
-
-  var userPrompt = analysisPrompt.buildAnalysisUserPrompt(formattedChat, parties, caseContext);
-
-  if (onProgress) {
-    onProgress(COT_STEPS[0].step, COT_STEPS[0].progress);
-  }
-
-  var response = await httpPost(
-    buildChatEndpoint(config),
-    buildHeaders(config),
-    buildRequestBody(config, [{ role: 'user', content: userPrompt }], 8192, false),
-    150000
-  );
-
-  if (!response.ok) {
-    var err = await response.text();
-    throw new Error('LLM API error: ' + response.status + ' ' + err);
-  }
-
-  if (onProgress) {
-    onProgress(COT_STEPS[1].step, COT_STEPS[1].progress);
-    onProgress(COT_STEPS[2].step, COT_STEPS[2].progress);
-  }
-
-  var data = await response.json();
-
-  if (onProgress) {
-    onProgress(COT_STEPS[3].step, COT_STEPS[3].progress);
-  }
-
-  var text = extractTextFromResponse(config, data);
-
+function parseJsonResponse(text) {
   var jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Failed to parse JSON from LLM response');
   }
 
-  // 清洗 JSON 中的非法控制字符（LLM 偶尔输出原始换行等）
   var rawJson = jsonMatch[0];
   rawJson = rawJson
     .replace(/[\x00-\x1F\x7F]/g, ' ')       // 移除全部控制字符（含 \n \r \t）
     .replace(/\\(?!["\\/bfnrtu])/g, '\\\\'); // 修复非法转义
 
-  if (onProgress) {
-    onProgress(COT_STEPS[4].step, COT_STEPS[4].progress);
-  }
-
-  var parsed;
   try {
-    parsed = JSON.parse(rawJson);
+    return JSON.parse(rawJson);
   } catch (e1) {
     try {
       var repaired = rawJson
@@ -343,26 +335,141 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
         .replace(/}\s+{/g, '}, {')
         .replace(/(\d)\s+"/g, '$1, "')
         .replace(/"\s+(\d)/g, '", $1');
-      parsed = JSON.parse(repaired);
+      return JSON.parse(repaired);
     } catch (e2) {
-      // 终极兜底：正则提取核心字段，避免因 JSON 格式问题完全失败
-      try {
-        parsed = extractCoreFields(rawJson);
-      } catch (e3) {
-        throw new Error('Failed to parse JSON: ' + e1.message.substring(0, 80));
-      }
+      return extractCoreFields(rawJson);
+    }
+  }
+}
+
+// ── CoT progress step 定义（分阶段版，真实进度）─────────
+var COT_STEPS = [
+  { step: 'understanding', message: '正在理解对话上下文...', progress: 10 },
+  { step: 'summarize', message: '正在压缩长文本...', progress: 18 },
+  { step: 'core', message: '正在分析性格与综合判断...', progress: 40 },
+  { step: 'evidence', message: '正在提取证据与情绪...', progress: 70 },
+  { step: 'strategy', message: '正在制定调解策略...', progress: 90 },
+  { step: 'done', message: '分析完成', progress: 100 },
+];
+
+// ── 单阶段调用 ───────────────────────────────────
+
+/**
+ * 调用单个分析阶段。
+ * @param {string} stage - 'summarize' | 'core' | 'evidence' | 'strategy'
+ * @param {string} chatText - 该阶段使用的聊天文本（可能是原文或摘要）
+ * @param {Array} parties
+ * @param {string} caseContext
+ * @param {string} [priorContext] - 前序阶段结论的 compact JSON 文本
+ * @param {string} [model] - 覆盖该阶段使用的模型（深度模式用 Pro，普通用 Flash）
+ * @returns {Promise<Object|string>} summarize 返回 string，其余返回解析后的对象
+ */
+async function analyzeChatStage(stage, chatText, parties, caseContext, priorContext, model) {
+  var config = getConfig();
+  if (!config.apiKey) {
+    throw new Error('Missing API key. Set LLM_API_KEY environment variable.');
+  }
+  if (model) config.model = model; // 深度模式按阶段覆盖模型
+
+  var userPrompt = analysisPrompt.buildStageUserPrompt(stage, chatText, parties, caseContext, priorContext);
+  var maxTokens = analysisPrompt.getStageMaxTokens(stage);
+
+  var response = await httpPost(
+    buildChatEndpoint(config),
+    buildHeaders(config),
+    buildRequestBody(config, [{ role: 'user', content: userPrompt }], maxTokens, false),
+    STAGE_TIMEOUT_MS
+  );
+
+  if (!response.ok) {
+    var errText = await response.text();
+    // 401/403/429 → 标记该 key 不可用（下次调用自动换 key），其他错误直接抛
+    if (response.status === 401 || response.status === 403 || response.status === 429) {
+      markKeyBad(config.apiKey);
+    }
+    throw new Error('LLM API error (' + stage + '): ' + response.status + ' ' + errText);
+  }
+
+  var data = await response.json();
+  var text = extractTextFromResponse(config, data);
+
+  if (stage === 'summarize') return text.trim() || chatText;
+
+  return parseJsonResponse(text);
+}
+
+/**
+ * 把任意对象压缩成供下一阶段引用的 compact JSON 文本（截断超长字段）。
+ */
+function compactPrior(obj) {
+  try {
+    return JSON.stringify(obj).slice(0, 2500);
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * 合并各阶段产出为最终 v2 schema。
+ */
+function mergeStages(core, evidence, strategy) {
+  var detailed = {
+    summary: (core && core.summary) || '',
+    relationship: (core && core.relationship) || '',
+    characters: (core && core.characters) || [],
+    conflicts: (evidence && evidence.conflicts) || [],
+    timeline: (evidence && evidence.timeline) || [],
+  };
+
+  return {
+    coreConclusion: (core && core.coreConclusion) || {},
+    evidenceWeights: (evidence && evidence.evidenceWeights) || [],
+    emotionCurve: (evidence && evidence.emotionCurve) || [],
+    mediationStrategy: (strategy && strategy.mediationStrategy) || [],
+    detailedAnalysis: detailed,
+    advice: (strategy && strategy.advice) || { toA: [], toB: [], toBoth: [] },
+  };
+}
+
+/**
+ * 完整分析（顺序跑各阶段）。供测试与兼容入口使用。
+ * 云函数实际运行时由 analyzeCase 逐阶段自调用，不会一次跑完。
+ */
+async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
+  var chatText = formattedChat;
+
+  // 长文本先摘要
+  if (formattedChat.length > analysisPrompt.SUMMARIZE_THRESHOLD) {
+    if (onProgress) onProgress(COT_STEPS[1].step, COT_STEPS[1].progress);
+    try {
+      chatText = await analyzeChatStage('summarize', formattedChat, parties, caseContext);
+    } catch (e) {
+      // 摘要失败则退回原文（截断到阈值内保安全）
+      chatText = formattedChat.slice(0, analysisPrompt.SUMMARIZE_THRESHOLD * 2);
     }
   }
 
-  if (onProgress) {
-    onProgress(COT_STEPS[5].step, COT_STEPS[5].progress);
-    onProgress(COT_STEPS[6].step, COT_STEPS[6].progress);
-  }
+  if (onProgress) onProgress(COT_STEPS[0].step, COT_STEPS[0].progress);
 
-  return parsed;
+  // 第一阶段：核心
+  if (onProgress) onProgress(COT_STEPS[2].step, COT_STEPS[2].progress);
+  var core = await analyzeChatStage('core', chatText, parties, caseContext);
+
+  // 第二阶段：证据（携带第一阶段结论）
+  if (onProgress) onProgress(COT_STEPS[3].step, COT_STEPS[3].progress);
+  var evidence = await analyzeChatStage('evidence', chatText, parties, caseContext, compactPrior(core));
+
+  // 第三阶段：策略（携带前两阶段结论）
+  if (onProgress) onProgress(COT_STEPS[4].step, COT_STEPS[4].progress);
+  var strategy = await analyzeChatStage('strategy', chatText, parties, caseContext,
+    compactPrior({ core: core, evidence: { evidenceWeights: evidence.evidenceWeights, emotionCurve: evidence.emotionCurve } }));
+
+  if (onProgress) onProgress(COT_STEPS[5].step, COT_STEPS[5].progress);
+
+  return mergeStages(core, evidence, strategy);
 }
 
-// ── 终极兜底：正则提取核心字段 ──────────────────────────────
+// ── 终极兜底：正则提取核心字段 ──────────────────────
 
 function extractCoreFields(rawText) {
   function getStr(key) {
@@ -379,7 +486,7 @@ function extractCoreFields(rawText) {
     var m = rawText.match(re);
     if (m) {
       var items = m[1].match(/"([^"]*)"/g);
-      if (items) arr = items.map(function(s) { return s.replace(/^"|"$/g, ''); });
+      if (items) arr = items.map(function (s) { return s.replace(/^"|"$/g, ''); });
     }
     return arr;
   }
@@ -397,16 +504,13 @@ function extractCoreFields(rawText) {
     },
     evidenceWeights: [],
     emotionCurve: [],
-    mediationStrategy: getArr('description').map(function(d, i) {
-      return { step: i + 1, title: '', description: d, target: 'both', expectedOutcome: '', difficulty: 'medium' };
-    }),
+    mediationStrategy: [],
     detailedAnalysis: {
       summary: getStr('summary') || '（降级提取）',
       relationship: getStr('relationship') || '',
-      characters: [
-        { name: '甲方', role: 'party_a', personality: getStr('personality') || '' },
-        { name: '乙方', role: 'party_b', personality: '' },
-      ],
+      characters: [],
+      conflicts: [],
+      timeline: [],
     },
     advice: {
       toA: getArr('toA'),
@@ -446,6 +550,10 @@ async function chatWithAnalysis(context, history, newMessage, onChunk) {
 module.exports = {
   getConfig: getConfig,
   analyzeChat: analyzeChat,
+  analyzeChatStage: analyzeChatStage,
+  mergeStages: mergeStages,
+  compactPrior: compactPrior,
   chatWithAnalysis: chatWithAnalysis,
   COT_STEPS: COT_STEPS,
+  STAGE_TIMEOUT_MS: STAGE_TIMEOUT_MS,
 };

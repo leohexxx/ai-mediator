@@ -62,7 +62,7 @@ exports.main = async function (event, context) {
     }
 
     // 初始状态：单人模式直接等待上传，双人模式等待对方加入
-    var initialStatus = mode === 'single' ? 'single_submitted' : 'waiting_party_b';
+    var initialStatus = mode === 'single' ? 'waiting_submission' : 'waiting_party_b';
 
     // 创建案例文档
     var caseData = {

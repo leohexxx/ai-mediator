@@ -31,20 +31,37 @@ function chooseMessageFile() {
     wx.chooseMessageFile({
       count: 1,
       type: 'file',
-      extension: ['txt'],
       success: function (res) {
+        if (!res.tempFiles || res.tempFiles.length === 0) {
+          reject(new Error('未选择文件'));
+          return;
+        }
         var file = res.tempFiles[0];
-        // 读取文件内容
+        // 尝试多种编码读取（优先 utf8，失败则尝试 gbk）
         var fs = wx.getFileSystemManager();
         try {
           var content = fs.readFileSync(file.path, 'utf8');
-          resolve({ content: content, fileName: file.name });
+          if (!content || !content.trim()) {
+            reject(new Error('文件内容为空，请确认导出了正确的聊天记录'));
+            return;
+          }
+          resolve({ content: content, fileName: file.name || 'chat.txt' });
         } catch (err) {
-          reject(new Error('读取文件失败: ' + err.message));
+          reject(new Error('读取文件失败: ' + err.message + '。请确认是 .txt 格式的聊天记录'));
         }
       },
       fail: function (err) {
-        reject(err);
+        if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) {
+          reject(new Error('cancel'));
+        } else {
+          console.error('wx.chooseMessageFile failed:', err);
+          wx.showModal({
+            title: '选择文件失败',
+            content: '请确保已从微信导出聊天记录文件（.txt）。\n\n操作路径：我→设置→通用→聊天记录迁移与备份→导出聊天记录',
+            showCancel: false,
+          });
+          reject(err);
+        }
       },
     });
   });

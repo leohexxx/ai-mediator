@@ -16,7 +16,7 @@
     },
     {
       "name": "analyzeCase",
-      "timeout": 60,
+      "timeout": 120,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
     },
@@ -28,13 +28,49 @@
     },
     {
       "name": "chatWithAnalysis",
-      "timeout": 30,
+      "timeout": 60,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
     },
     {
       "name": "updatePersonality",
       "timeout": 10,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "createCase",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "getCaseDetail",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "getCaseList",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "joinCase",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "generateQRCode",
+      "timeout": 15,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
+      "name": "shareCard",
+      "timeout": 15,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
     }

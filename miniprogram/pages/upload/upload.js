@@ -29,6 +29,8 @@ Page({
     // 性格弹窗
     showPersonalityModal: false,
     personalitySubmitted: false,
+    // 深度模式（Pro 模型，更深入但更慢）
+    deepMode: false,
   },
 
   onLoad: function (options) {
@@ -51,7 +53,7 @@ Page({
       });
       wx.showToast({ title: '已读取 ' + result.fileName, icon: 'success' });
     }).catch(function (err) {
-      if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+      if (err.message === 'cancel' || (err.errMsg && err.errMsg.indexOf('cancel') !== -1)) return;
       wx.showToast({ title: '选择文件失败', icon: 'none' });
     });
   },
@@ -143,6 +145,11 @@ Page({
         var fileSizeMB = (videoFile.size / 1024 / 1024).toFixed(1);
         var duration = Math.floor(videoFile.duration || 0);
 
+        if (duration <= 0) {
+          wx.showToast({ title: '无法读取视频时长，请重试', icon: 'none' });
+          return;
+        }
+
         that.setData({
           uploadMode: 'video',
           videoPath: videoPath,
@@ -158,12 +165,20 @@ Page({
         // 同时开始抽帧 OCR
         that._extractAndOcrVideoFrames(videoPath, duration, uploadPromise);
       },
+      fail: function (err) {
+        if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+        wx.showModal({
+          title: '视频选择失败',
+          content: '请确认视频格式正确。支持常见视频格式（mp4、mov 等），建议录制竖屏聊天录屏。',
+          showCancel: false,
+        });
+      },
     });
   },
 
   /**
    * 从视频中提取关键帧并 OCR 识别聊天文字
-   * 固定间隔抽帧：短视频每 2s、中视频每 3s、长视频每 5s，最多 20 帧
+   * 固定间隔抽帧：短视频每 2s、中视频每 3s、长视频每 5s，最多 12 帧
    */
   _extractAndOcrVideoFrames: function (videoPath, duration, uploadPromise) {
     var that = this;
@@ -174,7 +189,7 @@ Page({
     else if (duration <= 180) interval = 3;  // 1-3min: 每3s
     else interval = 5;                        // >3min: 每5s
 
-    var maxFrames = 20;
+    var maxFrames = 12;
     var rawCount = Math.floor(duration / interval);
     var totalFrames = Math.min(rawCount, maxFrames);
     var frameTimes = [];
@@ -247,7 +262,7 @@ Page({
         return;
       }
       try {
-        decoder.seek({ position: frameTimes[frameIndex] / 1000 });
+        decoder.seek({ position: frameTimes[frameIndex] });
       } catch (e) {
         frameIndex++;
         processNextFrame();
@@ -265,7 +280,8 @@ Page({
   },
 
   /**
-   * 批量 OCR 已抽取的视频帧（并行加速）
+   * 批量 OCR 已抽取的视频帧（并发控制，最多 3 个同时进行）
+   * 避免同时发起过多 OCR 请求导致云函数排队/OCR.space 速率限制
    */
   _ocrFrameBatch: function (frameBase64List, frameTimes, fileIds) {
     var that = this;
@@ -279,35 +295,44 @@ Page({
 
     wx.showLoading({ title: '识别中 0/' + frameBase64List.length, mask: true });
 
-    // 全部帧并行 OCR
-    var promises = frameBase64List.map(function (item, index) {
-      return evidenceService.ocrImageBase64(item.base64).then(function (ocrResult) {
+    var results = new Array(frameBase64List.length);
+    var doneCount = 0;
+    var nextIndex = 0;
+    var MAX_CONCURRENT = 3;
+
+    function processNext() {
+      if (nextIndex >= frameBase64List.length) return;
+      var index = nextIndex++;
+      var item = frameBase64List[index];
+
+      evidenceService.ocrImageBase64(item.base64).then(function (ocrResult) {
         if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
           var text = ocrResult.data.text.trim();
           if (text) {
             var sec = frameTimes[item.timeIndex];
             var m = Math.floor(sec / 60);
             var s = sec % 60;
-            return '[视频 ' + m + ':' + (s < 10 ? '0' : '') + s + ']\n' + text;
+            results[index] = '[视频 ' + m + ':' + (s < 10 ? '0' : '') + s + ']\n' + text;
           }
         }
-        return null;
-      }).catch(function () { return null; });
-    });
-
-    var doneCount = 0;
-    promises.forEach(function (p) {
-      p.then(function () {
+      }).catch(function () { /* 单帧失败跳过 */ })
+      .finally(function () {
         doneCount++;
         wx.showLoading({ title: '识别中 ' + doneCount + '/' + frameBase64List.length, mask: true });
+        if (doneCount >= frameBase64List.length) {
+          wx.hideLoading();
+          var frameTexts = results.filter(function (r) { return r !== null; });
+          that._videoComplete(fileIds, frameTexts, totalStart);
+        } else {
+          processNext();
+        }
       });
-    });
+    }
 
-    Promise.all(promises).then(function (results) {
-      wx.hideLoading();
-      var frameTexts = results.filter(function (r) { return r !== null; });
-      that._videoComplete(fileIds, frameTexts, totalStart);
-    });
+    // 启动并发池，最多 MAX_CONCURRENT 个同时执行
+    for (var i = 0; i < Math.min(MAX_CONCURRENT, frameBase64List.length); i++) {
+      processNext();
+    }
   },
 
   /**
@@ -317,7 +342,7 @@ Page({
     var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     var combinedText = frameTexts.join('\n\n');
     if (!combinedText.trim()) {
-      combinedText = '[视频抽帧未识别到文字。建议截取聊天截图上传，或直接粘贴文本。]';
+      combinedText = '[视频抽帧全部失败。请尝试：1) 截取聊天截图上传；2) 直接粘贴聊天文本。]';
     }
 
     this.setData({
@@ -492,14 +517,22 @@ Page({
   },
 
   /**
+   * 切换深度模式
+   */
+  onToggleDeepMode: function () {
+    this.setData({ deepMode: !this.data.deepMode });
+  },
+
+  /**
    * 开始分析（后台异步），跳转到首页等待推送通知
    */
   _startAnalysis: function () {
     var that = this;
+    var deep = this.data.deepMode;
     this.setData({ showPersonalityModal: false });
 
     // 触发分析（不等待结果，云函数后台跑完会发订阅消息推送）
-    analysisService.analyzeCase(this.data.caseId).then(function (analysisRes) {
+    analysisService.analyzeCase(this.data.caseId, false, deep).then(function (analysisRes) {
       if (analysisRes.code === 0) {
         console.log('分析已启动, analysisId:', analysisRes.data && analysisRes.data.analysisId);
       } else {

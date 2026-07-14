@@ -7,10 +7,15 @@ var cloudUtil = require('../utils/cloud');
 /**
  * 触发案例分析
  * @param {string} caseId
+ * @param {boolean} [force=false] - 强制重新分析（用于卡死恢复/重新分析，绕过 analyzing 拦截）
+ * @param {boolean} [deep=false] - 深度模式（Pro 加强判断/建议，耗时更长）
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
-function analyzeCase(caseId) {
-  return cloudUtil.callFunction('analyzeCase', { caseId: caseId });
+function analyzeCase(caseId, force, deep) {
+  var data = { caseId: caseId };
+  if (force) data.force = true;
+  if (deep) data.deep = true;
+  return cloudUtil.callFunction('analyzeCase', data);
 }
 
 /**

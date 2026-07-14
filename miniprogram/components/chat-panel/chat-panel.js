@@ -1,5 +1,13 @@
 // ═══════════════════════════════════════════════
 // chat-panel 组件 — 聊天追问面板（微信气泡风格 + 流式渲染）
+//
+// 流水线设计（解决云函数容器回收问题）：
+//   1. 客户端预生成 sessionId
+//   2. 客户端在 DB 中创建 session 文档
+//   3. 客户端 watch session 文档（实时监听流）
+//   4. 客户端调用云函数（传 sessionId）
+//   5. 云函数 await LLM 调用（不 setTimeout，不走 fire-and-forget）
+//   6. LLM 流式写入 DB → watch 实时推送到 UI
 // ═══════════════════════════════════════════════
 
 var chatService = require('../../services/chat');
@@ -50,6 +58,8 @@ Component({
       var text = this.data.inputText.trim();
       if (!text || this.data.streaming) return;
 
+      var that = this;
+
       // 添加用户消息
       var messages = this.data.messages.concat([{
         role: 'user',
@@ -66,21 +76,26 @@ Component({
 
       this.scrollToBottom();
 
-      var that = this;
+      // 1. 预生成 sessionId（时间戳 + 随机串，确保唯一）
+      var tempSessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
 
-      // 调用云函数
-      chatService.sendMessage({
-        caseId: this.data.caseId,
-        message: text,
-        sessionId: this.data.sessionId,
-      }).then(function (res) {
-        if (res.code === 0 && res.data) {
-          var sessionId = res.data.sessionId;
-          that.setData({ sessionId: sessionId, streamingText: '' });
-
-          // 监听流式消息
+      // 2. 在 DB 中创建 session 文档（自定义 _id），设 status=streaming
+      var db = wx.cloud.database();
+      db.collection('messages').add({
+        data: {
+          _id: tempSessionId,
+          caseId: that.data.caseId,
+          chunks: [],
+          status: 'streaming',
+          fullText: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        success: function () {
+          // 3. 开始 watch session（实时接收 LLM 流式输出）
+          that.data.sessionId = tempSessionId;
           that._msgWatcher = chatService.watchMessages(
-            sessionId,
+            tempSessionId,
             function (chunks) {
               // 拼接所有 chunks 的 text
               var fullText = '';
@@ -136,14 +151,30 @@ Component({
               }
             }
           );
-        } else {
-          wx.showToast({ title: res.message || '发送失败', icon: 'none' });
+
+          // 4. 调用云函数（传预生成的 sessionId，云函数 await LLM）
+          chatService.sendMessage({
+            caseId: that.data.caseId,
+            message: text,
+            sessionId: tempSessionId,
+          }).then(function (res) {
+            // 云函数返回，流已完成，但 watch 的 onDone 已经处理完毕
+            if (res.code === 0) {
+              that.setData({ sessionId: tempSessionId });
+            } else {
+              console.warn('追问云函数返回异常:', res.message);
+            }
+          }).catch(function (err) {
+            // callFunction 可能超时（云函数 await LLM 需要较长时间）
+            // 但 watch 已经接收到所有流式数据，UI 已更新完成
+            console.warn('追问云函数调用异常（可能超时但流已完成）:', err);
+          });
+        },
+        fail: function (err) {
+          console.error('创建会话失败:', err);
           that.setData({ streaming: false, streamingText: '' });
-        }
-      }).catch(function (err) {
-        console.error('发送追问失败:', err);
-        that.setData({ streaming: false, streamingText: '' });
-        wx.showToast({ title: '网络错误，请重试', icon: 'none' });
+          wx.showToast({ title: '创建会话失败，请重试', icon: 'none' });
+        },
       });
     },
 

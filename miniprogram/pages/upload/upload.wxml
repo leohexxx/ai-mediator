@@ -10,8 +10,8 @@
     <!-- 方式一：选择聊天记录 -->
     <view class="upload-card {{uploadMode === 'choose_file' ? 'active' : ''}}" bindtap="onChooseMessageFile">
       <view class="upload-icon">📱</view>
-      <view class="upload-title">选择聊天记录</view>
-      <view class="upload-desc">从微信聊天中导出文本</view>
+      <view class="upload-title">选择聊天记录文件</view>
+      <view class="upload-desc">在微信「我→设置→通用→聊天记录迁移与备份→导出聊天记录」导出为 .txt 文件后，在此选择</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">
         ✓ {{selectedFileName}}
       </view>
@@ -116,6 +116,15 @@
         hint-text="填写后分析会结合性格维度（可选）"
       />
     </scroll-view>
+
+    <!-- 深度模式开关 -->
+    <view class="deep-mode-row" bindtap="onToggleDeepMode">
+      <view class="deep-mode-info">
+        <view class="deep-mode-title">深度模式</view>
+        <view class="deep-mode-desc">使用 Pro 模型，判断与建议更深入，但耗时约 2-3 分钟</view>
+      </view>
+      <switch checked="{{deepMode}}" bindchange="onToggleDeepMode" color="#FF6B35" />
+    </view>
 
     <view class="modal-actions">
       <button class="btn-skip" bindtap="onPersonalitySkip">跳过</button>
