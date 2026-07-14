@@ -334,19 +334,23 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
   try {
     parsed = JSON.parse(rawJson);
   } catch (e1) {
-    // 常见修复：移除尾逗号、修复未闭合字符串
     try {
       var repaired = rawJson
-        .replace(/,(\s*[}\]])/g, '$1')          // 移除尾逗号
-        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3') // 为未加引号的 key 加引号
-        .replace(/"\s+"/g, '", "')               // 相邻字符串间补逗号
-        .replace(/]\s+\[/g, '], [')               // 相邻数组间补逗号
-        .replace(/}\s+{/g, '}, {')                // 相邻对象间补逗号
-        .replace(/(\d)\s+"/g, '$1, "')            // 数字后接字符串补逗号
-        .replace(/"\s+(\d)/g, '", $1');           // 字符串后接数字补逗号
+        .replace(/,(\s*[}\]])/g, '$1')
+        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3')
+        .replace(/"\s+"/g, '", "')
+        .replace(/]\s+\[/g, '], [')
+        .replace(/}\s+{/g, '}, {')
+        .replace(/(\d)\s+"/g, '$1, "')
+        .replace(/"\s+(\d)/g, '", $1');
       parsed = JSON.parse(repaired);
     } catch (e2) {
-      throw new Error('Failed to parse JSON: ' + e1.message.substring(0, 80));
+      // 终极兜底：正则提取核心字段，避免因 JSON 格式问题完全失败
+      try {
+        parsed = extractCoreFields(rawJson);
+      } catch (e3) {
+        throw new Error('Failed to parse JSON: ' + e1.message.substring(0, 80));
+      }
     }
   }
 
@@ -356,6 +360,60 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
   }
 
   return parsed;
+}
+
+// ── 终极兜底：正则提取核心字段 ──────────────────────────────
+
+function extractCoreFields(rawText) {
+  function getStr(key) {
+    var m = rawText.match(new RegExp('"' + key + '"\\s*:\\s*"([^"]*)"'));
+    return m ? m[1] : '';
+  }
+  function getNum(key) {
+    var m = rawText.match(new RegExp('"' + key + '"\\s*:\\s*(\\d+)'));
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  function getArr(key) {
+    var arr = [];
+    var re = new RegExp('"' + key + '"\\s*:\\s*\\[([\\s\\S]*?)\\]', 'm');
+    var m = rawText.match(re);
+    if (m) {
+      var items = m[1].match(/"([^"]*)"/g);
+      if (items) arr = items.map(function(s) { return s.replace(/^"|"$/g, ''); });
+    }
+    return arr;
+  }
+
+  return {
+    coreConclusion: {
+      overallWinner: getStr('overallWinner') || 'tie',
+      scoreA: getNum('scoreA') || 50,
+      scoreB: getNum('scoreB') || 50,
+      oneLineVerdict: getStr('oneLineVerdict') || '（JSON解析异常，已降级提取核心字段）',
+      keyReasons: getArr('keyReasons'),
+      recommendedAction: getStr('recommendedAction') || '',
+      confidence: getNum('confidence') || 60,
+      confidenceReasons: getArr('confidenceReasons'),
+    },
+    evidenceWeights: [],
+    emotionCurve: [],
+    mediationStrategy: getArr('description').map(function(d, i) {
+      return { step: i + 1, title: '', description: d, target: 'both', expectedOutcome: '', difficulty: 'medium' };
+    }),
+    detailedAnalysis: {
+      summary: getStr('summary') || '（降级提取）',
+      relationship: getStr('relationship') || '',
+      characters: [
+        { name: '甲方', role: 'party_a', personality: getStr('personality') || '' },
+        { name: '乙方', role: 'party_b', personality: '' },
+      ],
+    },
+    advice: {
+      toA: getArr('toA'),
+      toB: getArr('toB'),
+      toBoth: getArr('toBoth'),
+    },
+  };
 }
 
 async function chatWithAnalysis(context, history, newMessage, onChunk) {

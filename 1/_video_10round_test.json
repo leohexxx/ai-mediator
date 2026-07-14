@@ -1,0 +1,137 @@
+{
+  "video": {
+    "ok": true,
+    "size": "2.6MB"
+  },
+  "simulatedFrames": 20,
+  "totalOcrChars": 5675,
+  "simulatedChars": 5660,
+  "results": [
+    {
+      "round": 1,
+      "label": "INFJ巨蟹/ISTP摩羯",
+      "elapsed": "66.4",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "双方均无绝对对错，争议源于INFJ巨蟹（高情感需求、焦虑型依恋）与ISTP摩羯（",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 75
+    },
+    {
+      "round": 2,
+      "label": "ENFP双子/INTJ处女",
+      "elapsed": "56.4",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "双方均有理，核心分歧在于情感表达与独立空间的平衡，甲方（ENFP/双子）需求更高",
+      "scoreA": 55,
+      "scoreB": 45,
+      "confidence": 78
+    },
+    {
+      "round": 3,
+      "label": "ISFJ金牛/ENTP射手",
+      "elapsed": "75.4",
+      "passCount": 5,
+      "totalChecks": 7,
+      "allPassed": false,
+      "verdict": "双方均是真诚沟通的有爱伴侣，冲突源于性格差异（ISFJ金牛的高安全感需求 vs ",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 85
+    },
+    {
+      "round": 4,
+      "label": "ENTJ天蝎/ISFP天秤",
+      "elapsed": "76.0",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "双方的核心分歧在于情感需求模式与沟通方式的本质差异，不存在绝对的对错，而是性格特",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 80
+    },
+    {
+      "round": 5,
+      "label": "INTP水瓶/ESFJ巨蟹",
+      "elapsed": "49.3",
+      "passCount": 5,
+      "totalChecks": 7,
+      "allPassed": false,
+      "verdict": "双方均未明显占理——争议源于性格差异(INTP水瓶 vs ESFJ巨蟹)导致的沟",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 75
+    },
+    {
+      "round": 6,
+      "label": "ESTJ狮子/INFP双鱼",
+      "elapsed": "40.0",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "甲方（ESTJ/狮子座）在结构性需求分歧上更占理，但乙方（INFP/双鱼座）的情",
+      "scoreA": 65,
+      "scoreB": 35,
+      "confidence": 80
+    },
+    {
+      "round": 7,
+      "label": "ISTJ摩羯/ENFJ狮子",
+      "elapsed": "56.1",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "双方在恋爱观念上存在本质差异，但都表达了愿意磨合和理解的积极态度，没有明显的一方",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 70
+    },
+    {
+      "round": 8,
+      "label": "ESTP白羊/INFJ处女",
+      "elapsed": "51.1",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "甲方（INFJ处女）在自我认知和需求表达上更清晰、更主动，但过度理性化的沟通方式",
+      "scoreA": 55,
+      "scoreB": 45,
+      "confidence": 82
+    },
+    {
+      "round": 9,
+      "label": "ESFP射手/INTJ天蝎",
+      "elapsed": "69.2",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "甲方（ESFP/射手）在情绪表达和关系修复意愿上更主动、更清晰，但过度情绪化导致",
+      "scoreA": 65,
+      "scoreB": 35,
+      "confidence": 78
+    },
+    {
+      "round": 10,
+      "label": "INFP双鱼/ESTJ金牛",
+      "elapsed": "51.9",
+      "passCount": 7,
+      "totalChecks": 7,
+      "allPassed": true,
+      "verdict": "甲方（INFP双鱼）在需求表达和关系反思上更主动、更清晰，且愿意从自身出发提出建",
+      "scoreA": 60,
+      "scoreB": 40,
+      "confidence": 75
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "total": 10,
+    "totalTime": "592s",
+    "avgTime": "74.0s"
+  }
+}
