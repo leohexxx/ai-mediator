@@ -19,6 +19,9 @@ Page({
 
     // 隐私同意弹窗
     showPrivacyModal: false,
+
+    // 评理模式: 'single' | 'dual'
+    mode: 'single',
   },
 
   onLoad: function () {
@@ -150,13 +153,33 @@ Page({
   },
 
   /**
-   * 一键开始分析 (v2 核心 CTA)
-   * 自动创建单人模式案例 → 直接跳转上传页
+   * 切换评理模式
+   */
+  onSwitchMode: function (e) {
+    var newMode = e.currentTarget.dataset.mode;
+    if (newMode === this.data.mode) return;
+    this.setData({ mode: newMode });
+  },
+
+  /**
+   * 一键开始分析
+   * 单人模式: 直接创建案例 → 跳转上传页
+   * 双人模式: 跳转创建案例页（设置邀请码等）
    */
   onStartAnalyze: function () {
     var that = this;
 
     if (this.data.creating) return;
+
+    // 双人模式 → 跳转创建案例页
+    if (this.data.mode === 'dual') {
+      wx.navigateTo({
+        url: '/pages/create-case/create-case',
+      });
+      return;
+    }
+
+    // 单人模式 → 直接创建
     this.setData({ creating: true });
 
     wx.showLoading({ title: '创建案例中...', mask: true });

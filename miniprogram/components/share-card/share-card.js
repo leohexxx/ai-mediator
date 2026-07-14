@@ -92,7 +92,7 @@ Component({
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 18px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('AI 调解员仲裁结果', w / 2, 40);
+      ctx.fillText('啷个对仲裁结果', w / 2, 40);
 
       // 分数对比条
       var barY = 70;
@@ -163,7 +163,7 @@ Component({
       // 底部品牌
       ctx.fillStyle = '#4b5563';
       ctx.font = '11px sans-serif';
-      ctx.fillText('AI 调解员', w / 2, h - 20);
+      ctx.fillText('啷个对', w / 2, h - 20);
 
       // 小程序码占位区
       ctx.strokeStyle = '#374151';
