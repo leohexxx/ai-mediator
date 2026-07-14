@@ -163,41 +163,43 @@ Page({
 
   /**
    * 从视频中提取关键帧并 OCR 识别聊天文字
-   * @param {string} videoPath 本地视频路径
-   * @param {number} duration 视频时长（秒）
-   * @param {Promise} uploadPromise 视频上传 Promise
+   * 固定间隔抽帧：短视频每 2s、中视频每 3s、长视频每 5s，最多 20 帧
    */
   _extractAndOcrVideoFrames: function (videoPath, duration, uploadPromise) {
     var that = this;
 
-    // 均匀采样 2 帧（头尾各一，速度优先）
-    var totalFrames = Math.min(2, duration);
+    // 固定间隔策略（覆盖整段视频）
+    var interval;
+    if (duration <= 60) interval = 2;        // ≤1min: 每2s
+    else if (duration <= 180) interval = 3;  // 1-3min: 每3s
+    else interval = 5;                        // >3min: 每5s
+
+    var maxFrames = 20;
+    var rawCount = Math.floor(duration / interval);
+    var totalFrames = Math.min(rawCount, maxFrames);
     var frameTimes = [];
-    if (totalFrames === 2) {
-      frameTimes = [Math.round(duration * 0.3), Math.round(duration * 0.7)];
-    } else {
-      frameTimes = [Math.round(duration * 0.5)];
+    for (var i = 0; i < totalFrames; i++) {
+      frameTimes.push(Math.round((i + 0.5) * interval)); // 取每段中间
     }
 
     var frameBase64List = [];
     var fileIds = [];
     var frameIndex = 0;
 
-    // 视频上传放到后台，不阻塞
+    // 视频上传放到后台
     uploadPromise.then(function (fid) { fileIds.push(fid); }).catch(function () {});
 
-    // ═══ 阶段 1: 快速抽帧 ═══
+    // ═══ 阶段 1: 按期抽帧 ═══
     var decoder = wx.createVideoDecoder();
 
     decoder.on('start', function () {
-      wx.showLoading({ title: '抽帧中 0/' + totalFrames, mask: true });
+      wx.showLoading({ title: '正在扫描视频 0/' + totalFrames, mask: true });
       processNextFrame();
     });
 
     decoder.on('stop', function () {
       decoder.remove();
-      wx.showLoading({ title: '抽帧完成，开始识别...', mask: true });
-      // ═══ 阶段 2: 批量 OCR ═══
+      wx.showLoading({ title: '抽帧完成 ' + frameBase64List.length + ' 帧，开始识别...', mask: true });
       that._ocrFrameBatch(frameBase64List, frameTimes, fileIds);
     });
 
@@ -212,19 +214,32 @@ Page({
             .catch(function () {})
             .finally(function () {
               frameIndex++;
-              wx.showLoading({ title: '抽帧中 ' + frameIndex + '/' + totalFrames, mask: true });
+              updateProgress();
               processNextFrame();
             });
         } else {
           frameIndex++;
-          wx.showLoading({ title: '抽帧中 ' + frameIndex + '/' + totalFrames, mask: true });
+          updateProgress();
           processNextFrame();
         }
       } catch (e) {
         frameIndex++;
+        updateProgress();
         processNextFrame();
       }
     });
+
+    function updateProgress() {
+      if (frameIndex < totalFrames) {
+        var sec = frameTimes[Math.min(frameIndex, totalFrames - 1)];
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        wx.showLoading({
+          title: '正在扫描 ' + m + ':' + (s < 10 ? '0' : '') + s + '  ' + frameIndex + '/' + totalFrames,
+          mask: true,
+        });
+      }
+    }
 
     function processNextFrame() {
       if (frameIndex >= totalFrames) {
@@ -239,7 +254,7 @@ Page({
       }
     }
 
-    // 启动解码器（旧版基础库可能不支持，降级为纯上传）
+    // 启动解码器
     try {
       decoder.source = videoPath;
       decoder.start();

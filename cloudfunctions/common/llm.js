@@ -320,11 +320,35 @@ async function analyzeChat(formattedChat, parties, caseContext, onProgress) {
     throw new Error('Failed to parse JSON from LLM response');
   }
 
+  // 清洗 JSON 中的非法控制字符（LLM 偶尔输出原始换行等）
+  var rawJson = jsonMatch[0];
+  rawJson = rawJson
+    .replace(/[\x00-\x1F\x7F]/g, ' ')       // 移除全部控制字符（含 \n \r \t）
+    .replace(/\\(?!["\\/bfnrtu])/g, '\\\\'); // 修复非法转义
+
   if (onProgress) {
     onProgress(COT_STEPS[4].step, COT_STEPS[4].progress);
   }
 
-  var parsed = JSON.parse(jsonMatch[0]);
+  var parsed;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch (e1) {
+    // 常见修复：移除尾逗号、修复未闭合字符串
+    try {
+      var repaired = rawJson
+        .replace(/,(\s*[}\]])/g, '$1')          // 移除尾逗号
+        .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3') // 为未加引号的 key 加引号
+        .replace(/"\s+"/g, '", "')               // 相邻字符串间补逗号
+        .replace(/]\s+\[/g, '], [')               // 相邻数组间补逗号
+        .replace(/}\s+{/g, '}, {')                // 相邻对象间补逗号
+        .replace(/(\d)\s+"/g, '$1, "')            // 数字后接字符串补逗号
+        .replace(/"\s+(\d)/g, '", $1');           // 字符串后接数字补逗号
+      parsed = JSON.parse(repaired);
+    } catch (e2) {
+      throw new Error('Failed to parse JSON: ' + e1.message.substring(0, 80));
+    }
+  }
 
   if (onProgress) {
     onProgress(COT_STEPS[5].step, COT_STEPS[5].progress);

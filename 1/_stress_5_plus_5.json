@@ -1,0 +1,188 @@
+{
+  "results": [
+    {
+      "round": "A",
+      "type": "截图",
+      "elapsed": "34.0",
+      "verdict": "甲方（INFJ/巨蟹座）在沟通中更主动表达需求、反思关系并推动解决方案，而乙方（ISTP/摩羯座）虽理性但回避核心情感确认，导致对话走向略显被动",
+      "scoreA": 65,
+      "scoreB": 35,
+      "confidence": 72,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "B",
+      "type": "截图",
+      "elapsed": "57.2",
+      "verdict": "双方本质上是性格差异（ENFP双子 vs INTJ处女）导致的沟通模式与需求错位，不存在绝对谁对谁错，但甲方主动提出解决方案、乙方能理性反思，双方都有诚意。",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 85,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "C",
+      "type": "截图",
+      "elapsed": "53.2",
+      "verdict": "双方在恋爱观念上存在本质差异，但没有明确的过错方；甲方（ISFJ/金牛）需要情感安全感和细节回应，乙方（ENTP/射手）需要轻松独立的空间，冲突源于性格和需求的不匹配而非单方错误",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "D",
+      "type": "截图",
+      "elapsed": "54.6",
+      "verdict": "甲方（ENTJ/天蝎）在主动提出需求、设计解决方案和寻求共识方面更积极且理性，乙方（ISFP/天秤）虽然态度温和但存在回避核心问题、回应模糊的倾向，因此甲方略占理。",
+      "scoreA": 60,
+      "scoreB": 40,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "E",
+      "type": "截图",
+      "elapsed": "51.1",
+      "verdict": "双方在恋爱观念和需求上有根本差异，但都表现出愿意沟通和磨合的诚意，无绝对对错，属平局。",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 82,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "A",
+      "type": "视频模拟",
+      "elapsed": "36.3",
+      "verdict": "双方在恋爱观念上存在深刻差异，但甲方（INFJ/巨蟹）更主动提出建设性沟通方案，乙方（ISTP/摩羯）更注重实际与个人边界，本质无对错，需相互理解与妥协",
+      "scoreA": 55,
+      "scoreB": 45,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "B",
+      "type": "视频模拟",
+      "elapsed": "46.4",
+      "verdict": "甲方（ENFP/双子）在主动提出可执行的解决方案和情感表达上更有建设性，乙方（INTJ/处女）虽理性反思但回避核心情感需求，导致沟通失衡",
+      "scoreA": 65,
+      "scoreB": 35,
+      "confidence": 72,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "C",
+      "type": "视频模拟",
+      "elapsed": "40.1",
+      "verdict": "甲方（ISFJ/金牛座）在沟通中更主动提出具体可执行的解决方案并表达情感需求，而乙方（ENTP/射手座）更多停留在理念争辩和回避情绪问题，甲方在问题解决和关系维护意识上更有理",
+      "scoreA": 60,
+      "scoreB": 40,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "D",
+      "type": "视频模拟",
+      "elapsed": "47.2",
+      "verdict": "甲方（ENTJ/天蝎座）在沟通中展现了更清晰的问题诊断和主动寻求解决方案的意识，乙方（ISFP/天秤座）虽表达真诚但偏重回避核心矛盾与防御性表述，故甲方较有理。",
+      "scoreA": 65,
+      "scoreB": 35,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    },
+    {
+      "round": "E",
+      "type": "视频模拟",
+      "elapsed": "44.4",
+      "verdict": "双方并非对错之争，而是INTP水瓶座的理性隔离需求与ESFJ巨蟹座的情感融合需求在沟通中产生了严重的结构性错位，导致彼此都感到不被理解。",
+      "scoreA": 50,
+      "scoreB": 50,
+      "confidence": 80,
+      "passes": {
+        "cc": true,
+        "verdict": true,
+        "evidence": true,
+        "strategy": true,
+        "advice": true,
+        "characters": true
+      }
+    }
+  ],
+  "summary": {
+    "total": "465s",
+    "avg": "46.4s",
+    "passed": true,
+    "videoFile": {
+      "ok": true,
+      "size": "2.6MB"
+    },
+    "ocrApi": {
+      "ok": true,
+      "time": "2.4s",
+      "chars": 145
+    }
+  }
+}
