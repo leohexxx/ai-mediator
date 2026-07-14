@@ -22,6 +22,8 @@ Page({
     ocrProgress: { current: 0, total: 0 },
     ocrProcessing: false,
     uploadedFileIds: [],
+    // 累计图片（支持分批追加）
+    allTempFilePaths: [],
     // 视频
     videoPath: '',
     videoContext: null,
@@ -64,61 +66,107 @@ Page({
     evidenceService.chooseMedia(9).then(function (result) {
       var imageCount = result.tempFilePaths.length;
 
-      // 先显示选中状态
+      // 累加所有图片路径
+      var allPaths = (that.data.allTempFilePaths || []).concat(result.tempFilePaths);
       that.setData({
-        uploadMode: 'album',
-        selectedImageCount: imageCount,
-        chatText: '',
-        showGuide: false,
-        ocrProcessing: true,
-        ocrProgress: { current: 0, total: imageCount },
+        allTempFilePaths: allPaths,
       });
 
-      wx.showLoading({ title: '上传并识别中...', mask: true });
-
-      // 上传图片 + OCR 识别
-      evidenceService.uploadImagesAndOCR(
-        result.tempFilePaths,
-        that.data.caseId,
-        function (current, total) {
-          // 更新进度
-          that.setData({
-            ocrProgress: { current: current, total: total },
-          });
-          wx.showLoading({
-            title: '识别中 ' + current + '/' + total + '...',
-            mask: true,
-          });
-        }
-      ).then(function (ocrResult) {
-        wx.hideLoading();
-
-        var extractedText = ocrResult.text || '';
-        that.setData({
-          ocrProcessing: false,
-          ocrProgress: { current: imageCount, total: imageCount },
-          chatText: extractedText,
-          uploadedFileIds: ocrResult.fileIds,
-        });
-
-        if (extractedText.trim()) {
-          wx.showToast({ title: '识别成功 ' + imageCount + ' 张', icon: 'success' });
-        } else {
-          wx.showToast({ title: '未识别到文字', icon: 'none' });
-        }
-      }).catch(function (err) {
-        wx.hideLoading();
-        console.error('OCR 失败:', err);
-
-        that.setData({
-          ocrProcessing: false,
-          chatText: '[截图处理失败: ' + (err.message || '请重试') + '。您可以改用"直接粘贴文本"方式上传。]',
-        });
-        wx.showToast({ title: '识别失败，请重试', icon: 'none' });
-      });
+      that._processOcrBatch(result.tempFilePaths);
     }).catch(function (err) {
       if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
       console.error('选择图片失败:', err);
+    });
+  },
+
+  /**
+   * 继续添加更多截图（超过9张时使用）
+   */
+  onContinueChooseMedia: function () {
+    var that = this;
+
+    evidenceService.chooseMedia(9).then(function (result) {
+      var imageCount = result.tempFilePaths.length;
+
+      // 累加图片路径
+      var allPaths = (that.data.allTempFilePaths || []).concat(result.tempFilePaths);
+      that.setData({
+        allTempFilePaths: allPaths,
+      });
+
+      // 追加 OCR 识别新一批图片
+      that._processOcrBatch(result.tempFilePaths);
+    }).catch(function (err) {
+      if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+      console.error('继续添加图片失败:', err);
+    });
+  },
+
+  /**
+   * 批量处理图片 OCR（支持追加）
+   */
+  _processOcrBatch: function (tempFilePaths) {
+    var that = this;
+    var imageCount = tempFilePaths.length;
+    var existingCount = that.data.selectedImageCount;
+
+    // 显示选中状态
+    that.setData({
+      uploadMode: 'album',
+      showGuide: false,
+      ocrProcessing: true,
+      ocrProgress: { current: 0, total: imageCount },
+    });
+
+    wx.showLoading({ title: '上传并识别中...', mask: true });
+
+    // 上传图片 + OCR 识别
+    evidenceService.uploadImagesAndOCR(
+      tempFilePaths,
+      that.data.caseId,
+      function (current, total) {
+        that.setData({
+          ocrProgress: { current: current, total: total },
+        });
+        wx.showLoading({
+          title: '识别中 ' + current + '/' + total + '...',
+          mask: true,
+        });
+      }
+    ).then(function (ocrResult) {
+      wx.hideLoading();
+
+      var extractedText = ocrResult.text || '';
+      var oldText = that.data.chatText;
+      // 追加到已有文本后
+      var combinedText = oldText
+        ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText
+        : extractedText;
+      var totalCount = existingCount + imageCount;
+      var allFileIds = (that.data.uploadedFileIds || []).concat(ocrResult.fileIds || []);
+
+      that.setData({
+        ocrProcessing: false,
+        ocrProgress: { current: imageCount, total: imageCount },
+        chatText: combinedText,
+        selectedImageCount: totalCount,
+        uploadedFileIds: allFileIds,
+      });
+
+      if (extractedText.trim()) {
+        wx.showToast({ title: '识别成功，共 ' + totalCount + ' 张', icon: 'success' });
+      } else {
+        wx.showToast({ title: '该批未识别到文字', icon: 'none' });
+      }
+    }).catch(function (err) {
+      wx.hideLoading();
+      console.error('OCR 失败:', err);
+
+      that.setData({
+        ocrProcessing: false,
+        chatText: that.data.chatText || '[截图处理失败: ' + (err.message || '请重试') + '。您可以改用"直接粘贴文本"方式上传。]',
+      });
+      wx.showToast({ title: '识别失败，请重试', icon: 'none' });
     });
   },
 
@@ -524,27 +572,39 @@ Page({
   },
 
   /**
-   * 开始分析（后台异步），跳转到首页等待推送通知
+   * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
    */
   _startAnalysis: function () {
     var that = this;
     var deep = this.data.deepMode;
     this.setData({ showPersonalityModal: false });
 
-    // 触发分析（不等待结果，云函数后台跑完会发订阅消息推送）
-    analysisService.analyzeCase(this.data.caseId, false, deep).then(function (analysisRes) {
-      if (analysisRes.code === 0) {
-        console.log('分析已启动, analysisId:', analysisRes.data && analysisRes.data.analysisId);
-      } else {
-        console.warn('分析启动返回非预期:', analysisRes.message);
-      }
-    }).catch(function (err) {
-      console.warn('分析启动调用异常:', err);
-    });
+    wx.showLoading({ title: '正在启动分析...', mask: true });
 
-    // 立刻跳转到报告页（报告页会显示"分析中"等待态）
-    wx.redirectTo({
-      url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1',
+    // 等待 analyzeCase 返回（拿到 analysisId 后再跳转，避免报告页找不到分析记录）
+    analysisService.analyzeCase(this.data.caseId, false, deep).then(function (analysisRes) {
+      wx.hideLoading();
+
+      var analysisId = '';
+      if (analysisRes.code === 0 && analysisRes.data) {
+        analysisId = analysisRes.data.analysisId || '';
+        console.log('分析已启动, analysisId:', analysisId);
+      } else {
+        console.warn('分析启动返回非预期:', analysisRes && analysisRes.message);
+      }
+
+      // 跳转到报告页，带上 analysisId 避免竞态
+      var url = '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1';
+      if (analysisId) url += '&analysisId=' + analysisId;
+      wx.redirectTo({ url: url });
+    }).catch(function (err) {
+      wx.hideLoading();
+      console.warn('分析启动调用异常:', err);
+
+      // 降级：即使调用失败也跳转报告页（让轮询兜底）
+      wx.redirectTo({
+        url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1',
+      });
     });
   },
 });

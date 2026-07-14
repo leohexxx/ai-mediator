@@ -11,12 +11,13 @@
 
 .upload-options {
   display: flex;
+  flex-direction: column;
   gap: 16rpx;
   margin-bottom: 0;
 }
 
 .upload-card {
-  flex: 1;
+  width: 100%;
   padding: 32rpx 24rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
@@ -24,6 +25,7 @@
   text-align: center;
   transition: var(--transition-fast);
   margin-bottom: 0;
+  box-sizing: border-box;
 }
 
 .upload-card.active {
@@ -237,4 +239,39 @@
   font-weight: 500;
   background: var(--color-brand);
   color: #ffffff;
+}
+
+/* 推荐卡片（截图置顶高亮） */
+.upload-card-recommend {
+  border-color: var(--color-brand);
+  border-width: 2rpx;
+  position: relative;
+}
+.upload-card-recommend::before {
+  content: '推荐';
+  position: absolute;
+  top: -10rpx;
+  right: 20rpx;
+  background: var(--color-brand);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+}
+
+/* 继续添加按钮 */
+.add-more-row {
+  text-align: center;
+  margin-top: -8rpx;
+  margin-bottom: 8rpx;
+}
+.btn-add-more {
+  display: inline-block;
+  padding: 12rpx 32rpx;
+  border: 1rpx dashed var(--color-brand);
+  border-radius: var(--radius-full);
+  font-size: 24rpx;
+  color: var(--color-brand);
+  background: transparent;
 }

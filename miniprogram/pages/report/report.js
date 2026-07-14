@@ -49,6 +49,11 @@ Page({
         loading: false,
         progress: { step: 'parsing', message: '分析已提交，正在准备中...', progress: 0 },
       });
+      // 如果有传 analysisId，直接记下来，避免 loadReport 的竞态
+      if (options.analysisId) {
+        this._analysisId = options.analysisId;
+        this.watchProgress(options.analysisId);
+      }
     }
 
     this.loadReport();
@@ -115,8 +120,20 @@ Page({
         that._pollTimer = null;
         return;
       }
-      // _analysisId 还没设上（loadReport 未完成），跳过本次等下一轮
-      if (!that._analysisId) return;
+      // _analysisId 还没设上（loadReport 未完成），先查 case 数据获取
+      if (!that._analysisId) {
+        var db = wx.cloud.database();
+        db.collection('cases').doc(that.data.caseId).field({ analysisId: true, status: true }).get({
+          success: function (res) {
+            if (res.data && res.data.analysisId) {
+              that._analysisId = res.data.analysisId;
+              that.watchProgress(res.data.analysisId);
+            }
+          },
+          fail: function () {},
+        });
+        return;
+      }
       // 分析已完成，停止轮询
       if (!that._isAnalyzing()) {
         clearInterval(that._pollTimer);

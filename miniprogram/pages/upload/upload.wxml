@@ -7,21 +7,11 @@
 
   <!-- 上传方式选择 -->
   <view class="upload-options">
-    <!-- 方式一：选择聊天记录 -->
-    <view class="upload-card {{uploadMode === 'choose_file' ? 'active' : ''}}" bindtap="onChooseMessageFile">
-      <view class="upload-icon">📱</view>
-      <view class="upload-title">选择聊天记录文件</view>
-      <view class="upload-desc">在微信「我→设置→通用→聊天记录迁移与备份→导出聊天记录」导出为 .txt 文件后，在此选择</view>
-      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">
-        ✓ {{selectedFileName}}
-      </view>
-    </view>
-
-    <!-- 方式二：从相册选择截图 -->
-    <view class="upload-card {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
+    <!-- 方式一：从相册选择截图（最推荐） -->
+    <view class="upload-card upload-card-recommend {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
       <view class="upload-icon">🖼️</view>
       <view class="upload-title">从相册选择截图</view>
-      <view class="upload-desc">支持微信聊天截图，自动识别文字</view>
+      <view class="upload-desc">最方便！直接选微信聊天截图，自动识别文字</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && ocrProcessing}}">
         🔄 正在识别 {{ocrProgress.current}}/{{ocrProgress.total}}...
       </view>
@@ -30,16 +20,40 @@
       </view>
     </view>
 
-    <!-- 方式三：录屏/视频上传 -->
+    <!-- 继续添加（图片超过9张时出现） -->
+    <view class="add-more-row" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
+      <view class="btn-add-more" bindtap="onContinueChooseMedia">
+        + 继续添加截图（已选 {{selectedImageCount}} 张）
+      </view>
+    </view>
+
+    <!-- 方式二：录屏/视频上传 -->
     <view class="upload-card {{uploadMode === 'video' ? 'active' : ''}}" bindtap="onChooseVideo">
       <view class="upload-icon">🎬</view>
       <view class="upload-title">录屏/视频上传</view>
-      <view class="upload-desc">上传聊天录屏作为证据保存</view>
+      <view class="upload-desc">上传聊天录屏作为证据，抽帧识别文字</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && ocrProcessing}}">
-        🔄 正在上传视频...
+        🔄 正在处理视频...
       </view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && !ocrProcessing && selectedImageCount > 0}}">
         ✓ 视频已上传至云端
+      </view>
+    </view>
+
+    <!-- 方式三：直接粘贴文本（方便快捷） -->
+    <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
+      <view class="upload-icon">📋</view>
+      <view class="upload-title">直接粘贴文本</view>
+      <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
+    </view>
+
+    <!-- 方式四：选择聊天记录文件（高级用户） -->
+    <view class="upload-card {{uploadMode === 'choose_file' ? 'active' : ''}}" bindtap="onChooseMessageFile">
+      <view class="upload-icon">📱</view>
+      <view class="upload-title">从微信导出 .txt 文件</view>
+      <view class="upload-desc">微信「我→设置→通用→聊天记录迁移与备份→导出聊天记录」导出 .txt 后在此选择</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">
+        ✓ {{selectedFileName}}
       </view>
     </view>
   </view>

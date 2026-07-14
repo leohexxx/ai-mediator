@@ -77,3 +77,41 @@
   display: block;
   margin-top: 16rpx;
 }
+
+/* 加入案例提示 */
+.join-prompt {
+  padding: 40rpx 24rpx;
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.join-card {
+  text-align: center;
+  padding: 60rpx 40rpx;
+  max-width: 500rpx;
+}
+.join-icon {
+  font-size: 80rpx;
+  margin-bottom: 24rpx;
+}
+.join-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 16rpx;
+}
+.join-desc {
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 24rpx;
+}
+.join-error {
+  font-size: 24rpx;
+  color: var(--color-error, #ef4444);
+  margin-bottom: 16rpx;
+}
+.join-actions {
+  margin-top: 16rpx;
+}

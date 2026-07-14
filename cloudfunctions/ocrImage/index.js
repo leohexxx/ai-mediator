@@ -1,8 +1,11 @@
-// ═══════════════════════════════════════════════
-// ocrImage 云函数 — 从截图提取文字
-// 职责: 接收 base64 图片 → OCR 识别 → 返回文字
-// 前端用 wx.getFileSystemManager().readFileSync(path, 'base64') 转好再传
-// ═══════════════════════════════════════════════
+/**
+ * OCR 识别云函数 (v2)
+ * 职责: 接收 base64 图片 → 优先腾讯云 OCR → 降级 OCR.space → 返回文字
+ *
+ * 腾讯云 OCR（通过 wx-server-sdk cloud.openapi）:
+ *   更精准的中文识别，需要 CloudBase 环境开通 OCR 能力
+ *   如果未开通会自动降级到 OCR.space
+ */
 
 var cloud = require('wx-server-sdk');
 var https = require('https');
@@ -10,8 +13,27 @@ var https = require('https');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 /**
- * 使用 OCR.space 免费 API
- * 注意: apikey 必须放在 header 中（body 里的 apikey 已被弃用）
+ * 腾讯云 OCR — 通用印刷体识别
+ * 通过 wx-server-sdk 内置的 openapi，无需额外配置
+ */
+function ocrViaTencentCloud(base64Image) {
+  return cloud.openapi.ocr.printedText({
+    imageBase64: base64Image,
+  }).then(function (res) {
+    // 返回格式: { items: [{text: 'xxx', ...}], text: '完整文本' }
+    if (res && res.data && res.data.items) {
+      var texts = res.data.items.map(function (item) { return item.text || ''; });
+      var fullText = texts.join('');
+      if (fullText.trim()) {
+        return fullText;
+      }
+    }
+    throw new Error('腾讯云 OCR 返回为空');
+  });
+}
+
+/**
+ * OCR.space 免费 API（降级方案）
  */
 function ocrViaOcrSpace(base64Image, mimeType) {
   var API_KEY = 'K86789598888957';
@@ -34,7 +56,7 @@ function ocrViaOcrSpace(base64Image, mimeType) {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(payload, 'utf8'),
       },
-      timeout: 50000,
+      timeout: 30000,
     };
 
     var req = https.request(options, function (res) {
@@ -54,7 +76,7 @@ function ocrViaOcrSpace(base64Image, mimeType) {
           } else if (data.ErrorMessage) {
             reject(new Error('OCR 错误: ' + data.ErrorMessage));
           } else {
-            reject(new Error('OCR 返回为空: ' + responseText.substring(0, 200)));
+            reject(new Error('OCR 返回为空'));
           }
         } catch (e) {
           reject(new Error('解析 OCR 返回失败: ' + e.message));
@@ -71,9 +93,6 @@ function ocrViaOcrSpace(base64Image, mimeType) {
 
 /**
  * 云函数入口
- * @param {Object} event
- * @param {string} event.base64 - 图片 base64 编码（不含 data:image/... 前缀）
- * @param {string} [event.mimeType] - MIME 类型，默认 image/jpeg
  */
 exports.main = async function (event, context) {
   try {
@@ -91,16 +110,30 @@ exports.main = async function (event, context) {
 
     console.log('OCR 开始, 图片 base64 长度:', base64Image.length);
 
-    var text = await ocrViaOcrSpace(base64Image, mimeType);
+    var text = '';
+    var method = '';
 
-    console.log('OCR 完成, 文字长度:', text.length);
+    // 优先: 腾讯云 OCR（更精准的中文识别）
+    try {
+      text = await ocrViaTencentCloud(base64Image);
+      method = 'tencent_cloud';
+      console.log('腾讯云 OCR 成功, 文字长度:', text.length);
+    } catch (tencentErr) {
+      console.warn('腾讯云 OCR 失败, 降级 OCR.space:', tencentErr.message);
+      // 降级: OCR.space
+      try {
+        text = await ocrViaOcrSpace(base64Image, mimeType);
+        method = 'ocrspace';
+        console.log('OCR.space 成功, 文字长度:', text.length);
+      } catch (ocrSpaceErr) {
+        console.error('OCR.space 也失败:', ocrSpaceErr.message);
+        return { code: -1, data: null, message: 'OCR 识别失败: ' + ocrSpaceErr.message };
+      }
+    }
 
     return {
       code: 0,
-      data: {
-        text: text,
-        method: 'ocrspace',
-      },
+      data: { text: text, method: method },
       message: 'ok',
     };
   } catch (error) {

@@ -10,6 +10,14 @@ Page({
   data: {
     /** 案例 ID */
     caseId: '',
+    /** 邀请码 */
+    inviteCode: '',
+    /** 是否加入中 */
+    joining: false,
+    /** 加入错误信息 */
+    joinError: '',
+    /** 是否显示加入提示 */
+    showJoinPrompt: false,
     /** 案例数据 */
     caseData: null,
     /** 当前用户角色 */
@@ -34,14 +42,18 @@ Page({
 
   onLoad: function (options) {
     var caseId = options.caseId;
+    var inviteCode = options.inviteCode || '';
     // 强制重置状态，防止旧案例数据残留
     this.setData({
       caseId: caseId,
+      inviteCode: inviteCode,
       caseData: null,
       analysis: null,
       myEvidence: null,
       otherEvidence: null,
-      loading: true,
+      loading: inviteCode ? false : true, // 有邀请码时不立刻显示 loading（先显示加入按钮）
+      joining: false,
+      joinError: '',
     });
     if (this._watcher) { this._watcher.close(); this._watcher = null; }
 
@@ -49,8 +61,16 @@ Page({
       this.setData({ showInvitePanel: true });
     }
 
-    this.loadDetail();
-    this.startWatch();
+    // 有邀请码且非甲方：需要先加入再加载
+    if (inviteCode) {
+      this.setData({
+        loading: false,
+        showJoinPrompt: true,
+      });
+    } else {
+      this.loadDetail();
+      this.startWatch();
+    }
   },
 
   onShow: function () {
@@ -58,6 +78,13 @@ Page({
     var pages = getCurrentPages();
     var currentPage = pages[pages.length - 1];
     var options = currentPage.options || {};
+
+    // 如果还没加入且没数据，重新检查邀请码
+    if (!this.data.caseData && this.data.inviteCode) {
+      this.setData({ showJoinPrompt: true });
+      return;
+    }
+
     if (options.caseId && options.caseId !== this.data.caseId) {
       if (this._watcher) { this._watcher.close(); this._watcher = null; }
       this.setData({ caseId: options.caseId, caseData: null, analysis: null, loading: true });
@@ -189,7 +216,53 @@ Page({
    */
   onUploadTap: function () {
     wx.navigateTo({
-      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&role=' + this.data.role,
+      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&role=' + this.data.role + '&mode=dual',
+    });
+  },
+
+  /**
+   * 加入案例（双人模式，乙方通过邀请码加入）
+   */
+  onJoinCase: function () {
+    var that = this;
+    var inviteCode = this.data.inviteCode;
+
+    if (!inviteCode || this.data.joining) return;
+
+    this.setData({ joining: true, joinError: '' });
+
+    wx.showLoading({ title: '正在加入...', mask: true });
+
+    caseService.joinCase({
+      inviteCode: inviteCode,
+      userInfo: { nickname: '微信用户', avatarUrl: '' },
+    }).then(function (res) {
+      wx.hideLoading();
+      if (res.code === 0) {
+        that.setData({
+          inviteCode: '',
+          showJoinPrompt: false,
+          joining: false,
+          loading: true,
+          role: 'party_b',
+        });
+        wx.showToast({ title: '加入成功！', icon: 'success' });
+        that.loadDetail();
+        that.startWatch();
+      } else {
+        that.setData({
+          joining: false,
+          joinError: res.message || '加入失败',
+        });
+        wx.showToast({ title: res.message || '加入失败', icon: 'none' });
+      }
+    }).catch(function (err) {
+      wx.hideLoading();
+      that.setData({
+        joining: false,
+        joinError: err.message || '网络错误',
+      });
+      wx.showToast({ title: '加入失败，请重试', icon: 'none' });
     });
   },
 
