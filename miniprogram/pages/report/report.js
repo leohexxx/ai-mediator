@@ -67,6 +67,29 @@ Page({
   },
 
   onShow: function () {
+    // 检测是否从补充证据页返回（由 upload.js 设置 _pendingSupplementRefresh）
+    if (this._pendingSupplementRefresh) {
+      var pendingAnalysisId = this._pendingSupplementRefresh;
+      this._pendingSupplementRefresh = null;
+      this._cleanup();
+      this.setData({
+        caseData: null,
+        analysis: null,
+        progress: null,
+        progressStuck: false,
+        loading: true,
+        caseId: this.data.caseId,
+      });
+      // 记录新 analysisId，让 loadReport 和 _startPolling 能通过它加载新分析
+      if (pendingAnalysisId && pendingAnalysisId !== true) {
+        this._analysisId = pendingAnalysisId;
+      }
+      // loadReport 内部会 watchProgress（如果分析还在进行中）
+      this.loadReport();
+      this._startPolling();
+      return;
+    }
+
     // 确保每次页面显示时都刷新（解决返回再进入时数据不更新）
     var pages = getCurrentPages();
     var currentPage = pages[pages.length - 1];

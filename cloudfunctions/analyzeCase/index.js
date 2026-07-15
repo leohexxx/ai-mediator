@@ -175,7 +175,10 @@ async function handleInitial(event, openid) {
   var deep = event.deep === true;
 
   // 检测是否为补充证据后的重新分析
-  var isReanalysis = force && (caseData.status === 'single_completed' || caseData.status === 'completed');
+  // force=true 只发生在重新分析场景（补充证据/修改性格/重试）
+  // uploadEvidence 已将状态重置为 single_submitted，所以不能靠状态判断
+  // 改用 analysisId 是否存在来检测（uploadEvidence 不会清除它）
+  var isReanalysis = force && caseData.analysisId != null;
 
   var analysisResult = await db.collection('analyses').add({
     data: {

@@ -597,7 +597,12 @@ Page({
       if (analysisId) url += '&analysisId=' + analysisId;
 
       if (that.data.supplement) {
-        // 补充证据模式：返回报告页（原页面还在栈中）
+        // 补充证据模式：返回报告页前，把新的 analysisId 传给报告页
+        var pages = getCurrentPages();
+        if (pages.length >= 2) {
+          var prevPage = pages[pages.length - 2];
+          prevPage._pendingSupplementRefresh = analysisId || true;
+        }
         wx.navigateBack();
       } else {
         wx.redirectTo({ url: url });
