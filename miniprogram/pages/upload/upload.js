@@ -34,6 +34,8 @@ Page({
     personalitySubmitted: false,
     // 深度模式（Pro 模型，更深入但更慢）
     deepMode: false,
+    // 视频帧 OCR 的离屏 canvas 缓存
+    _ocrCanvas: null,
   },
 
   onLoad: function (options) {
@@ -228,18 +230,18 @@ Page({
 
   /**
    * 从视频中提取关键帧并 OCR 识别聊天文字
-   * 固定间隔抽帧：短视频每 2s、中视频每 3s、长视频每 5s，最多 12 帧
+   * 固定间隔抽帧：短视频每 2s、中视频每 3s、长视频每 5s，最多 15 帧
    */
   _extractAndOcrVideoFrames: function (videoPath, duration, uploadPromise) {
     var that = this;
 
-    // 固定间隔策略（覆盖整段视频）
+    // 优化: 固定间隔覆盖整段视频，帧数上限从 8 提到 15，间隔缩短保证短视频也有足够帧
     var interval;
-    if (duration <= 60) interval = 3;        // ≤1min: 每3s（原2s，减少帧数提速）
-    else if (duration <= 180) interval = 5;  // 1-3min: 每5s（原3s）
-    else interval = 8;                        // >3min: 每8s（原5s）
+    if (duration <= 30) interval = 2;         // ≤30s: 每2s
+    else if (duration <= 120) interval = 3;   // 30s-2min: 每3s
+    else interval = 5;                         // >2min: 每5s
 
-    var maxFrames = 8;
+    var maxFrames = 15;
     var rawCount = Math.floor(duration / interval);
     var totalFrames = Math.min(rawCount, maxFrames);
     var frameTimes = [];
@@ -400,30 +402,30 @@ Page({
   },
 
   /**
-   * 将视频帧数据转为 base64（通过离屏 Canvas）
+   * 将视频帧数据转为 base64（通过离屏 Canvas — 缓存 canvas 实例）
    */
   _frameDataToBase64: function (frameData, width, height) {
+    var that = this;
     return new Promise(function (resolve, reject) {
       try {
-        var canvas = wx.createOffscreenCanvas({
-          type: '2d',
-          width: width,
-          height: height,
-        });
+        // 复用页面级缓存 canvas（不反复创建销毁）
+        var canvas = that._ocrCanvas;
+        if (!canvas || canvas.width !== width || canvas.height !== height) {
+          canvas = wx.createOffscreenCanvas({ type: '2d', width: width, height: height });
+          that._ocrCanvas = canvas;
+        }
         var ctx = canvas.getContext('2d');
 
-        // 将 RGBA 像素数据画到 Canvas
-        var clampedData = new Uint8ClampedArray(frameData.data);
+        // 写像素数据
         var imageData = ctx.createImageData(width, height);
-        imageData.data.set(clampedData);
+        imageData.data.set(frameData.data);
         ctx.putImageData(imageData, 0, 0);
 
-        // 导出为图片
+        // 降低 quality 加速导出
         canvas.toDataURL({
           type: 'image/jpeg',
-          quality: 0.7,
+          quality: 0.5,
           success: function (res) {
-            // 去掉 data:image/jpeg;base64, 前缀
             var base64 = (res.data || '').replace(/^data:image\/\w+;base64,/, '');
             resolve(base64);
           },

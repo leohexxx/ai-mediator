@@ -1,34 +1,50 @@
-# 综合修复交付报告 — 2026-07-15
+# UI 文案温和化改造交付
 
-修复了用户报告的 5 个问题，共修改 8 个文件（+383/-96 行）。
+## 改动了什么
 
-## 问题修复清单
+全小程序用户可见的"硬词"替换为更适合情侣/朋友之间使用的温和表达。**纯文案替换，零逻辑变更。**
 
-| # | 问题 | 根因 | 修复方式 |
-|---|------|------|---------|
-| 1 | 图片只能传9张 | wx.chooseMedia 上限 | 添加"继续添加"按钮，分批追加图片和OCR结果 |
-| 2 | 上传页UI不合理 | 截图放在第二位，导出.txt放第一位 | 截图置顶+推荐标签，纵向排列，文案精简 |
-| 3 | 双人模式乙方无法上传 | 无加入入口，getCaseDetail拒绝非参与者 | 新增加入按钮+onJoinCase流程，inviteCode处理 |
-| 4 | 手机端OCR经常失败 | OCR.space免费API中文识别率低 | 新增腾讯云OCR(cloud.openapi)为首选，OCR.space降级 |
-| 5 | 首次分析卡住需重试 | 竞态：未等analysisId就跳转报告页 | 等待analyzeCase返回后再跳转，传递analysisId |
+## 具体替换表
 
-## 修改文件
+| 原词 | 替换为 |
+|------|--------|
+| 证据 | 聊天记录 / 聊天内容 |
+| 甲方 / 乙方 | 你 / 对方 / 我 |
+| 提交 | 上传 / 发送 / 开始分析 |
+| 调解策略 | 缓和建议 |
+| 调解路线图 | 沟通路线图 |
+| 补充证据 | 补充聊天内容 / 补充聊天记录 |
+| 案例标题 | 给它起个名 |
+| 提交证据 → 按钮 | 开始分析 |
+| 证据提交成功！ | 聊天记录已收到！ |
+| 公平裁判 | 一起评理 |
+| 加入调解 | 一起看看 |
+| 关键证据 | 关键内容 |
 
-- `miniprogram/pages/upload/upload.js` — 分批上传+等待分析结果后跳转
-- `miniprogram/pages/upload/upload.wxml` — UI重排+继续添加按钮
-- `miniprogram/pages/upload/upload.wxss` — 纵向排列+推荐样式
-- `miniprogram/pages/report/report.js` — 接收analysisId参数+轮询兜底
-- `miniprogram/pages/case-detail/case-detail.js` — 加入案例逻辑
-- `miniprogram/pages/case-detail/case-detail.wxml` — 加入提示UI
-- `miniprogram/pages/case-detail/case-detail.wxss` — 加入提示样式
-- `cloudfunctions/ocrImage/index.js` — 腾讯云OCR+OCR.space双方案
+## 涉及文件（21 个）
+
+| 文件 | 说明 |
+|------|------|
+| `pages/upload/upload.wxml/js/wxss` | 上传页全部文案改软 |
+| `pages/report/report.wxml/js/wxss` | 报告页分节标题、补充按钮、分享文本 |
+| `pages/index/index.wxml/js` | 首页模式描述、状态标签 |
+| `pages/case-detail/case-detail.wxml` | 提示文案、加入邀请 |
+| `pages/create-case/create-case.wxml/js` | 默认标题、表单标签、说明文案 |
+| `pages/ocr-preview/ocr-preview.wxml` | 确认按钮文案 |
+| `utils/format.js` | 状态标签映射 |
+| `components/evidence-weights/` | "关键内容"标题、"偏向你/对方"标签 |
+| `components/mediation-strategy/` | "沟通路线图"标题、"你/对方"目标标签 |
+| `components/evidence-section/` | "我的聊天记录"、"查看聊天记录" |
+| `components/core-verdict/` | "你/对方"分数标签 |
+| `components/detailed-analysis/` | "你更有理/对方更有理"裁判结论 |
+| `components/party-status/` | "我/对方"回退标签 |
+| `components/invite-panel/` | "邀请对方"标题 |
+| `components/case-card/` | "你已上传"状态 |
+| `pages/upload/upload.wxss` | 文件注释 |
+
+## Git
+- `c8cd1c8` — `refactor(UI): 全站文案温和化改造 — 去除'证据''甲方/乙方'等硬词`
 
 ## 部署
-
-- ✅ 云函数 `ocrImage` 已部署到 CloudBase
-- ⏳ 前端文件需微信开发者工具上传后生效
-
-## 测试
-
-- 19/19 集成测试通过
-- 语法检查全部通过
+- ⏳ 需微信开发者工具上传前端代码后生效
+- 无需部署云函数（纯前端改动）

@@ -151,7 +151,7 @@ function ocrImage(filePath) {
     // 一律通过 canvas 缩放到 ≤960px，JPEG quality 0.6
     // 不再依赖 compressImage（部分手机不生效/返回原图）
     // toDataURL 直接拿 base64，不绕文件读写
-    var MAX = 960;
+    var MAX = 1600;
     wx.getImageInfo({
       src: filePath,
       success: function (info) {

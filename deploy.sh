@@ -18,11 +18,15 @@ echo "=== 2/4 部署 chatWithAnalysis 代码 (timeout=60s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"chatWithAnalysis\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
 
 echo ""
-echo "=== 3/5 部署 ocrBatch 代码 (timeout=120s) ==="
+echo "=== 3/6 部署 ocrImage 代码 (timeout=60s) ==="
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrImage\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
+
+echo ""
+echo "=== 4/6 部署 ocrBatch 代码 (timeout=120s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrBatch\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}"
 
 echo ""
-echo "=== 4/5 配置 analyzeCase 环境变量 (5 key + 模型 + baseUrl) ==="
+echo "=== 5/6 配置 analyzeCase 环境变量 (5 key + 模型 + baseUrl) ==="
 # ⚠️ LLM_BASE_URL 必须显式设置，避免 CloudBase 残留旧值
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"analyzeCase\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"DEEP_LLM_MODEL\":\"deepseek-v4-pro\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
@@ -31,13 +35,13 @@ echo "=== 配置 ocrBatch 环境变量 ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\"}"
 
 echo ""
-echo "=== 5/5 配置 chatWithAnalysis 环境变量 (5 key + 模型 + baseUrl) ==="
+echo "=== 6/6 配置 chatWithAnalysis 环境变量 (5 key + 模型 + baseUrl) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"chatWithAnalysis\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
 echo ""
 echo "══════════════════════════════════════"
 echo "=== 云函数部署完成 ==="
-echo "  已部署: analyzeCase, chatWithAnalysis, ocrBatch"
+echo "  已部署: analyzeCase, chatWithAnalysis, ocrImage, ocrBatch"
 echo "  已配置环境变量: analyzeCase, chatWithAnalysis, ocrBatch"
 echo "══════════════════════════════════════"
 echo "下一步: 微信开发者工具上传小程序代码"

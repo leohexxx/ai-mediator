@@ -257,7 +257,7 @@ async function handleCore(caseId, analysisId, fallback) {
       data: {
         coreConclusion: core.coreConclusion || {},
         detailedAnalysis: { summary: core.summary || '', relationship: core.relationship || '', characters: core.characters || [], conflicts: [], timeline: [] },
-        _input: { chatText: chatText.slice(0, 8000), caseContext: pc.caseContext, parties: pc.parties },
+        _input: { chatText: chatText.slice(0, 12000), caseContext: pc.caseContext, parties: pc.parties },
         progress: progressFor('core', isSingleMode),
       },
     });
