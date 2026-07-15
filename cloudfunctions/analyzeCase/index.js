@@ -174,6 +174,9 @@ async function handleInitial(event, openid) {
   var initialMessage = isSingleMode ? '单人模式分析中，置信度将自动调整...' : '正在准备分析...';
   var deep = event.deep === true;
 
+  // 检测是否为补充证据后的重新分析
+  var isReanalysis = force && (caseData.status === 'single_completed' || caseData.status === 'completed');
+
   var analysisResult = await db.collection('analyses').add({
     data: {
       caseId: caseId, schemaVersion: 'v3', mode: mode, deep: deep,
@@ -181,7 +184,7 @@ async function handleInitial(event, openid) {
       mediationStrategy: [], detailedAnalysis: {},
       advice: { toA: [], toB: [], toBoth: [] },
       progress: { step: 'parsing', message: initialMessage, progress: 0 },
-      shareCount: 0, createdAt: now,
+      shareCount: 0, isReanalysis: isReanalysis || false, createdAt: now,
     },
   });
   var analysisId = analysisResult._id;
@@ -231,6 +234,12 @@ async function handleCore(caseId, analysisId, fallback) {
     await updateProgress(analysisId, 'core', isSingleMode);
     var allMessages = await getMergedMessages(caseId, isSingleMode);
     var pc = buildPartiesAndContext(caseData, isSingleMode);
+
+    // 补充证据重新分析标记 — 注入到 caseContext，会传播到所有阶段
+    if (analysisDoc.data && analysisDoc.data.isReanalysis) {
+      pc.caseContext += '\n\n【重要】本次为补充证据后的重新分析，请基于最新的完整证据链进行分析，并在结论中明确指出证据是否发生了变化。';
+    }
+
     var formatted = parser.formatChatForLLM(allMessages, pc.parties);
 
     var chatText = formatted;

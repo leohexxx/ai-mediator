@@ -29,6 +29,8 @@ Page({
     personalityA: null,
     personalityB: null,
     reanalyzing: false,
+    /** 是否为补充证据后的重新分析 */
+    isReanalysis: false,
   },
 
   onLoad: function (options) {
@@ -196,7 +198,7 @@ Page({
 
         if (analysis) {
           if (analysis.progress && analysis.progress.step === 'done') {
-            that.setData({ analysis: analysis, progress: analysis.progress, progressStuck: false });
+            that.setData({ analysis: analysis, progress: analysis.progress, progressStuck: false, isReanalysis: analysis.isReanalysis === true });
             // 已完成，停止轮询
             if (that._pollTimer) {
               clearInterval(that._pollTimer);

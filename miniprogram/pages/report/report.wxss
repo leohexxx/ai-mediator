@@ -1,4 +1,28 @@
 /* 分析报告页样式 */
+
+/* 补充证据重新分析标记 */
+.supplement-banner {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+  background: #FFF8E1;
+  border-radius: var(--radius-md);
+  border: 1rpx solid #FFE082;
+}
+
+.supplement-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.supplement-text {
+  font-size: var(--font-xs);
+  color: #F57F17;
+  line-height: 1.5;
+}
+
 .restricted-banner {
   display: flex;
   flex-direction: column;
