@@ -40,33 +40,31 @@ exports.main = async function (event, context) {
     var now = new Date().toISOString();
     var updateData = { updatedAt: now };
 
-    // 更新性格信息
-    if (isPartyA && personalityA !== undefined) {
-      // 如果 personalityA 为空对象，清除性格信息
-      if (personalityA && Object.keys(personalityA).length === 0) {
-        personalityA = null;
+    // 保存性格信息的辅助函数
+    function cleanPersonality(p) {
+      if (!p) return null;
+      if (Object.keys(p).length === 0) return null;
+      for (var key in p) {
+        if (!p[key]) delete p[key];
       }
-      // 清理空值字段
-      if (personalityA) {
-        for (var key in personalityA) {
-          if (!personalityA[key]) delete personalityA[key];
-        }
-        if (Object.keys(personalityA).length === 0) personalityA = null;
-      }
-      updateData['party_a.personality'] = personalityA;
+      return Object.keys(p).length > 0 ? p : null;
     }
 
+    // 更新性格信息
+    var cleanedA = cleanPersonality(personalityA);
+    var cleanedB = cleanPersonality(personalityB);
+
+    // 本人更新自己的性格
+    if (isPartyA && personalityA !== undefined) {
+      updateData['party_a.personality'] = cleanedA;
+    }
     if (isPartyB && personalityB !== undefined) {
-      if (personalityB && Object.keys(personalityB).length === 0) {
-        personalityB = null;
-      }
-      if (personalityB) {
-        for (var k in personalityB) {
-          if (!personalityB[k]) delete personalityB[k];
-        }
-        if (Object.keys(personalityB).length === 0) personalityB = null;
-      }
-      updateData['party_b.personality'] = personalityB;
+      updateData['party_b.personality'] = cleanedB;
+    }
+
+    // 单人模式：允许发起方也设置对方的性格（party_b.openid 为空）
+    if (isPartyA && personalityB !== undefined && caseData.mode === 'single') {
+      updateData['party_b.personality'] = cleanedB;
     }
 
     await db.collection('cases').doc(caseId).update({ data: updateData });
