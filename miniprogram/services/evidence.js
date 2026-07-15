@@ -148,92 +148,50 @@ function uploadVideoToCloud(filePath, caseId) {
  */
 function ocrImage(filePath) {
   return new Promise(function (resolve, reject) {
-    var ext = (filePath.split('.').pop() || 'jpg').toLowerCase();
-    var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-
-    // 发送 base64 到云函数
-    function sendBase64(b64) {
-      // 安全阀：如果还是太大（极少情况），用更激进的 canvas 缩放
-      if (b64.length > 3 * 1024 * 1024) {
-        resizeThenSend(filePath, resolve, reject);
-        return;
-      }
-      cloudUtil.callFunction('ocrImage', {
-        base64: b64,
-        mimeType: mimeType,
-      }).then(resolve).catch(reject);
-    }
-
-    // 读文件 → 发云函数
-    function readAndSend(fPath) {
-      wx.getFileSystemManager().readFile({
-        filePath: fPath,
-        encoding: 'base64',
-        success: function (res) { sendBase64(res.data); },
-        fail: function (err) { reject(err); },
-      });
-    }
-
-    // ★ 主路径：compressImage 一步搞定，原生 API 极快
-    wx.compressImage({
+    // 一律通过 canvas 缩放到 ≤960px，JPEG quality 0.6
+    // 不再依赖 compressImage（部分手机不生效/返回原图）
+    // toDataURL 直接拿 base64，不绕文件读写
+    var MAX = 960;
+    wx.getImageInfo({
       src: filePath,
-      quality: 30,
-      success: function (r) { readAndSend(r.tempFilePath); },
-      fail: function () { resizeThenSend(filePath, resolve, reject); },
+      success: function (info) {
+        var w = info.width;
+        var h = info.height;
+        if (w <= MAX && h <= MAX) {
+          // 小图：直接读文件发
+          wx.getFileSystemManager().readFile({
+            filePath: filePath,
+            encoding: 'base64',
+            success: function (res) {
+              cloudUtil.callFunction('ocrImage', {
+                base64: res.data,
+                mimeType: 'image/jpeg',
+              }).then(resolve).catch(reject);
+            },
+            fail: reject,
+          });
+          return;
+        }
+        // 大图：canvas 缩放
+        var scale = MAX / Math.max(w, h);
+        var cw = Math.floor(w * scale);
+        var ch = Math.floor(h * scale);
+        var canvas = wx.createOffscreenCanvas({ type: '2d', width: cw, height: ch });
+        var ctx = canvas.getContext('2d');
+        var img = canvas.createImage();
+        img.onload = function () {
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var b64 = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
+          cloudUtil.callFunction('ocrImage', {
+            base64: b64,
+            mimeType: 'image/jpeg',
+          }).then(resolve).catch(reject);
+        };
+        img.onerror = function () { reject(new Error('图片加载失败')); };
+        img.src = filePath;
+      },
+      fail: function () { reject(new Error('读取图片信息失败')); },
     });
-  });
-}
-
-/**
- * Canvas 缩放兜底 — 仅在 compressImage 不可用时走
- * 用 960px 小画布 + toDataURL，避免 io 往返
- */
-function resizeThenSend(filePath, resolve, reject) {
-  wx.getImageInfo({
-    src: filePath,
-    success: function (info) {
-      var MAX = 960;
-      var w = info.width;
-      var h = info.height;
-      if (w <= MAX && h <= MAX) {
-        // 已经够小，直接读
-        readFileAndCall(filePath, resolve, reject);
-        return;
-      }
-      var scale = MAX / Math.max(w, h);
-      var cw = Math.floor(w * scale);
-      var ch = Math.floor(h * scale);
-      var canvas = wx.createOffscreenCanvas({ type: '2d', width: cw, height: ch });
-      var ctx = canvas.getContext('2d');
-      var img = canvas.createImage();
-      img.onload = function () {
-        ctx.drawImage(img, 0, 0, cw, ch);
-        // toDataURL 直接拿 base64，省去写文件+读文件的 io
-        var dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-        var b64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-        cloudUtil.callFunction('ocrImage', {
-          base64: b64,
-          mimeType: 'image/jpeg',
-        }).then(resolve).catch(reject);
-      };
-      img.onerror = function () { reject(new Error('图片加载失败')); };
-      img.src = filePath;
-    },
-    fail: function () { reject(new Error('读取图片信息失败')); },
-  });
-}
-
-function readFileAndCall(filePath, resolve, reject) {
-  wx.getFileSystemManager().readFile({
-    filePath: filePath,
-    encoding: 'base64',
-    success: function (res) {
-      cloudUtil.callFunction('ocrImage', {
-        base64: res.data,
-        mimeType: 'image/jpeg',
-      }).then(resolve).catch(reject);
-    },
-    fail: function (err) { reject(err); },
   });
 }
 
