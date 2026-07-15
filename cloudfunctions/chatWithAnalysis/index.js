@@ -16,6 +16,55 @@ var db = cloud.database();
 var llm = require('./common/llm');
 
 /**
+ * 下载云存储图片并 OCR
+ * @param {string} fileID - 云存储文件 ID
+ * @returns {Promise<string>} OCR 识别文本
+ */
+async function ocrImageFromCloud(fileID) {
+  try {
+    // 获取临时下载链接
+    var tempResult = await cloud.getTempFileURL({
+      fileList: [fileID],
+    });
+    if (!tempResult.fileList || tempResult.fileList.length === 0) {
+      return '';
+    }
+    var tempURL = tempResult.fileList[0].tempFileURL;
+    if (!tempURL) return '';
+
+    // 下载图片
+    var https = require('https');
+    var imageBuffer = await new Promise(function (resolve, reject) {
+      https.get(tempURL, function (res) {
+        var chunks = [];
+        res.on('data', function (c) { chunks.push(c); });
+        res.on('end', function () {
+          resolve(Buffer.concat(chunks));
+        });
+      }).on('error', reject);
+    });
+
+    var base64Image = imageBuffer.toString('base64');
+
+    // 调用腾讯云 OCR
+    try {
+      var ocrResult = await cloud.openapi.ocr.printedText({
+        imageBase64: base64Image,
+      });
+      if (ocrResult && ocrResult.data && ocrResult.data.items) {
+        var texts = ocrResult.data.items.map(function (item) { return item.text || ''; });
+        var fullText = texts.join('');
+        if (fullText.trim()) return fullText;
+      }
+    } catch (_) {}
+    return '';
+  } catch (err) {
+    console.error('OCR 图片失败:', fileID, err.message);
+    return '';
+  }
+}
+
+/**
  * 云函数入口
  * @param {Object} event
  * @param {string} event.caseId - 案例 ID
@@ -40,12 +89,36 @@ exports.main = async function (event, context) {
     var caseId = event.caseId;
     var message = event.message;
     var sessionId = event.sessionId;
+    var imageFileIds = event.imageFileIds || [];
 
     if (!caseId) {
       return { code: -1, data: null, message: '缺少案例 ID' };
     }
-    if (!message || !message.trim()) {
-      return { code: -1, data: null, message: '请输入问题' };
+    if ((!message || !message.trim()) && imageFileIds.length === 0) {
+      return { code: -1, data: null, message: '请输入问题或上传图片' };
+    }
+
+    // 图片 OCR：下载并识别用户上传的图片
+    var imageOcrText = '';
+    if (imageFileIds.length > 0) {
+      console.log('[chatWithAnalysis] 处理 ' + imageFileIds.length + ' 张图片 OCR');
+      var ocrResults = [];
+      for (var imgIdx = 0; imgIdx < imageFileIds.length; imgIdx++) {
+        var ocrText = await ocrImageFromCloud(imageFileIds[imgIdx]);
+        if (ocrText) {
+          ocrResults.push('[用户上传图片' + (imgIdx + 1) + ']\n' + ocrText);
+        }
+      }
+      if (ocrResults.length > 0) {
+        imageOcrText = '\n\n## 用户上传的图片内容\n' + ocrResults.join('\n\n');
+        console.log('[chatWithAnalysis] 图片OCR完成, 共 ' + ocrResults.length + '/' + imageFileIds.length + ' 张识别成功');
+      }
+    }
+
+    // 将图片OCR文本追加到消息中
+    var enhancedMessage = message || '[图片]';
+    if (imageOcrText) {
+      enhancedMessage = enhancedMessage + '\n\n（用户同时上传了以下图片，图片中的文字内容如下：）\n' + imageOcrText;
     }
 
     // 获取案例和分析数据作为上下文
@@ -160,7 +233,7 @@ exports.main = async function (event, context) {
           await llm.chatWithAnalysis(
             contextStr,
             history,
-            message,
+            enhancedMessage,
             async function (chunk) {
               chunkBuffer += chunk;
 

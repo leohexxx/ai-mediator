@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════
 
 var chatService = require('../../services/chat');
+var cloudUtil = require('../../utils/cloud');
 
 Component({
   properties: {
@@ -41,9 +42,45 @@ Component({
     streamingText: '',
     /** 是否已加载历史 */
     historyLoaded: false,
+    /** 待发送图片 */
+    pendingImages: [],
   },
 
   methods: {
+    /**
+     * 选择图片（从相册）
+     */
+    onChooseImage: function () {
+      var that = this;
+      wx.chooseMedia({
+        count: 9,
+        mediaType: ['image'],
+        sourceType: ['album', 'camera'],
+        success: function (res) {
+          var newImages = res.tempFiles.map(function (f) {
+            return { tempFilePath: f.tempFilePath, size: f.size };
+          });
+          var existing = that.data.pendingImages || [];
+          var allImages = existing.concat(newImages);
+          that.setData({ pendingImages: allImages });
+        },
+        fail: function (err) {
+          if (err.errMsg && err.errMsg.indexOf('cancel') !== -1) return;
+          wx.showToast({ title: '选择图片失败', icon: 'none' });
+        },
+      });
+    },
+
+    /**
+     * 移除待发送图片
+     */
+    onRemoveImage: function (e) {
+      var index = e.currentTarget.dataset.index;
+      var images = this.data.pendingImages || [];
+      images.splice(index, 1);
+      this.setData({ pendingImages: images });
+    },
+
     /**
      * 输入框事件
      */
@@ -52,129 +89,147 @@ Component({
     },
 
     /**
-     * 发送消息
+     * 发送消息（支持文字+图片）
      */
     onSend: function () {
       var text = this.data.inputText.trim();
-      if (!text || this.data.streaming) return;
+      var images = this.data.pendingImages || [];
+      var hasContent = text || images.length > 0;
+      if (!hasContent || this.data.streaming) return;
 
       var that = this;
 
-      // 添加用户消息
-      var messages = this.data.messages.concat([{
-        role: 'user',
-        content: text,
-        timestamp: new Date().toISOString(),
-      }]);
-
-      this.setData({
-        messages: messages,
-        inputText: '',
-        streaming: true,
-        streamingText: '思考中...',
-      });
-
-      this.scrollToBottom();
-
-      // 1. 预生成 sessionId（时间戳 + 随机串，确保唯一）
-      var tempSessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
-
-      // 2. 在 DB 中创建 session 文档（自定义 _id），设 status=streaming
-      var db = wx.cloud.database();
-      db.collection('messages').add({
-        data: {
-          _id: tempSessionId,
-          caseId: that.data.caseId,
-          chunks: [],
-          status: 'streaming',
-          fullText: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        success: function () {
-          // 3. 开始 watch session（实时接收 LLM 流式输出）
-          that.data.sessionId = tempSessionId;
-          that._msgWatcher = chatService.watchMessages(
-            tempSessionId,
-            function (chunks) {
-              // 拼接所有 chunks 的 text
-              var fullText = '';
-              for (var i = 0; i < chunks.length; i++) {
-                fullText += chunks[i].text;
-              }
-
-              // 更新或添加 AI 消息
-              var msgs = that.data.messages;
-              var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-
-              if (lastMsg && lastMsg.role === 'assistant' && lastMsg.streaming !== false) {
-                // 更新最后一条 AI 消息
-                msgs[msgs.length - 1] = {
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: lastMsg.timestamp,
-                  streaming: true,
-                };
-              } else {
-                // 添加新的 AI 消息
-                msgs.push({
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: new Date().toISOString(),
-                  streaming: true,
-                });
-              }
-
-              that.setData({ messages: msgs, streamingText: fullText });
-              that.scrollToBottom();
-            },
-            function (fullText) {
-              // 流式完成
-              var msgs = that.data.messages;
-              var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-              if (lastMsg && lastMsg.role === 'assistant') {
-                msgs[msgs.length - 1] = {
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: lastMsg.timestamp,
-                  streaming: false,
-                };
-              }
-              that.setData({
-                messages: msgs,
-                streaming: false,
-                streamingText: '',
-              });
-              if (that._msgWatcher) {
-                that._msgWatcher.close();
-                that._msgWatcher = null;
-              }
-            }
-          );
-
-          // 4. 调用云函数（传预生成的 sessionId，云函数 await LLM）
-          chatService.sendMessage({
-            caseId: that.data.caseId,
-            message: text,
-            sessionId: tempSessionId,
-          }).then(function (res) {
-            // 云函数返回，流已完成，但 watch 的 onDone 已经处理完毕
-            if (res.code === 0) {
-              that.setData({ sessionId: tempSessionId });
-            } else {
-              console.warn('追问云函数返回异常:', res.message);
-            }
-          }).catch(function (err) {
-            // callFunction 可能超时（云函数 await LLM 需要较长时间）
-            // 但 watch 已经接收到所有流式数据，UI 已更新完成
-            console.warn('追问云函数调用异常（可能超时但流已完成）:', err);
+      // 先上传图片到云存储（如有）
+      var uploadImagesPromise = Promise.resolve([]);
+      if (images.length > 0) {
+        wx.showLoading({ title: '上传图片中...', mask: true });
+        var uploadTasks = images.map(function (img, idx) {
+          var timestamp = Date.now();
+          var random = Math.random().toString(36).substring(2, 8);
+          var cloudPath = 'chat/' + that.data.caseId + '/' + timestamp + '_' + random + '_' + idx + '.jpg';
+          return cloudUtil.uploadFile(cloudPath, img.tempFilePath).then(function (res) {
+            return res.fileID;
           });
-        },
-        fail: function (err) {
-          console.error('创建会话失败:', err);
-          that.setData({ streaming: false, streamingText: '' });
-          wx.showToast({ title: '创建会话失败，请重试', icon: 'none' });
-        },
+        });
+        uploadImagesPromise = Promise.all(uploadTasks);
+      }
+
+      uploadImagesPromise.then(function (fileIds) {
+        wx.hideLoading();
+
+        // 添加用户消息（文字+图片预览）
+        var userContent = text;
+        var messages = that.data.messages.concat([{
+          role: 'user',
+          content: userContent || '[图片]',
+          timestamp: new Date().toISOString(),
+          imageCount: images.length,
+        }]);
+
+        that.setData({
+          messages: messages,
+          inputText: '',
+          pendingImages: [],
+          streaming: true,
+          streamingText: '思考中...',
+        });
+
+        that.scrollToBottom();
+
+        // 预生成 sessionId
+        var tempSessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+
+        // 在 DB 中创建 session 文档
+        var db = wx.cloud.database();
+        db.collection('messages').add({
+          data: {
+            _id: tempSessionId,
+            caseId: that.data.caseId,
+            chunks: [],
+            status: 'streaming',
+            fullText: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          success: function () {
+            // 开始 watch session
+            that.data.sessionId = tempSessionId;
+            that._msgWatcher = chatService.watchMessages(
+              tempSessionId,
+              function (chunks) {
+                var fullText = '';
+                for (var i = 0; i < chunks.length; i++) {
+                  fullText += chunks[i].text;
+                }
+                var msgs = that.data.messages;
+                var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+                if (lastMsg && lastMsg.role === 'assistant' && lastMsg.streaming !== false) {
+                  msgs[msgs.length - 1] = {
+                    role: 'assistant',
+                    content: fullText,
+                    timestamp: lastMsg.timestamp,
+                    streaming: true,
+                  };
+                } else {
+                  msgs.push({
+                    role: 'assistant',
+                    content: fullText,
+                    timestamp: new Date().toISOString(),
+                    streaming: true,
+                  });
+                }
+                that.setData({ messages: msgs, streamingText: fullText });
+                that.scrollToBottom();
+              },
+              function (fullText) {
+                var msgs = that.data.messages;
+                var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+                if (lastMsg && lastMsg.role === 'assistant') {
+                  msgs[msgs.length - 1] = {
+                    role: 'assistant',
+                    content: fullText,
+                    timestamp: lastMsg.timestamp,
+                    streaming: false,
+                  };
+                }
+                that.setData({
+                  messages: msgs,
+                  streaming: false,
+                  streamingText: '',
+                });
+                if (that._msgWatcher) {
+                  that._msgWatcher.close();
+                  that._msgWatcher = null;
+                }
+              }
+            );
+
+            // 调用云函数（传 sessionId + imageFileIds）
+            chatService.sendMessage({
+              caseId: that.data.caseId,
+              message: text || '[图片]',
+              sessionId: tempSessionId,
+              imageFileIds: fileIds,
+            }).then(function (res) {
+              if (res.code === 0) {
+                that.setData({ sessionId: tempSessionId });
+              } else {
+                console.warn('追问云函数返回异常:', res.message);
+              }
+            }).catch(function (err) {
+              console.warn('追问云函数调用异常:', err);
+            });
+          },
+          fail: function (err) {
+            console.error('创建会话失败:', err);
+            that.setData({ streaming: false, streamingText: '' });
+            wx.showToast({ title: '创建会话失败，请重试', icon: 'none' });
+          },
+        });
+      }).catch(function (err) {
+        wx.hideLoading();
+        console.error('图片上传失败:', err);
+        wx.showToast({ title: '图片上传失败，请重试', icon: 'none' });
       });
     },
 

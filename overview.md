@@ -1,63 +1,34 @@
-# 排查总结：AI 分析失败 + OCR 识别率差
+# 综合修复交付报告 — 2026-07-15
 
-## 问题 1：AI 分析一直分析不出来 ✅ 已修复
+修复了用户报告的 5 个问题，共修改 8 个文件（+383/-96 行）。
 
-### 根因
-`cloudfunctions/common/llm.js`（已修复版本）从未同步到云函数实际使用的副本目录 `analyzeCase/common/llm.js`。
+## 问题修复清单
 
-云函数加载的旧版 `llm.js` 有三个致命差异：
+| # | 问题 | 根因 | 修复方式 |
+|---|------|------|---------|
+| 1 | 图片只能传9张 | wx.chooseMedia 上限 | 添加"继续添加"按钮，分批追加图片和OCR结果 |
+| 2 | 上传页UI不合理 | 截图放在第二位，导出.txt放第一位 | 截图置顶+推荐标签，纵向排列，文案精简 |
+| 3 | 双人模式乙方无法上传 | 无加入入口，getCaseDetail拒绝非参与者 | 新增加入按钮+onJoinCase流程，inviteCode处理 |
+| 4 | 手机端OCR经常失败 | OCR.space免费API中文识别率低 | 新增腾讯云OCR(cloud.openapi)为首选，OCR.space降级 |
+| 5 | 首次分析卡住需重试 | 竞态：未等analysisId就跳转报告页 | 等待analyzeCase返回后再跳转，传递analysisId |
 
-| 对比项 | 修复版 (cloudfunctions/common/) | 旧版 (analyzeCase/common/) |
-|--------|-------------------------------|---------------------------|
-| 默认 provider | `deepseek` | `anthropic` |
-| FALLBACK_API_KEY | 有 (sk-23bd...) | 无（空字符串） |
-| HTTP 方式 | `https.request`（原生） | `fetch`（云函数不支持） |
+## 修改文件
 
-→ 导致 `getConfig()` 返回 `{provider:"anthropic", apiKey:""}` → `analyzeChat` 抛出 "Missing API key"
+- `miniprogram/pages/upload/upload.js` — 分批上传+等待分析结果后跳转
+- `miniprogram/pages/upload/upload.wxml` — UI重排+继续添加按钮
+- `miniprogram/pages/upload/upload.wxss` — 纵向排列+推荐样式
+- `miniprogram/pages/report/report.js` — 接收analysisId参数+轮询兜底
+- `miniprogram/pages/case-detail/case-detail.js` — 加入案例逻辑
+- `miniprogram/pages/case-detail/case-detail.wxml` — 加入提示UI
+- `miniprogram/pages/case-detail/case-detail.wxss` — 加入提示样式
+- `cloudfunctions/ocrImage/index.js` — 腾讯云OCR+OCR.space双方案
 
-### 修复
-1. 将 `cloudfunctions/common/llm.js` 同步到 `analyzeCase/common/llm.js` 和 `uploadEvidence/common/llm.js`
-2. 删除嵌套重复目录 `common/common/`（每个 8 个文件，共 16 个）
-3. 集成测试 19/19 通过
+## 部署
 
-### 验证
-```
-修复前: provider=anthropic, apiKey="" → Missing API key
-修复后: provider=deepseek, apiKey=sk-23bd..., model=deepseek-chat ✅
-```
+- ✅ 云函数 `ocrImage` 已部署到 CloudBase
+- ⏳ 前端文件需微信开发者工具上传后生效
 
----
+## 测试
 
-## 问题 2：OCR 识别率差 ⚠️ 代码无问题，需部署排查
-
-### 排查结果
-- **OCR.space API 本地测试**：3.6 秒，855 字中文，识别率完整清晰 ✅
-- **图片大小**：124-408KB（base64 后 165-544KB），在 callFunction 1MB 限制内 ✅
-- **OCR 云函数代码**：正确使用 `https.request`，参数正确 ✅
-
-### 需要你操作
-代码层面没问题，问题在**部署/运行环境**层面：
-
-1. **重新部署 `ocrImage` 云函数**
-   - 微信开发者工具 → 云开发 → 云函数 → 右键 `ocrImage` → 上传并部署
-   - 同样部署 `analyzeCase` 和 `uploadEvidence`（llm.js 已更新）
-
-2. **检查 OCR.space 免费额度**
-   - 免费 API 每月 25,000 次请求
-   - 如额度耗尽，需更换 API key 或升级
-
-3. **测试文件夹 `1/` 说明**
-   - 包含 9 张聊天截图 + 1 个聊天视频 mp4
-   - 视频无法直接 OCR（当前架构只处理图片）
-   - 如需视频 OCR，需先抽帧再逐帧识别
-
----
-
-## 本次修复 Git 记录
-
-```
-commit a532302
-fix: 修复 AI 分析失败 - llm.js 旧副本默认走 anthropic 且无 API key
-
-19 files changed, 327 insertions(+), 2505 deletions(-)
-```
+- 19/19 集成测试通过
+- 语法检查全部通过

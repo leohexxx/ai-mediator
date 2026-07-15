@@ -1,6 +1,6 @@
 {
   "round": 1,
-  "elapsed": "69.5s",
+  "elapsed": "44.5s",
   "checks": {
     "hasCoreConclusion": true,
     "hasVerdict": true,
@@ -17,54 +17,44 @@
   "steps": [
     {
       "step": "understanding",
-      "progress": 15,
+      "progress": 10,
       "time": 0
     },
     {
-      "step": "personality",
-      "progress": 30,
-      "time": 69523
+      "step": "core",
+      "progress": 40,
+      "time": 0
     },
     {
       "step": "evidence",
-      "progress": 50,
-      "time": 69523
-    },
-    {
-      "step": "emotion",
-      "progress": 65,
-      "time": 69523
-    },
-    {
-      "step": "judging",
-      "progress": 80,
-      "time": 69524
+      "progress": 70,
+      "time": 13911
     },
     {
       "step": "strategy",
-      "progress": 92,
-      "time": 69524
+      "progress": 90,
+      "time": 30970
     },
     {
       "step": "done",
       "progress": 100,
-      "time": 69524
+      "time": 44523
     }
   ],
   "conclusion": {
-    "verdict": "双方在恋爱观念上存在本质差异（INFJ巨蟹的情感融合需求 vs ISTP摩羯的独立理性需求），但都展现出了愿意沟通和调整的诚意，争议的核心并非对错，而是性格类型天然冲突下的匹配度与磨合意愿。",
-    "scoreA": 50,
-    "scoreB": 50,
-    "confidence": 85
+    "verdict": "甲方在自我认知与需求表达上更清晰主动，且尝试用建设性语言化解分歧，因此略占优；但双方本质是性格差异导致的沟通错位，无绝对对错。",
+    "scoreA": 55,
+    "scoreB": 45,
+    "confidence": 78
   },
   "personality": [
     {
       "name": "甲方",
-      "personality": "【性格分析】MBTI为INFJ（提倡者），这使其具有极强的洞察力、同理心和对深层精神连接的渴望，在对话中她主动剖析问题、提出系统方案，追求情感上的理解与共鸣。星座为巨蟹座，这强化了她对情感安全的极度需"
+      "personality": "INFJ与巨蟹结合，情感敏锐、追求深度联结，但易因期望落差焦虑。聊天中主动定义关系问题（高需求 vs 低需求），提出‘用对方语言爱对方’，体现了理想主义与同理心；同时能理性承认自己‘易焦虑’、‘情绪需"
     },
     {
       "name": "乙方",
-      "personality": "【性格分析】MBTI为ISTP（鉴赏家），这决定了其务实、理性、尊重界限、喜欢动手解决问题而非空谈的性格底色。在沟通中倾向于简短直接，回避无意义的情绪消耗。星座为摩羯座，这使其在关系中具有天然的责任感"
+      "personality": "ISTP与摩羯结合，务实、隐忍、重行动轻言辞。聊天中直接承认自己‘难做到预告汇报’、‘sry’道歉，符合ISTP对具体问题的务实回应；强调‘恋爱应轻松、避免悲情叙事’，体现了摩羯对‘实用主义’的追求与"
     }
   ]
 }

@@ -15,6 +15,10 @@ echo "=== 设置 chatWithAnalysis 环境变量（5 key + 模型 + 显式 baseUrl
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"chatWithAnalysis\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
 echo ""
+echo "=== 设置 ocrBatch 环境变量 ==="
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\"}"
+
+echo ""
 echo "=== 部署完成 ==="
 echo "LLM_API_KEYS = 5 个 key 轮询 (逗号分隔)"
 echo "LLM_PROVIDER = deepseek"

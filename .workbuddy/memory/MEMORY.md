@@ -29,3 +29,44 @@
 - `533656d` baseline → `1956cc1` 单人MVP → `308d332` 性格维度 → `1d46c0f` 合规前
 - `ac20599` 合规改造 → `c01eb82` 隐私授权修复 → `8cfd722` -604100修复
 - `0e45dff` DevTools修复 → `cc8a7da` app.json修复 → `a532302` llm.js修复
+
+## 关键 Bug 修复总结（2026-07-14）
+
+### 分析流水线（最重要）
+- `analyzeCase` 云函数使用 **顺序流水线** `runSequentialPipeline`，同一调用内串行 core→evidence→strategy
+- DeepSeek Flash 每阶段 ~10-27s，3 阶段合计 ~30-64s，云函数 timeout=120s 足够
+- **主入口 await 整个流水线**（主函数 await pipeline 直到三阶段全部完成后再返回）
+  - `handleInitial` 先创建记录并返回结果（<1s）
+  - `exports.main` 收到结果后 `await runSequentialPipeline`
+  - 客户端在 `callFunction` 之后立即导航走，不等返回
+  - 云函数 120s timeout > pipeline ~55s，不会被掐
+- **不做 `cloud.callFunction` 自调用**（ESOCKETTIMEDOUT 根源）
+- 深度模式 Pro 降级用**同调用内直接重试**（`return await handleCore(..., true)`）
+- `_input.chatText` 必须截断到 ≤8000 字符（`slice(0, 8000)`）
+
+### 超时设置
+- `llm.js` 中 `STAGE_TIMEOUT_MS` = 50000
+- `cloudbaserc.json` 中 `analyzeCase` timeout = 120
+- `cloudbaserc.json` 中 `chatWithAnalysis` timeout = 60
+
+### DNS / 环境变量陷阱
+- `api.tokenhub.market` DNS 错误：代码中无该域名引用，由 CloudBase 残留 `LLM_BASE_URL` 导致
+- **必须**在部署脚本中显式设置 `LLM_BASE_URL=https://api.deepseek.com/v1` 覆盖旧值
+- `setkeys.sh` 和 `deploy.sh` 都必须显式设置 LLM_BASE_URL
+
+### 证据阶段（evidence）耗时最高
+- evidence 耗时 22-26s，占总时间 ~50%，是计算瓶颈
+- maxTokens 已从 3584 压缩到 2560，要求项数精简
+- 预计可提速 8-10s
+
+### 报告页轮询保底
+- `report.js`: 添加 `_startPolling` 每 3 秒查一次 DB，作为 watch 的保底
+- 分析完成后自动停止轮询并刷新完整报告
+
+### 视频抽帧
+- 最大帧数 maxFrames = 12（不能为 20）
+- OCR 并发控制 MAX_CONCURRENT = 3（不能全部并行）
+
+### createCase
+- 单人模式初始状态 = `waiting_submission`（不是 `single_submitted`）
+- `uploadEvidence` 提交后自动变为 `single_submitted`

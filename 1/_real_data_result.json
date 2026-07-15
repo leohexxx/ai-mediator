@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "totalS": "46.6",
+    "ok": true,
+    "allUnder55": true,
+    "model": "deepseek-v4-flash",
+    "ocrChars": 5675,
+    "messages": 68,
+    "formattedChars": 5768
+  },
+  "perStage": {
+    "core": {
+      "elapsed": 10.2,
+      "ok": true
+    },
+    "evidence": {
+      "elapsed": 20.1,
+      "ok": true
+    },
+    "strategy": {
+      "elapsed": 16.3,
+      "ok": true
+    }
+  },
+  "core": {
+    "overallWinner": "a",
+    "scoreA": 65,
+    "scoreB": 35,
+    "oneLineVerdict": "甲方主动剖析问题并提出具体需求，展现了更高的沟通诚意与自我觉察，比乙方更占理",
+    "keyReasons": [
+      "甲方（INFJ/巨蟹座）情感细腻、重视深度沟通，主动指出高需求与低需求差异并提出可执行方案，体现了解决问题的主动性",
+      "乙方（ISTP/摩羯座）理性务实、回避情绪卷入，虽承认疏忽但更强调观念对立与不可调和，防御性较强",
+      "甲方多次请求明确情感确认（如“是否也想要共同未来”），乙方最终给予肯定回答，但此前回避态度加剧了甲方的焦虑"
+    ],
+    "recommendedAction": "双方应基于甲方提出的‘用对方语言表达爱意’原则，建立具体的小约定（如每日分享一件小事、情绪低谷时提前预告），并定期复盘感受",
+    "confidence": 82,
+    "confidenceReasons": [
+      "聊天记录较为完整，覆盖了主要矛盾点与双方核心表达",
+      "结合MBTI与星座分析，性格特征与对话行为高度一致",
+      "缺少更早的对话历史，无法完全评估冲突累积过程"
+    ]
+  }
+}

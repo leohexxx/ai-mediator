@@ -99,6 +99,7 @@ Page({
       clearInterval(this._pollTimer);
       this._pollTimer = null;
     }
+    this._clearStuckTimer();
   },
 
   /**
@@ -195,12 +196,18 @@ Page({
 
         if (analysis) {
           if (analysis.progress && analysis.progress.step === 'done') {
-            that.setData({ analysis: analysis, progress: analysis.progress });
+            that.setData({ analysis: analysis, progress: analysis.progress, progressStuck: false });
             // 已完成，停止轮询
             if (that._pollTimer) {
               clearInterval(that._pollTimer);
               that._pollTimer = null;
             }
+            // 关闭进度监听，清除卡住定时器
+            if (that._progressWatcher) {
+              that._progressWatcher.close();
+              that._progressWatcher = null;
+            }
+            that._clearStuckTimer();
           } else if (analysis.progress) {
             that.setData({ analysis: analysis, progress: analysis.progress });
             that._analysisId = analysis._id;
@@ -227,21 +234,22 @@ Page({
 
   watchProgress: function (analysisId) {
     var that = this;
-    var stuckTimer = null;
 
-    function setStuckTimer() {
-      if (stuckTimer) clearTimeout(stuckTimer);
-      stuckTimer = setTimeout(function () {
-        that.setData({ progressStuck: true });
-      }, 90000);
-    }
+    this._clearStuckTimer();
+
+    this._stuckTimer = setTimeout(function () {
+      that.setData({ progressStuck: true });
+    }, 90000);
 
     this._progressWatcher = analysisService.watchAnalysisProgress(analysisId, function (progress) {
       that.setData({ progress: progress, progressStuck: false });
-      setStuckTimer();
+      that._clearStuckTimer();
+      that._stuckTimer = setTimeout(function () {
+        that.setData({ progressStuck: true });
+      }, 90000);
 
       if (progress.step === 'done' || progress.step === 'error') {
-        if (stuckTimer) clearTimeout(stuckTimer);
+        that._clearStuckTimer();
         // 清理轮询（已完成）
         if (that._pollTimer) {
           clearInterval(that._pollTimer);
@@ -250,8 +258,16 @@ Page({
         that.loadReport();
       }
     });
+  },
 
-    setStuckTimer();
+  /**
+   * 清除卡住定时器
+   */
+  _clearStuckTimer: function () {
+    if (this._stuckTimer) {
+      clearTimeout(this._stuckTimer);
+      this._stuckTimer = null;
+    }
   },
 
   onTabChange: function (e) {
@@ -371,6 +387,16 @@ Page({
       wx.hideLoading();
       wx.showToast({ title: '网络错误，请重试', icon: 'none' });
       that.setData({ progressStuck: true });
+    });
+  },
+
+  /**
+   * 补充证据并重新分析
+   * 跳转到上传页（带 supplement 参数），提交后自动触发重新分析
+   */
+  onSupplementEvidence: function () {
+    wx.navigateTo({
+      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1',
     });
   },
 

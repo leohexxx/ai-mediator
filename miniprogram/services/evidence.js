@@ -11,6 +11,7 @@ var cloudUtil = require('../utils/cloud');
  * @param {string} params.rawText - 聊天记录文本
  * @param {string} [params.note] - 备注
  * @param {string[]} [params.fileIds] - 云存储文件 ID
+ * @param {boolean} [params.supplement] - 是否为补充证据（跳过状态检查）
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
 function uploadEvidence(params) {
@@ -19,6 +20,7 @@ function uploadEvidence(params) {
     rawText: params.rawText,
     note: params.note || '',
     fileIds: params.fileIds || [],
+    supplement: params.supplement === true,
   });
 }
 
@@ -226,6 +228,18 @@ function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
   return uploadOne(0);
 }
 
+/**
+ * 批量 OCR 识别（视频帧专用）— 所有帧合并为一次云函数调用
+ * @param {Array<{base64: string, timeIndex: number}>} frames - 帧列表
+ * @returns {Promise<{code: number, data: {combinedText: string, results: Array}|null, message: string}>}
+ */
+function ocrBatch(frames) {
+  return cloudUtil.callFunction('ocrBatch', {
+    frames: frames,
+    mimeType: 'image/jpeg',
+  });
+}
+
 module.exports = {
   uploadEvidence: uploadEvidence,
   chooseMessageFile: chooseMessageFile,
@@ -235,5 +249,6 @@ module.exports = {
   uploadVideoToCloud: uploadVideoToCloud,
   ocrImage: ocrImage,
   ocrImageBase64: ocrImageBase64,
+  ocrBatch: ocrBatch,
   uploadImagesAndOCR: uploadImagesAndOCR,
 };

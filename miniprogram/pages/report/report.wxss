@@ -349,3 +349,20 @@
   width: 400rpx;
 }
 
+/* ===== 补充证据按钮 ===== */
+.supplement-evidence-bar {
+  margin: 16rpx 0;
+}
+
+.supplement-btn {
+  width: 100%;
+  padding: 20rpx 32rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--color-brand);
+  border: 1rpx dashed rgba(99, 102, 241, 0.3);
+}
+

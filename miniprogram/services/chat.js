@@ -9,6 +9,7 @@ var cloudUtil = require('../utils/cloud');
  * @param {Object} params
  * @param {string} params.caseId
  * @param {string} params.message
+ * @param {string[]} [params.imageFileIds] - 上传的图片文件ID列表
  * @param {string} [params.sessionId]
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
@@ -17,6 +18,7 @@ function sendMessage(params) {
     caseId: params.caseId,
     message: params.message,
     sessionId: params.sessionId || '',
+    imageFileIds: params.imageFileIds || [],
   });
 }
 

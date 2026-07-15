@@ -73,6 +73,12 @@
       "timeout": 15,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
+    },
+    {
+      "name": "ocrBatch",
+      "timeout": 120,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
     }
   ]
 }

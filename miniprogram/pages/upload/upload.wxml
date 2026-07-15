@@ -1,7 +1,12 @@
 <!-- 上传证据页 -->
 <view class="container">
+  <!-- 补充证据模式标识 -->
+  <view class="supplement-badge" wx:if="{{supplement}}">
+    📎 补充证据模式 — 提交后将自动触发重新分析
+  </view>
+
   <!-- 身份标识 -->
-  <view class="role-badge">
+  <view class="role-badge" wx:if="{{!supplement}}">
     你的身份：{{role === 'party_a' ? '甲方（发起方）' : '乙方（受邀方）'}}
   </view>
 

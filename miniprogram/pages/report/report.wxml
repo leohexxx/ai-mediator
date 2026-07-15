@@ -53,6 +53,11 @@
       <button class="share-btn secondary" bindtap="onOpenShare">生成分享卡片</button>
     </view>
 
+    <!-- 补充证据入口 -->
+    <view class="supplement-evidence-bar">
+      <button class="supplement-btn" bindtap="onSupplementEvidence">📎 补充证据并重新分析</button>
+    </view>
+
     <!-- ═══ 第二层：证据 & 情绪 ═══ -->
     <view class="layer-header">
       <view class="layer-line"></view>

@@ -35,19 +35,35 @@
 
   <!-- 输入区 -->
   <view class="chat-input-area">
-    <input
-      class="chat-input"
-      placeholder="输入你的问题..."
-      placeholder-class="input-placeholder"
-      value="{{inputText}}"
-      bindinput="onInput"
-      confirm-type="send"
-      bindconfirm="onSend"
-      disabled="{{streaming}}"
-      maxlength="500"
-    />
-    <view class="send-btn {{inputText && !streaming ? 'active' : ''}}" bindtap="onSend">
+    <view class="chat-input-wrapper">
+      <input
+        class="chat-input"
+        placeholder="输入你的问题..."
+        placeholder-class="input-placeholder"
+        value="{{inputText}}"
+        bindinput="onInput"
+        confirm-type="send"
+        bindconfirm="onSend"
+        disabled="{{streaming}}"
+        maxlength="500"
+      />
+      <view class="chat-image-btn {{streaming ? 'disabled' : ''}}" bindtap="onChooseImage" wx:if="{{!streaming}}">
+        <text>🖼</text>
+      </view>
+    </view>
+    <view class="send-btn {{(inputText || pendingImages.length) && !streaming ? 'active' : ''}}" bindtap="onSend">
       📤
     </view>
+  </view>
+
+  <!-- 待发送图片预览 -->
+  <view class="chat-image-preview" wx:if="{{pendingImages.length > 0}}">
+    <view class="chat-image-preview-title">待发送图片 ({{pendingImages.length}} 张)</view>
+    <scroll-view class="chat-image-scroll" scroll-x>
+      <view class="chat-image-item" wx:for="{{pendingImages}}" wx:key="index">
+        <image class="chat-image-thumb" src="{{item.tempFilePath}}" mode="aspectFill" />
+        <view class="chat-image-remove" data-index="{{index}}" bindtap="onRemoveImage">✕</view>
+      </view>
+    </scroll-view>
   </view>
 </view>

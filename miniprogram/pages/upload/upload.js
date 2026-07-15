@@ -11,6 +11,7 @@ Page({
     caseId: '',
     role: 'party_a',
     mode: 'single',
+    supplement: false,  // 是否为补充证据模式
     uploadMode: '',
     chatText: '',
     note: '',
@@ -40,6 +41,7 @@ Page({
       caseId: options.caseId || '',
       role: options.role || 'party_a',
       mode: options.mode || 'single',
+      supplement: options.supplement === '1',
       showGuide: true,
     });
   },
@@ -233,11 +235,11 @@ Page({
 
     // 固定间隔策略（覆盖整段视频）
     var interval;
-    if (duration <= 60) interval = 2;        // ≤1min: 每2s
-    else if (duration <= 180) interval = 3;  // 1-3min: 每3s
-    else interval = 5;                        // >3min: 每5s
+    if (duration <= 60) interval = 3;        // ≤1min: 每3s（原2s，减少帧数提速）
+    else if (duration <= 180) interval = 5;  // 1-3min: 每5s（原3s）
+    else interval = 8;                        // >3min: 每8s（原5s）
 
-    var maxFrames = 12;
+    var maxFrames = 8;
     var rawCount = Math.floor(duration / interval);
     var totalFrames = Math.min(rawCount, maxFrames);
     var frameTimes = [];
@@ -328,8 +330,8 @@ Page({
   },
 
   /**
-   * 批量 OCR 已抽取的视频帧（并发控制，最多 3 个同时进行）
-   * 避免同时发起过多 OCR 请求导致云函数排队/OCR.space 速率限制
+   * 批量 OCR 已抽取的视频帧 — 所有帧合并为一次云函数调用
+   * 原方案各帧分别调用云函数（12次冷启动），现改为单次批量调用（大幅提速）
    */
   _ocrFrameBatch: function (frameBase64List, frameTimes, fileIds) {
     var that = this;
@@ -343,44 +345,33 @@ Page({
 
     wx.showLoading({ title: '识别中 0/' + frameBase64List.length, mask: true });
 
-    var results = new Array(frameBase64List.length);
-    var doneCount = 0;
-    var nextIndex = 0;
-    var MAX_CONCURRENT = 3;
+    // 构造批量请求: 所有帧的 base64 + 时间索引
+    var frames = frameBase64List.map(function (item, index) {
+      return {
+        base64: item.base64,
+        timeIndex: frameTimes[item.timeIndex],
+      };
+    });
 
-    function processNext() {
-      if (nextIndex >= frameBase64List.length) return;
-      var index = nextIndex++;
-      var item = frameBase64List[index];
-
-      evidenceService.ocrImageBase64(item.base64).then(function (ocrResult) {
-        if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
-          var text = ocrResult.data.text.trim();
-          if (text) {
-            var sec = frameTimes[item.timeIndex];
-            var m = Math.floor(sec / 60);
-            var s = sec % 60;
-            results[index] = '[视频 ' + m + ':' + (s < 10 ? '0' : '') + s + ']\n' + text;
-          }
-        }
-      }).catch(function () { /* 单帧失败跳过 */ })
-      .finally(function () {
-        doneCount++;
-        wx.showLoading({ title: '识别中 ' + doneCount + '/' + frameBase64List.length, mask: true });
-        if (doneCount >= frameBase64List.length) {
-          wx.hideLoading();
-          var frameTexts = results.filter(function (r) { return r !== null; });
-          that._videoComplete(fileIds, frameTexts, totalStart);
-        } else {
-          processNext();
-        }
-      });
-    }
-
-    // 启动并发池，最多 MAX_CONCURRENT 个同时执行
-    for (var i = 0; i < Math.min(MAX_CONCURRENT, frameBase64List.length); i++) {
-      processNext();
-    }
+    evidenceService.ocrBatch(frames).then(function (res) {
+      wx.hideLoading();
+      if (res.code === 0 && res.data) {
+        var combinedText = res.data.combinedText || '';
+        var successCount = res.data.successCount || 0;
+        wx.showToast({
+          title: successCount > 0 ? '识别 ' + successCount + '/' + frames.length + ' 帧' : '未识别到文字',
+          icon: successCount > 0 ? 'success' : 'none',
+        });
+        that._videoComplete(fileIds, combinedText ? [combinedText] : [], totalStart);
+      } else {
+        wx.showToast({ title: res.message || '批量OCR失败', icon: 'none' });
+        that._videoComplete(fileIds, [], totalStart);
+      }
+    }).catch(function (err) {
+      wx.hideLoading();
+      console.error('批量OCR失败:', err);
+      that._videoComplete(fileIds, [], totalStart);
+    });
   },
 
   /**
@@ -389,6 +380,7 @@ Page({
   _videoComplete: function (fileIds, frameTexts, startTime) {
     var elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
     var combinedText = frameTexts.join('\n\n');
+    var textLen = combinedText.trim().length;
     if (!combinedText.trim()) {
       combinedText = '[视频抽帧全部失败。请尝试：1) 截取聊天截图上传；2) 直接粘贴聊天文本。]';
     }
@@ -402,8 +394,8 @@ Page({
     });
 
     wx.showToast({
-      title: frameTexts.length > 0 ? '提取 ' + frameTexts.length + ' 帧文字，' + elapsed + 's' : '未提取到文字',
-      icon: frameTexts.length > 0 ? 'success' : 'none',
+      title: textLen > 0 ? '已提取 ' + textLen + ' 字，' + elapsed + 's' : '未提取到文字',
+      icon: textLen > 0 ? 'success' : 'none',
     });
   },
 
@@ -472,16 +464,22 @@ Page({
       rawText: this.data.chatText,
       note: this.data.note,
       fileIds: this.data.uploadedFileIds || [],
+      supplement: this.data.supplement,
     }).then(function (res) {
       wx.hideLoading();
 
       if (res.code === 0 && res.data) {
         wx.showToast({ title: '提交成功', icon: 'success' });
 
-        // 弹出性格信息弹窗
-        that.setData({
-          showPersonalityModal: true,
-        });
+        if (that.data.supplement) {
+          // 补充证据模式：跳过性格弹窗，直接开始分析（force=true）
+          that._startAnalysis(true);
+        } else {
+          // 普通模式：弹出性格信息弹窗
+          that.setData({
+            showPersonalityModal: true,
+          });
+        }
       } else {
         that.setData({ submitting: false });
         wx.showToast({ title: res.message || '提交失败', icon: 'none' });
@@ -512,14 +510,14 @@ Page({
           data.personalityA,
           data.personalityB
         ).then(function () {
-          that._startAnalysis();
+          that._startAnalysis(false);
         }).catch(function () {
-          that._startAnalysis();
+          that._startAnalysis(false);
         });
       });
     } else {
       that._requestSubscribe(function () {
-        that._startAnalysis();
+        that._startAnalysis(false);
       });
     }
   },
@@ -530,7 +528,7 @@ Page({
   onPersonalitySkip: function () {
     var that = this;
     that._requestSubscribe(function () {
-      that._startAnalysis();
+      that._startAnalysis(false);
     });
   },
 
@@ -573,8 +571,9 @@ Page({
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
+   * @param {boolean} [force=false] - 强制重新分析（补充证据时使用）
    */
-  _startAnalysis: function () {
+  _startAnalysis: function (force) {
     var that = this;
     var deep = this.data.deepMode;
     this.setData({ showPersonalityModal: false });
@@ -582,7 +581,7 @@ Page({
     wx.showLoading({ title: '正在启动分析...', mask: true });
 
     // 等待 analyzeCase 返回（拿到 analysisId 后再跳转，避免报告页找不到分析记录）
-    analysisService.analyzeCase(this.data.caseId, false, deep).then(function (analysisRes) {
+    analysisService.analyzeCase(this.data.caseId, force === true, deep).then(function (analysisRes) {
       wx.hideLoading();
 
       var analysisId = '';
@@ -596,15 +595,24 @@ Page({
       // 跳转到报告页，带上 analysisId 避免竞态
       var url = '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1';
       if (analysisId) url += '&analysisId=' + analysisId;
-      wx.redirectTo({ url: url });
+
+      if (that.data.supplement) {
+        // 补充证据模式：返回报告页（原页面还在栈中）
+        wx.navigateBack();
+      } else {
+        wx.redirectTo({ url: url });
+      }
     }).catch(function (err) {
       wx.hideLoading();
       console.warn('分析启动调用异常:', err);
 
       // 降级：即使调用失败也跳转报告页（让轮询兜底）
-      wx.redirectTo({
-        url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1',
-      });
+      var fallbackUrl = '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1';
+      if (that.data.supplement) {
+        wx.navigateBack();
+      } else {
+        wx.redirectTo({ url: fallbackUrl });
+      }
     });
   },
 });
