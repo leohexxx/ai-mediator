@@ -152,17 +152,32 @@ function ocrImage(filePath) {
     var ext = (filePath.split('.').pop() || 'jpg').toLowerCase();
     var mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
-    fs.readFile({
-      filePath: filePath,
-      encoding: 'base64',
-      success: function (readRes) {
-        cloudUtil.callFunction('ocrImage', {
-          base64: readRes.data,
-          mimeType: mimeType,
-        }).then(resolve).catch(reject);
+    function readAndSend(fPath) {
+      fs.readFile({
+        filePath: fPath,
+        encoding: 'base64',
+        success: function (readRes) {
+          cloudUtil.callFunction('ocrImage', {
+            base64: readRes.data,
+            mimeType: mimeType,
+          }).then(resolve).catch(reject);
+        },
+        fail: function (err) {
+          reject(new Error('读取图片失败: ' + (err.errMsg || err.message)));
+        },
+      });
+    }
+
+    // 先压缩图片，避免手机高清截图 base64 超过 callFunction 的 6MB 上限
+    wx.compressImage({
+      src: filePath,
+      quality: 50,
+      success: function (compressRes) {
+        readAndSend(compressRes.tempFilePath);
       },
-      fail: function (err) {
-        reject(new Error('读取图片失败: ' + (err.errMsg || err.message)));
+      fail: function () {
+        // 压缩失败则用原图（例如已经是小图）
+        readAndSend(filePath);
       },
     });
   });
