@@ -204,9 +204,13 @@ function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
 
     var filePath = tempFilePaths[index];
 
-    // 先 OCR（用本地路径），同时上传云存储保存证据
+    // 先 OCR（用本地路径），同时上传云存储保存聊天内容
+    // OCR 是核心功能，上传是附属功能——上传失败不应影响 OCR 结果
     var ocrPromise = ocrImage(filePath);
-    var uploadPromise = uploadImageToCloud(filePath, caseId);
+    var uploadPromise = uploadImageToCloud(filePath, caseId).catch(function (e) {
+      console.warn('云存储上传失败（不影响 OCR）:', e && (e.errMsg || e.message));
+      return null;
+    });
 
     return Promise.all([ocrPromise.catch(function (e) {
       return { code: -1, data: null, message: e.message || 'OCR 失败' };
