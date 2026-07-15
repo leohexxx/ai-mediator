@@ -245,8 +245,11 @@ Page({
     var rawCount = Math.floor(duration / interval);
     var totalFrames = Math.min(rawCount, maxFrames);
     var frameTimes = [];
-    for (var i = 0; i < totalFrames; i++) {
-      frameTimes.push(Math.round((i + 0.5) * interval)); // 取每段中间
+    if (totalFrames > 0) {
+      var step = duration / totalFrames; // 均匀分布
+      for (var i = 0; i < totalFrames; i++) {
+        frameTimes.push(Math.round(step * (i + 0.5))); // 每段中间
+      }
     }
 
     var frameBase64List = [];

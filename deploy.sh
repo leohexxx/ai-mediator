@@ -18,24 +18,23 @@ echo "=== 2/4 部署 chatWithAnalysis 代码 (timeout=60s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"chatWithAnalysis\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
 
 echo ""
-echo "=== 3/6 部署 ocrImage 代码 (timeout=60s) ==="
+echo "=== 3/4 部署 ocrImage 代码 (timeout=60s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrImage\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrImage\",\"timeout\":60,\"permissions\":{\"openapi\":[\"ocr.printedText\"]}}"
 
 echo ""
-echo "=== 4/6 部署 ocrBatch 代码 (timeout=120s) ==="
+echo "=== 4/4 部署 ocrBatch 代码 (timeout=120s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrBatch\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}"
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\",\"timeout\":120,\"permissions\":{\"openapi\":[\"ocr.printedText\"]}}"
 
 echo ""
-echo "=== 5/6 配置 analyzeCase 环境变量 (5 key + 模型 + baseUrl) ==="
+echo ""
+echo "=== 配置 analyzeCase 环境变量 ==="
 # ⚠️ LLM_BASE_URL 必须显式设置，避免 CloudBase 残留旧值
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"analyzeCase\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"DEEP_LLM_MODEL\":\"deepseek-v4-pro\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
 echo ""
-echo "=== 配置 ocrBatch 环境变量 ==="
-npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\"}"
-
-echo ""
-echo "=== 6/6 配置 chatWithAnalysis 环境变量 (5 key + 模型 + baseUrl) ==="
+echo "=== 配置 chatWithAnalysis 环境变量 ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"chatWithAnalysis\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
 echo ""

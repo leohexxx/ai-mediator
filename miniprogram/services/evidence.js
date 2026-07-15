@@ -148,8 +148,8 @@ function uploadVideoToCloud(filePath, caseId) {
  */
 function ocrImage(filePath) {
   return new Promise(function (resolve, reject) {
-    // 一律通过 canvas 缩放到 ≤960px，JPEG quality 0.6
-    // 不再依赖 compressImage（部分手机不生效/返回原图）
+    // 通过 canvas 缩放到 ≤1600px，JPEG quality 0.6
+    // compressImage 作为首选方案（会降级到 canvas）
     // toDataURL 直接拿 base64，不绕文件读写
     var MAX = 1600;
     wx.getImageInfo({
