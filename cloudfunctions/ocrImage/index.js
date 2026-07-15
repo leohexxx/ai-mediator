@@ -99,8 +99,48 @@ exports.main = async function (event, context) {
     var base64Image = event.base64;
     var mimeType = event.mimeType || 'image/jpeg';
 
+    // 无图片时自动执行自检（验证腾讯云 OCR 权限是否生效）
     if (!base64Image) {
-      return { code: -1, data: null, message: '缺少图片数据' };
+      console.log('[自检] 无图片数据，开始权限自检...');
+      var selfTestResult = { eventType: typeof event, eventKeys: Object.keys(event) };
+      // 尝试用内置测试图调用腾讯云 OCR 验证权限
+      try {
+        var testB64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        await ocrViaTencentCloud(testB64);
+        selfTestResult.tencentCloud = 'accessible';
+        selfTestResult.note = '腾讯云 OCR 权限正常';
+      } catch (e) {
+        var isPermError = e.message.indexOf('604101') !== -1 || e.message.indexOf('permission') !== -1 || e.message.indexOf('无权限') !== -1;
+        if (isPermError) {
+          selfTestResult.tencentCloud = 'permission_denied';
+          selfTestResult.error = e.message;
+          selfTestResult.note = '腾讯云 OCR 权限未生效，将降级 OCR.space';
+          console.error('[自检] 权限错误:', e.message);
+        } else {
+          selfTestResult.tencentCloud = 'accessible';
+          selfTestResult.note = '腾讯云 OCR 可访问（' + e.message + '）';
+          console.log('[自检] 腾讯云 OCR 可访问（', e.message, '）');
+        }
+      }
+      console.log('[自检] 结果:', JSON.stringify(selfTestResult));
+      return { code: 0, data: { diagnostic: true, selfTest: selfTestResult }, message: 'diagnostic' };
+    }
+    if (!base64Image) {
+      console.log('[诊断] event 无 base64，返回诊断信息');
+      return {
+        code: 0,
+        data: {
+          diagnostic: true,
+          eventKeys: Object.keys(event),
+          eventType: typeof event,
+          eventStr: JSON.stringify(event).substring(0, 200),
+          config: JSON.stringify({
+            timeout: 60,
+            permissions: { openapi: ['ocr.printedText'] }
+          })
+        },
+        message: 'diagnostic'
+      };
     }
 
     // 移除可能的 data URL 前缀

@@ -127,6 +127,12 @@ exports.main = async function (event, context) {
     var totalFrames = frames.length;
     console.log('[ocrBatch] 开始批量 OCR, 帧数:', totalFrames);
 
+    // 诊断：检查每帧大小
+    for (var di = 0; di < Math.min(frames.length, 3); di++) {
+      var b64 = frames[di].base64 || '';
+      console.log('[ocrBatch] 帧' + di + ' base64长度:', b64.length, '前缀:', b64.substring(0, 30));
+    }
+
     var results = new Array(totalFrames);
     var completedCount = 0;
 
@@ -163,6 +169,11 @@ exports.main = async function (event, context) {
 
     var successCount = sortedResults.length;
     var failCount = totalFrames - successCount;
+
+    // 诊断：输出失败帧的错误原因
+    results.forEach(function(r, ri) {
+      if (r && r.error) console.error('[ocrBatch] 帧' + ri + ' 失败:', r.method, r.error);
+    });
 
     console.log('[ocrBatch] 完成: ' + successCount + ' 成功, ' + failCount + ' 失败');
 

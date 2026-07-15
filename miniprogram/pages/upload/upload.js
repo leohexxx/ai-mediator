@@ -335,8 +335,8 @@ Page({
   },
 
   /**
-   * 批量 OCR 已抽取的视频帧 — 所有帧合并为一次云函数调用
-   * 原方案各帧分别调用云函数（12次冷启动），现改为单次批量调用（大幅提速）
+   * 批量 OCR 已抽取的视频帧 — 分批发送避免超 6MB 限制
+   * 每批最多 5 帧，或总数据 < 4MB 时全部一批
    */
   _ocrFrameBatch: function (frameBase64List, frameTimes, fileIds) {
     var that = this;
@@ -348,35 +348,57 @@ Page({
       return;
     }
 
-    wx.showLoading({ title: '识别中 0/' + frameBase64List.length, mask: true });
+    // 估算总大小，决定是否分批
+    var totalSize = 0;
+    frameBase64List.forEach(function (f) { totalSize += f.base64.length; });
+    console.log('[视频] 帧数:', frameBase64List.length, '总base64:', (totalSize / 1024 / 1024).toFixed(1), 'MB');
 
-    // 构造批量请求: 所有帧的 base64 + 时间索引
-    var frames = frameBase64List.map(function (item, index) {
-      return {
-        base64: item.base64,
-        timeIndex: frameTimes[item.timeIndex],
-      };
-    });
+    var BATCH_SIZE = 5;
+    if (totalSize < 4 * 1024 * 1024) BATCH_SIZE = frameBase64List.length; // <4MB 一批搞定
 
-    evidenceService.ocrBatch(frames).then(function (res) {
-      wx.hideLoading();
-      if (res.code === 0 && res.data) {
-        var combinedText = res.data.combinedText || '';
-        var successCount = res.data.successCount || 0;
-        wx.showToast({
-          title: successCount > 0 ? '识别 ' + successCount + '/' + frames.length + ' 帧' : '未识别到文字',
-          icon: successCount > 0 ? 'success' : 'none',
-        });
-        that._videoComplete(fileIds, combinedText ? [combinedText] : [], totalStart);
-      } else {
-        wx.showToast({ title: res.message || '批量OCR失败', icon: 'none' });
-        that._videoComplete(fileIds, [], totalStart);
+    var allResults = { successCount: 0, totalFrames: frameBase64List.length, combinedText: '' };
+
+    function processBatch(startIdx) {
+      if (startIdx >= frameBase64List.length) {
+        wx.hideLoading();
+        if (allResults.combinedText.trim()) {
+          wx.showToast({ title: '识别 ' + allResults.successCount + '/' + allResults.totalFrames + ' 帧', icon: 'success' });
+          that._videoComplete(fileIds, [allResults.combinedText], totalStart);
+        } else {
+          wx.showToast({ title: '未识别到文字', icon: 'none' });
+          that._videoComplete(fileIds, [], totalStart);
+        }
+        return;
       }
-    }).catch(function (err) {
-      wx.hideLoading();
-      console.error('批量OCR失败:', err);
-      that._videoComplete(fileIds, [], totalStart);
-    });
+
+      var endIdx = Math.min(startIdx + BATCH_SIZE, frameBase64List.length);
+      var batchFrames = [];
+      for (var i = startIdx; i < endIdx; i++) {
+        batchFrames.push({
+          base64: frameBase64List[i].base64,
+          timeIndex: frameTimes[frameBase64List[i].timeIndex],
+        });
+      }
+
+      wx.showLoading({ title: '识别中 ' + (startIdx + 1) + '-' + endIdx + '/' + frameBase64List.length, mask: true });
+
+      evidenceService.ocrBatch(batchFrames).then(function (res) {
+        if (res.code === 0 && res.data) {
+          allResults.successCount += (res.data.successCount || 0);
+          if (res.data.combinedText) {
+            allResults.combinedText += (allResults.combinedText ? '\n\n' : '') + res.data.combinedText;
+          }
+        } else {
+          console.warn('批次失败:', startIdx, '-', endIdx, res?.message);
+        }
+        processBatch(endIdx);
+      }).catch(function (err) {
+        console.error('批次OCR失败', startIdx, '-', endIdx, ':', err?.errMsg || err?.message || err);
+        processBatch(endIdx);
+      });
+    }
+
+    processBatch(0);
   },
 
   /**

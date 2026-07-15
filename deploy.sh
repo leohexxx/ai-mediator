@@ -28,7 +28,6 @@ npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunction
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\",\"timeout\":120,\"permissions\":{\"openapi\":[\"ocr.printedText\"]}}"
 
 echo ""
-echo ""
 echo "=== 配置 analyzeCase 环境变量 ==="
 # ⚠️ LLM_BASE_URL 必须显式设置，避免 CloudBase 残留旧值
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"analyzeCase\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"DEEP_LLM_MODEL\":\"deepseek-v4-pro\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
