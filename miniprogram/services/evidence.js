@@ -168,16 +168,65 @@ function ocrImage(filePath) {
       });
     }
 
-    // 先压缩图片，避免手机高清截图 base64 超过 callFunction 的 6MB 上限
-    wx.compressImage({
+    // Canvas 缩放 — 将图片长边限制在 1600px 以内，确保 base64 < 2MB
+    // 这个方案比 compressImage 更可靠（不依赖 API 兼容性，尺寸和大小同时控制）
+    var MAX_LONG_SIDE = 1600;
+    wx.getImageInfo({
       src: filePath,
-      quality: 50,
-      success: function (compressRes) {
-        readAndSend(compressRes.tempFilePath);
+      success: function (info) {
+        var w = info.width;
+        var h = info.height;
+        var longSide = Math.max(w, h);
+
+        // 小图直接用，不缩放
+        if (longSide <= MAX_LONG_SIDE) {
+          readAndSend(filePath);
+          return;
+        }
+
+        // 计算缩放比例
+        var scale = MAX_LONG_SIDE / longSide;
+        var newW = Math.floor(w * scale);
+        var newH = Math.floor(h * scale);
+
+        // 用离屏 canvas 缩放
+        var canvas = wx.createOffscreenCanvas({ type: '2d', width: newW, height: newH });
+        var ctx = canvas.getContext('2d');
+        var img = canvas.createImage();
+
+        img.onload = function () {
+          ctx.drawImage(img, 0, 0, newW, newH);
+          canvas.toTempFilePath({
+            fileType: 'jpg',
+            quality: 0.6,
+            success: function (res) {
+              readAndSend(res.tempFilePath);
+            },
+            fail: function () {
+              // canvas 导出失败，降级用 compressImage 或原图
+              wx.compressImage({
+                src: filePath,
+                quality: 40,
+                success: function (cr) { readAndSend(cr.tempFilePath); },
+                fail: function () { readAndSend(filePath); },
+              });
+            },
+          });
+        };
+
+        img.onerror = function () {
+          readAndSend(filePath); // 极低概率的加载失败，兜底原图
+        };
+        img.src = filePath;
       },
       fail: function () {
-        // 压缩失败则用原图（例如已经是小图）
-        readAndSend(filePath);
+        // getImageInfo 失败（极少见），降级 compressImage
+        wx.compressImage({
+          src: filePath,
+          quality: 40,
+          success: function (cr) { readAndSend(cr.tempFilePath); },
+          fail: function () { readAndSend(filePath); },
+        });
       },
     });
   });
