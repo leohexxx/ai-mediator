@@ -1,4 +1,4 @@
-/* 上传证据页样式 */
+/* 上传聊天记录页样式 */
 .role-badge {
   display: inline-block;
   padding: 8rpx 24rpx;

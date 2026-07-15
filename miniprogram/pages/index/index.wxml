@@ -70,7 +70,7 @@
         <text class="mode-card-icon">👥</text>
         <view class="mode-card-info">
           <text class="mode-card-name">双人对决</text>
-          <text class="mode-card-desc">邀请对方 · 公平裁判</text>
+          <text class="mode-card-desc">邀请对方 · 一起评理</text>
         </view>
         <view class="mode-check {{mode === 'dual' ? 'check-on' : ''}}">
           <text wx:if="{{mode === 'dual'}}">✓</text>
@@ -86,7 +86,7 @@
 
     <view class="hero-cta-sub">
       <text wx:if="{{mode === 'single'}}">上传聊天记录或截图 · 30 秒出结果</text>
-      <text wx:else>生成邀请码发给对方，双方各自上传证据</text>
+      <text wx:else>生成邀请码发给对方，双方各自上传聊天记录</text>
     </view>
   </view>
 

@@ -1,6 +1,6 @@
-<!-- 关键证据权重列表 -->
+<!-- 关键内容列表 -->
 <view class="evidence-weights card" wx:if="{{items.length > 0}}">
-  <view class="section-title">📋 关键证据 ({{items.length}}条)</view>
+  <view class="section-title">📋 关键内容 ({{items.length}}条)</view>
 
   <view
     wx:for="{{expanded ? items : items.slice(0, displayCount)}}"
@@ -13,7 +13,7 @@
       </view>
       <view class="evidence-speaker">{{item.speaker}}</view>
       <view class="evidence-favors {{item.favors === 'a' ? 'favors-a' : item.favors === 'b' ? 'favors-b' : 'favors-neutral'}}">
-        {{item.favors === 'a' ? '偏向甲方' : item.favors === 'b' ? '偏向乙方' : '中性'}}
+        {{item.favors === 'a' ? '偏向你' : item.favors === 'b' ? '偏向对方' : '中性'}}
       </view>
     </view>
     <view class="evidence-content">"{{item.content}}"</view>

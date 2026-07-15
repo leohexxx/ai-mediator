@@ -3,7 +3,7 @@
   <!-- 甲方 -->
   <view class="party-card {{partyAClass}}">
     <view class="party-avatar">🙋</view>
-    <view class="party-name">{{caseData.party_a.nickname || '甲方'}}</view>
+    <view class="party-name">{{caseData.party_a.nickname || '我'}}</view>
     <view class="party-role" wx:if="{{role === 'party_a'}}">(我)</view>
     <view class="party-status-text">{{partyAStatus}}</view>
     <view class="party-time text-muted" wx:if="{{partyATime}}">{{partyATime}}</view>
@@ -12,7 +12,7 @@
   <!-- 乙方 -->
   <view class="party-card {{partyBClass}}">
     <view class="party-avatar">🙎</view>
-    <view class="party-name">{{caseData.party_b.nickname || '乙方'}}</view>
+    <view class="party-name">{{caseData.party_b.nickname || '对方'}}</view>
     <view class="party-role" wx:if="{{role === 'party_b'}}">(我)</view>
     <view class="party-status-text">{{partyBStatus}}</view>
     <view class="party-time text-muted" wx:if="{{partyBTime}}">{{partyBTime}}</view>

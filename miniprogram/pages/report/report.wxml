@@ -22,10 +22,10 @@
   <!-- 报告内容（仅分析完成时展示，分析中只显示进度条，避免渲染半成品/旧缓存） -->
   <view wx:if="{{analysis && !restricted && progress && progress.step === 'done'}}">
 
-    <!-- 补充证据重新分析标记 -->
+    <!-- 补充内容标记 -->
     <view class="supplement-banner" wx:if="{{isReanalysis}}">
       <text class="supplement-icon">📎</text>
-      <text class="supplement-text">本次分析已纳入补充证据，结论可能已更新</text>
+      <text class="supplement-text">补充了新内容，结论可能不一样了</text>
     </view>
 
     <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
@@ -60,24 +60,24 @@
       <button class="share-btn secondary" bindtap="onOpenShare">生成分享卡片</button>
     </view>
 
-    <!-- 补充证据入口 -->
+    <!-- 补充内容入口 -->
     <view class="supplement-evidence-bar">
-      <button class="supplement-btn" bindtap="onSupplementEvidence">📎 补充证据并重新分析</button>
+      <button class="supplement-btn" bindtap="onSupplementEvidence">📎 补充聊天记录，重新看看</button>
     </view>
 
-    <!-- ═══ 第二层：证据 & 情绪 ═══ -->
+    <!-- ═══ 第二层：聊天记录 & 情绪 ═══ -->
     <view class="layer-header">
       <view class="layer-line"></view>
-      <text class="layer-title">证据 & 情绪</text>
+      <text class="layer-title">聊天记录 &amp; 情绪变化</text>
       <view class="layer-line"></view>
     </view>
     <evidence-weights items="{{analysis.evidenceWeights || []}}" />
     <emotion-curve curves="{{analysis.emotionCurve || []}}" />
 
-    <!-- ═══ 第三层：调解策略 ═══ -->
+    <!-- ═══ 第三层：缓和建议 ═══ -->
     <view class="layer-header">
       <view class="layer-line"></view>
-      <text class="layer-title">调解策略</text>
+      <text class="layer-title">缓和建议</text>
       <view class="layer-line"></view>
     </view>
     <mediation-strategy steps="{{analysis.mediationStrategy || []}}" />

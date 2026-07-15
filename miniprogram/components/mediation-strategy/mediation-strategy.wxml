@@ -1,6 +1,6 @@
-<!-- 调解策略步骤时间线 -->
+<!-- 沟通建议步骤时间线 -->
 <view class="mediation-strategy card" wx:if="{{steps.length > 0}}">
-  <view class="strategy-title">🤝 调解路线图</view>
+  <view class="strategy-title">🤝 沟通路线图</view>
 
   <view class="timeline">
     <view wx:for="{{steps}}" wx:key="step" class="timeline-item">
@@ -13,7 +13,7 @@
         <view class="step-header">
           <view class="step-title">{{item.title}}</view>
           <view class="step-badges">
-            <view class="badge badge-target">{{item.target === 'a' ? '甲方' : item.target === 'b' ? '乙方' : '双方'}}</view>
+            <view class="badge badge-target">{{item.target === 'a' ? '你' : item.target === 'b' ? '对方' : '双方'}}</view>
             <view class="badge badge-difficulty {{item.difficulty}}">
               {{item.difficulty === 'easy' ? '🟢易' : item.difficulty === 'medium' ? '🟡中' : '🔴难'}}
             </view>

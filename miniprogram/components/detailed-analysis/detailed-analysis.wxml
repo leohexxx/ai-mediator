@@ -24,7 +24,7 @@
     <view wx:for="{{characters}}" wx:key="name" class="character-card">
       <view class="char-header">
         <view class="char-role {{item.role === 'party_a' ? 'role-a' : item.role === 'party_b' ? 'role-b' : 'role-other'}}">
-          {{item.role === 'party_a' ? '甲方' : item.role === 'party_b' ? '乙方' : '其他'}}
+          {{item.role === 'party_a' ? '你' : item.role === 'party_b' ? '对方' : '其他'}}
         </view>
         <view class="char-name">{{item.name}}</view>
       </view>
@@ -45,12 +45,12 @@
         </view>
       </view>
       <view class="conflict-stance">
-        <view class="stance-a">甲方: {{item.partyAStance}}</view>
-        <view class="stance-b">乙方: {{item.partyBStance}}</view>
+        <view class="stance-a">你: {{item.partyAStance}}</view>
+        <view class="stance-b">对方: {{item.partyBStance}}</view>
       </view>
       <view class="conflict-judgment">
         <view class="judgment-winner {{item.winner}}">
-          {{item.winner === 'a' ? '→ 甲方更有理' : item.winner === 'b' ? '→ 乙方更有理' : '→ 双方各有道理'}}
+          {{item.winner === 'a' ? '→ 你更有理' : item.winner === 'b' ? '→ 对方更有理' : '→ 双方各有道理'}}
         </view>
         <view class="judgment-text">{{item.aiJudgment}}</view>
       </view>

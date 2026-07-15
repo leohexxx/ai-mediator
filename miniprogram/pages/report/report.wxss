@@ -1,6 +1,6 @@
 /* 分析报告页样式 */
 
-/* 补充证据重新分析标记 */
+/* 补充内容标记 */
 .supplement-banner {
   display: flex;
   align-items: center;
@@ -373,7 +373,7 @@
   width: 400rpx;
 }
 
-/* ===== 补充证据按钮 ===== */
+/* ===== 补充内容按钮 ===== */
 .supplement-evidence-bar {
   margin: 16rpx 0;
 }

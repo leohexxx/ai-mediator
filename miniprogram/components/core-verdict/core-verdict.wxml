@@ -9,7 +9,7 @@
   <!-- 分数对比条 -->
   <view class="score-compare">
     <view class="score-side score-a">
-      <view class="score-label">甲方</view>
+      <view class="score-label">你</view>
       <view class="score-value" style="color: var(--color-party-a)">{{scoreA}}分</view>
     </view>
     <view class="score-bar-wrapper">
@@ -19,7 +19,7 @@
       </view>
     </view>
     <view class="score-side score-b">
-      <view class="score-label">乙方</view>
+      <view class="score-label">对方</view>
       <view class="score-value" style="color: var(--color-party-b)">{{scoreB}}分</view>
     </view>
   </view>

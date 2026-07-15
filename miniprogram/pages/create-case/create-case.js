@@ -69,7 +69,7 @@ Page({
     // 获取用户信息
     authUtil.getUserProfile().then(function (userInfo) {
       return caseService.createCase({
-        title: that.data.title || '调解案例',
+        title: that.data.title || '评理',
         relationship: that.data.relationship,
         privacy: that.data.privacy,
         userInfo: userInfo,
@@ -79,7 +79,7 @@ Page({
 
       if (res.code === 0 && res.data) {
         wx.showToast({ title: '创建成功', icon: 'success' });
-        // 跳转到案例详情页
+        // 跳转到详情页
         wx.redirectTo({
           url: '/pages/case-detail/case-detail?caseId=' + res.data.caseId + '&action=share',
         });

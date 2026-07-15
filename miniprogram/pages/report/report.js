@@ -29,7 +29,7 @@ Page({
     personalityA: null,
     personalityB: null,
     reanalyzing: false,
-    /** 是否为补充证据后的重新分析 */
+    /** 是否为补充内容后的重新分析 */
     isReanalysis: false,
   },
 
@@ -349,9 +349,9 @@ Page({
     if (analysis && analysis.coreConclusion) {
       var winner = analysis.coreConclusion.overallWinner;
       if (winner === 'party_a') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '甲方') + '更在理！';
+        title = '啷个对？AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '你') + '更在理！';
       } else if (winner === 'party_b') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '乙方') + '更在理！';
+        title = '啷个对？AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '对方') + '更在理！';
       } else {
         title = '啷个对：都有道理';
       }
@@ -416,8 +416,8 @@ Page({
   },
 
   /**
-   * 补充证据并重新分析
-   * 跳转到上传页（带 supplement 参数），提交后自动触发重新分析
+   * 补充聊天内容，重新分析
+   * 跳转到上传页（带 supplement 参数）
    */
   onSupplementEvidence: function () {
     wx.navigateTo({

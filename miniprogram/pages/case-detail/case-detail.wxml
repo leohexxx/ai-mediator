@@ -16,7 +16,7 @@
     otherPartyLabel="{{otherPartyLabel}}"
   />
 
-  <!-- 己方证据操作区 -->
+  <!-- 己方聊天记录操作区 -->
   <evidence-section
     caseData="{{caseData}}"
     role="{{role}}"
@@ -37,21 +37,21 @@
   <!-- 邀请区（未展开时） -->
   <view class="invite-toggle" wx:if="{{role === 'party_a' && !showInvitePanel && caseData.status === 'waiting_party_b'}}">
     <view class="btn-secondary" bindtap="onToggleInvitePanel">
-      📨 邀请乙方加入
+      📨 邀请对方加入
     </view>
   </view>
 
   <!-- 分析状态提示 -->
   <view class="analysis-hint card" wx:if="{{caseData.status === 'waiting_submission' && !myEvidence}}">
     <view class="hint-icon">📤</view>
-    <view class="hint-text">请上传你的聊天记录证据</view>
-    <view class="hint-sub">双方都提交后，AI 将自动开始分析</view>
+    <view class="hint-text">请上传你们的聊天记录</view>
+    <view class="hint-sub">双方都上传后，AI 将自动开始分析</view>
   </view>
 
   <view class="analysis-hint card" wx:if="{{caseData.status === 'waiting_submission' && myEvidence}}">
     <view class="hint-icon">⏳</view>
-    <view class="hint-text">已提交证据，等待对方提交</view>
-    <view class="hint-sub">对方提交后，AI 将自动开始分析</view>
+    <view class="hint-text">已上传，等待对方上传</view>
+    <view class="hint-sub">对方上传后，AI 将自动开始分析</view>
   </view>
 
   <view class="analysis-hint card" wx:if="{{caseData.status === 'analyzing'}}">
@@ -92,12 +92,12 @@
 <view class="join-prompt" wx:if="{{showJoinPrompt}}">
   <view class="join-card card">
     <view class="join-icon">🤝</view>
-    <view class="join-title">你被邀请加入 AI 调解</view>
-    <view class="join-desc">对方邀请你一起提交聊天记录，让 AI 公平评理</view>
+    <view class="join-title">你被邀请加入 AI 评理</view>
+    <view class="join-desc">对方邀请你一起聊聊，让 AI 帮忙看看</view>
     <view class="join-error" wx:if="{{joinError}}">{{joinError}}</view>
     <view class="join-actions">
       <button class="btn-primary" bindtap="onJoinCase" loading="{{joining}}" disabled="{{joining}}">
-        {{joining ? '加入中...' : '接受邀请，加入调解'}}
+        {{joining ? '加入中...' : '接受邀请，一起看看'}}
       </button>
     </view>
   </view>

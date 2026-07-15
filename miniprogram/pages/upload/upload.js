@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 上传证据页 (v3) — 支持性格信息补充
+// 上传聊天记录页 (v4) — UI 温和化
 // ═══════════════════════════════════════════════
 
 var evidenceService = require('../../services/evidence');
@@ -11,7 +11,7 @@ Page({
     caseId: '',
     role: 'party_a',
     mode: 'single',
-    supplement: false,  // 是否为补充证据模式
+    supplement: false,  // 是否为补充内容模式
     uploadMode: '',
     chatText: '',
     note: '',
@@ -209,7 +209,7 @@ Page({
           ocrProgress: { current: 0, total: 1 },
         });
 
-        // 先上传原视频到云存储（作为证据附件）
+        // 先上传原视频到云存储
         var uploadPromise = evidenceService.uploadVideoToCloud(videoPath, that.data.caseId);
 
         // 同时开始抽帧 OCR
@@ -457,7 +457,7 @@ Page({
     }
 
     this.setData({ submitting: true });
-    wx.showLoading({ title: '提交中...', mask: true });
+    wx.showLoading({ title: '发送中...', mask: true });
 
     evidenceService.uploadEvidence({
       caseId: this.data.caseId,
@@ -469,10 +469,10 @@ Page({
       wx.hideLoading();
 
       if (res.code === 0 && res.data) {
-        wx.showToast({ title: '提交成功', icon: 'success' });
+        wx.showToast({ title: '已发送！', icon: 'success' });
 
         if (that.data.supplement) {
-          // 补充证据模式：跳过性格弹窗，直接开始分析（force=true）
+          // 补充内容模式：跳过性格弹窗，直接开始分析（force=true）
           that._startAnalysis(true);
         } else {
           // 普通模式：弹出性格信息弹窗
@@ -482,12 +482,12 @@ Page({
         }
       } else {
         that.setData({ submitting: false });
-        wx.showToast({ title: res.message || '提交失败', icon: 'none' });
+        wx.showToast({ title: res.message || '发送失败', icon: 'none' });
       }
     }).catch(function () {
       wx.hideLoading();
       that.setData({ submitting: false });
-      wx.showToast({ title: '提交失败，请重试', icon: 'none' });
+      wx.showToast({ title: '发送失败，请重试', icon: 'none' });
     });
   },
 
@@ -571,7 +571,7 @@ Page({
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
-   * @param {boolean} [force=false] - 强制重新分析（补充证据时使用）
+   * @param {boolean} [force=false] - 强制重新分析（补充内容时使用）
    */
   _startAnalysis: function (force) {
     var that = this;
@@ -597,7 +597,7 @@ Page({
       if (analysisId) url += '&analysisId=' + analysisId;
 
       if (that.data.supplement) {
-        // 补充证据模式：返回报告页前，把新的 analysisId 传给报告页
+        // 补充内容模式：返回报告页前，把新的 analysisId 传给报告页
         var pages = getCurrentPages();
         if (pages.length >= 2) {
           var prevPage = pages[pages.length - 2];

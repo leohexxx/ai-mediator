@@ -2,7 +2,7 @@
 <view class="container">
   <!-- 案例标题 -->
   <view class="form-section">
-    <view class="form-label">案例标题（可选）</view>
+    <view class="form-label">给它起个名（可选）</view>
     <input
       class="form-input"
       placeholder="如：和前任的纠纷"
@@ -31,7 +31,7 @@
 
   <!-- 隐私设置 -->
   <view class="form-section">
-    <view class="form-label">分析结果可见范围</view>
+    <view class="form-label">结果可见范围</view>
     <view
       wx:for="{{privacyOptions}}"
       wx:key="value"
@@ -52,7 +52,7 @@
   <!-- 提示信息 -->
   <view class="form-tip">
     <view class="tip-icon">💡</view>
-    <view class="tip-text">创建案例后将生成邀请码，你可以分享给乙方加入协作。双方各自上传聊天记录后，AI 将自动进行分析。</view>
+    <view class="tip-text">创建后将生成邀请码，分享给对方一起加入。双方上传聊天记录后，AI 将自动分析。</view>
   </view>
 
   <!-- 提交按钮 -->
@@ -63,7 +63,7 @@
       loading="{{submitting}}"
       disabled="{{submitting}}"
     >
-      {{submitting ? '创建中...' : '创建案例并邀请对方'}}
+      {{submitting ? '创建中...' : '创建并邀请对方'}}
     </button>
   </view>
 

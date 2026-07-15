@@ -39,7 +39,7 @@
   <!-- 确认按钮 -->
   <view class="confirm-area">
     <button class="btn-primary" bindtap="onConfirm" disabled="{{submitting}}">
-      确认提交
+      确认导入
     </button>
   </view>
 

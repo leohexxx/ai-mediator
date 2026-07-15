@@ -1,13 +1,13 @@
-<!-- 上传证据页 -->
+<!-- 上传聊天记录页 -->
 <view class="container">
-  <!-- 补充证据模式标识 -->
+  <!-- 补充内容标识 -->
   <view class="supplement-badge" wx:if="{{supplement}}">
-    📎 补充证据模式 — 提交后将自动触发重新分析
+    📎 补充聊天内容 — 重新看看有什么新发现
   </view>
 
   <!-- 身份标识 -->
   <view class="role-badge" wx:if="{{!supplement}}">
-    你的身份：{{role === 'party_a' ? '甲方（发起方）' : '乙方（受邀方）'}}
+    你的身份：{{role === 'party_a' ? '发起方' : '受邀方'}}
   </view>
 
   <!-- 上传方式选择 -->
@@ -36,7 +36,7 @@
     <view class="upload-card {{uploadMode === 'video' ? 'active' : ''}}" bindtap="onChooseVideo">
       <view class="upload-icon">🎬</view>
       <view class="upload-title">录屏/视频上传</view>
-      <view class="upload-desc">上传聊天录屏作为证据，抽帧识别文字</view>
+      <view class="upload-desc">上传聊天录屏，自动识别文字</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && ocrProcessing}}">
         🔄 正在处理视频...
       </view>
@@ -108,7 +108,7 @@
     />
   </view>
 
-  <!-- 提交按钮 -->
+  <!-- 开始分析按钮 -->
   <view class="submit-area" wx:if="{{chatText}}">
     <button
       class="btn-primary"
@@ -116,7 +116,7 @@
       loading="{{submitting}}"
       disabled="{{submitting}}"
     >
-      {{submitting ? '提交中...' : '提交证据'}}
+      {{submitting ? '处理中...' : '开始分析'}}
     </button>
   </view>
 
@@ -126,7 +126,7 @@
 <!-- 性格信息弹窗（上传成功后显示） -->
 <view class="personality-overlay" wx:if="{{showPersonalityModal}}">
   <view class="personality-modal">
-    <view class="modal-title">证据提交成功！</view>
+    <view class="modal-title">聊天记录已收到！</view>
     <view class="modal-subtitle">补充你和对方的性格信息，让分析更精准</view>
 
     <scroll-view class="modal-scroll" scroll-y>

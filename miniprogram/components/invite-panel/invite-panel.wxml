@@ -1,7 +1,7 @@
 <!-- 邀请面板 -->
 <view class="invite-panel card">
   <view class="panel-header">
-    <view class="panel-title">📨 邀请乙方</view>
+    <view class="panel-title">📨 邀请对方</view>
     <view class="panel-close btn-ghost" bindtap="onToggle">收起</view>
   </view>
 
