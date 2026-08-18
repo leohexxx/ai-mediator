@@ -97,15 +97,21 @@ exports.main = async function (event, context) {
 
     // 双人模式: 创建邀请记录
     if (mode === 'dual' && inviteCode) {
-      await db.collection('invitations').add({
-        data: {
-          caseId: caseResult._id,
-          inviteCode: inviteCode,
-          used: false,
-          usedBy: null,
-          createdAt: now,
-        },
-      });
+      try {
+        await db.collection('invitations').add({
+          data: {
+            caseId: caseResult._id,
+            inviteCode: inviteCode,
+            used: false,
+            usedBy: null,
+            createdAt: now,
+          },
+        });
+      } catch (inviteError) {
+        // 避免留下没有邀请码、永远无法加入的双人案件。
+        await db.collection('cases').doc(caseResult._id).remove().catch(function () {});
+        throw inviteError;
+      }
     }
 
     return {
