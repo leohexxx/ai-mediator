@@ -21,6 +21,8 @@ ai-mediator-backend/
 │   │   └── chat.js              # POST /api/chat
 │   ├── services/
 │   │   ├── db.js                # 数据库（CloudBase NoSQL / 本地JSON）
+│   │   ├── analysisWorker.js    # 数据库租约、重试与恢复扫描
+│   │   ├── analysisPipeline.js  # 可重入分析流水线
 │   │   ├── caseAccess.js        # 案例参与者访问控制
 │   │   ├── llm.js               # DeepSeek / 混元 API 调用
 │   │   ├── ocr.js               # 图片 OCR（ocr.space / 腾讯OCR）
@@ -75,9 +77,10 @@ curl -X POST http://localhost:9000/api/upload/text \
   -H "Content-Type: application/json" \
   -d '{"caseId":"test","text":"2024-01-15 14:30 张三: 你好\n2024-01-15 14:31 李四: 你好"}'
 
-# 启动分析（本地模式需传 _openid 参数绕过鉴权）
-curl -X POST 'http://localhost:9000/api/analyze/start?_openid=mock' \
+# 启动分析（仅 LOCAL_MODE=true 时接受测试身份头）
+curl -X POST 'http://localhost:9000/api/analyze/start' \
   -H "Content-Type: application/json" \
+  -H "X-Mock-Openid: mock" \
   -d '{"caseId":"test","deep":false}'
 ```
 
@@ -91,6 +94,10 @@ docker build -t ai-mediator-backend .
 # 推送到腾讯云容器镜像服务...
 ```
 
+生产环境必须配置 `CLOUDBASE_ENV_ID`，连接失败会终止启动，不会降级到容器本地文件。
+分析任务使用数据库租约恢复；建议 CloudRun 最小实例数设为 1，使队列持续消费。若允许缩容到 0，
+任务仍不会丢失，但要等下一次请求唤醒实例后继续。
+
 详见解锁脚本 `scripts/deploy.sh`。
 
 ## 与原架构的核心区别
@@ -98,7 +105,7 @@ docker build -t ai-mediator-backend .
 | 维度 | 原云函数 | CloudRun |
 |------|----------|----------|
 | 超时 | 60-120s 硬限 | 无限制 |
-| 分析 | 分3阶段+链式触发 | 一次 LLM 调用 |
+| 分析 | 分3阶段+链式触发 | 数据库队列 + 租约重试 + 一次 LLM 调用 |
 | 分析进度 | 轮询 DB | 持久化状态 + 受权 HTTP 轮询（可后续接入共享推送） |
 | 视频抽帧 | 客户端 decode+seek | 服务端 ffmpeg（快 5-10x） |
 | OCR | 客户端串行 | 服务端并行 |
@@ -115,7 +122,7 @@ docker build -t ai-mediator-backend .
 
 - **运行时**: Node.js 20 + Express
 - **进度读取**: 持久化状态 + 受权 HTTP 轮询
-- **数据库**: CloudBase NoSQL（@cloudbase/node-sdk）+ 本地 JSON 文件降级
+- **数据库**: CloudBase NoSQL（@cloudbase/node-sdk）；仅显式 `LOCAL_MODE=true` 时使用本地 JSON
 - **LLM**: DeepSeek API（多 key 轮询 + 故障切换）
 - **OCR**: OCR.space / 腾讯OCR
 - **视频**: ffmpeg 云端抽帧

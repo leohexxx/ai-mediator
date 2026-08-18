@@ -10,8 +10,12 @@ var healthRoute = require('./routes/health');
 var analyzeRoute = require('./routes/analyze');
 var uploadRoute = require('./routes/upload');
 var chatRoute = require('./routes/chat');
+var database = require('./services/db');
+var analysisWorker = require('./services/analysisWorker').createWorker();
 
+database.assertReady();
 var app = express();
+app.locals.analysisWorker = analysisWorker;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -30,4 +34,7 @@ var server = app.listen(config.port, function () {
   console.log('   LLM Keys: ' + config.llm.apiKeys.length + ' configured');
 });
 
-module.exports = { app: app, server: server };
+analysisWorker.start();
+server.on('close', function () { analysisWorker.stop(); });
+
+module.exports = { app: app, server: server, analysisWorker: analysisWorker };

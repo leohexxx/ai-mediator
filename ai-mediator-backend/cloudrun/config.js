@@ -42,6 +42,12 @@ var config = {
     fps: parseFloat(process.env.VIDEO_FPS || '0.5'),
   },
 
+  analysisJobs: {
+    pollIntervalMs: parseInt(process.env.ANALYSIS_JOB_POLL_MS || '5000', 10),
+    leaseMs: parseInt(process.env.ANALYSIS_JOB_LEASE_MS || '600000', 10),
+    maxAttempts: parseInt(process.env.ANALYSIS_JOB_MAX_ATTEMPTS || '3', 10),
+  },
+
   // 本地模式
   localMode: process.env.LOCAL_MODE === 'true',
 };

@@ -28,7 +28,7 @@ if (!config.localMode && config.cloudbase.envId) {
 }
 
 // ── 本地 JSON 文件存储（替代 DB）─────────────────
-var STORE_DIR = path.join(__dirname, '..', '..', 'data');
+var STORE_DIR = path.join(__dirname, '..', 'data');
 var _cache = {};
 
 function ensureStore() {
@@ -63,6 +63,19 @@ function collection(name) {
   }
   if (!db) throw initError || new Error('CloudBase database is unavailable');
   return wrapNativeCollection(db.collection(name));
+}
+
+function assignFields(target, fields) {
+  Object.keys(fields).forEach(function (key) {
+    var parts = key.split('.');
+    var cursor = target;
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (!cursor[parts[i]] || typeof cursor[parts[i]] !== 'object') cursor[parts[i]] = {};
+      cursor = cursor[parts[i]];
+    }
+    cursor[parts[parts.length - 1]] = fields[key];
+  });
+  return target;
 }
 
 // 将 node-sdk 的裸 data 参数适配成项目统一使用的云函数风格 { data }。
@@ -108,7 +121,7 @@ class LocalCollection {
       },
       update: function ({ data }) {
         var idx = that._data.findIndex(function (d) { return d._id === id; });
-        if (idx !== -1) Object.assign(that._data[idx], data);
+        if (idx !== -1) assignFields(that._data[idx], data);
         that._save();
         return { updated: 1 };
       },
@@ -187,4 +200,7 @@ module.exports = {
   collection: collection,
   runTransaction: runTransaction,
   isLocalMode: function () { return config.localMode; },
+  assertReady: function () {
+    if (!config.localMode && !db) throw initError || new Error('CloudBase database is unavailable');
+  },
 };
