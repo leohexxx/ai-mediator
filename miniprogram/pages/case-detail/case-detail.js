@@ -161,7 +161,7 @@ Page({
     var timer = null;
     function poll() {
       if (!active) return;
-      caseService.getCaseDetail(that.data.caseId).then(function (res) {
+      caseService.getCaseDetail(that.data.caseId, { summaryOnly: true }).then(function (res) {
         var doc = res.code === 0 && res.data && res.data.caseData;
         if (doc) {
           var oldCase = that.data.caseData;

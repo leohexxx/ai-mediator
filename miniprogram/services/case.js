@@ -43,8 +43,12 @@ function joinCase(params) {
  * @param {string} caseId
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
-function getCaseDetail(caseId) {
-  return cloudUtil.callFunction('getCaseDetail', { caseId: caseId });
+function getCaseDetail(caseId, options) {
+  options = options || {};
+  return cloudUtil.callFunction('getCaseDetail', {
+    caseId: caseId,
+    summaryOnly: options.summaryOnly === true,
+  });
 }
 
 /**

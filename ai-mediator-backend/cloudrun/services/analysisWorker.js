@@ -11,6 +11,7 @@ function createWorker(options) {
   var intervalMs = options.intervalMs || config.analysisJobs.pollIntervalMs;
   var leaseMs = options.leaseMs || config.analysisJobs.leaseMs;
   var maxAttempts = options.maxAttempts || config.analysisJobs.maxAttempts;
+  var maxConcurrent = options.maxConcurrent || config.analysisJobs.maxConcurrent;
   var timer = null;
   var scanPromise = null;
   var running = {};
@@ -31,7 +32,25 @@ function createWorker(options) {
       var leaseExpired = !job.leaseUntil || new Date(job.leaseUntil).getTime() <= Date.now();
       if (current.status !== 'queued' && !(current.status === 'running' && leaseExpired)) return;
       var attempts = Number(job.attempts) || 0;
-      if (attempts >= maxAttempts) return;
+      if (attempts >= maxAttempts) {
+        var failedAt = new Date().toISOString();
+        await ref.update({ data: {
+          status: 'failed',
+          progress: { step: 'error', message: '分析失败，请稍后重试', progress: 0 },
+          'job.leaseOwner': null,
+          'job.leaseUntil': null,
+          updatedAt: failedAt,
+        } });
+        var caseRef = transaction.collection('cases').doc(current.caseId);
+        var caseResult = await caseRef.get();
+        if (caseResult.data && caseResult.data.analysisId === current._id) {
+          await caseRef.update({ data: {
+            status: job.previousCaseStatus || 'waiting_submission',
+            updatedAt: failedAt,
+          } });
+        }
+        return;
+      }
       var now = new Date();
       var leaseUntil = new Date(now.getTime() + leaseMs).toISOString();
       await ref.update({ data: {
@@ -101,7 +120,8 @@ function createWorker(options) {
     var queued = await candidatesFor('queued');
     var leased = await candidatesFor('running');
     var candidates = queued.concat(leased).filter(function (item) { return !running[item._id]; });
-    await Promise.all(candidates.map(execute));
+    var available = Math.max(0, maxConcurrent - Object.keys(running).length);
+    await Promise.all(candidates.slice(0, available).map(execute));
   }
 
   function kick() {

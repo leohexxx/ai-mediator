@@ -47,6 +47,7 @@ var config = {
     pollIntervalMs: parseInt(process.env.ANALYSIS_JOB_POLL_MS || '5000', 10),
     leaseMs: parseInt(process.env.ANALYSIS_JOB_LEASE_MS || '600000', 10),
     maxAttempts: parseInt(process.env.ANALYSIS_JOB_MAX_ATTEMPTS || '3', 10),
+    maxConcurrent: parseInt(process.env.ANALYSIS_JOB_MAX_CONCURRENT || '2', 10),
   },
 
   // 本地模式

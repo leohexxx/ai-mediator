@@ -46,6 +46,14 @@ exports.main = async function (event, context) {
     var isSingleMode = caseData.mode === 'single' || (!hasPartyB);
     var isCompleted = caseStatus.isReportReady(caseData.status);
 
+    if (event.summaryOnly === true) {
+      return {
+        code: 0,
+        data: { caseData: caseData, role: role, isSingleMode: isSingleMode },
+        message: 'ok',
+      };
+    }
+
     // 获取己方证据
     var myEvidence = await db.collection('evidence')
       .where({ caseId: caseId, party: role })
