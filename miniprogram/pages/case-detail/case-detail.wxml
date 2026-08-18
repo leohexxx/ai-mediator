@@ -45,19 +45,25 @@
   <view class="analysis-hint card" wx:if="{{caseData.status === 'waiting_submission' && !myEvidence}}">
     <view class="hint-icon">📤</view>
     <view class="hint-text">请上传你们的聊天记录</view>
-    <view class="hint-sub">双方都上传后，AI 将自动开始分析</view>
+    <view class="hint-sub">任意一方提交自己的有效证据后即可启动分析</view>
   </view>
 
   <view class="analysis-hint card" wx:if="{{caseData.status === 'waiting_submission' && myEvidence}}">
     <view class="hint-icon">⏳</view>
-    <view class="hint-text">已上传，等待对方上传</view>
-    <view class="hint-sub">对方上传后，AI 将自动开始分析</view>
+    <view class="hint-text">已上传，可以开始分析</view>
+    <view class="hint-sub">仅有单方证据时，报告会明确标注并降低置信度</view>
   </view>
 
-  <view class="analysis-hint card" wx:if="{{caseData.status === 'analyzing'}}">
+  <view class="analysis-hint card" wx:if="{{caseData.status === 'dual_collecting' || caseData.status === 'canceled'}}">
+    <view class="hint-icon">🧾</view>
+    <view class="hint-text">双方可以继续补充证据</view>
+    <view class="hint-sub">提交后任意有证据的一方都可启动新一轮分析</view>
+  </view>
+
+  <view class="analysis-hint card" wx:if="{{caseData.status === 'analyzing' || caseData.status === 'cancel_requested'}}">
     <view class="hint-icon">🔍</view>
-    <view class="hint-text">AI 正在分析中...</view>
-    <view class="hint-sub">请稍候，分析完成后将自动展示结果</view>
+    <view class="hint-text">{{caseData.status === 'cancel_requested' ? '正在打断分析...' : 'AI 正在分析中...'}}</view>
+    <view class="hint-sub">分析期间双方证据均已锁定，可在报告页打断</view>
   </view>
 
   <!-- 分析完成 -->

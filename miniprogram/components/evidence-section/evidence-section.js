@@ -40,7 +40,7 @@ Component({
       var submittedTime = hasSubmitted ? this.formatTime(myEvidence.createdAt) : '';
 
       // 分析中和分析完成后不可修改
-      var canModify = caseData.status !== 'analyzing' && caseData.status !== 'completed';
+      var canModify = caseData.analysisLock !== true && caseData.status !== 'analyzing' && caseData.status !== 'cancel_requested';
 
       this.setData({
         hasSubmitted: hasSubmitted,

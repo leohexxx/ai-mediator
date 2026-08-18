@@ -4,13 +4,18 @@
 
   <!-- 分析进度 -->
   <analysis-progress wx:if="{{progress && progress.step !== 'done' && !progressStuck}}" progress="{{progress}}" />
+  <view class="cancel-analysis-bar" wx:if="{{progress && progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled'}}">
+    <button class="btn-cancel-analysis" bindtap="onCancelAndSupplement" loading="{{canceling}}" disabled="{{canceling}}">
+      {{canceling ? '正在打断...' : '打断分析并补充证据'}}
+    </button>
+  </view>
 
   <!-- 分析卡住时显示重试 -->
   <view class="stuck-section" wx:if="{{progressStuck}}">
     <view class="stuck-icon">⏰</view>
     <view class="stuck-title">分析似乎卡住了</view>
-    <view class="stuck-desc">可能是网络波动或服务器繁忙，请重试</view>
-    <button class="btn-primary retry-btn" bindtap="onRetryAnalyze">重新分析</button>
+    <view class="stuck-desc">可能是模型繁忙。可打断本轮，补充证据后重新分析</view>
+    <button class="btn-primary retry-btn" bindtap="onCancelAndSupplement">打断并补充证据</button>
   </view>
 
   <!-- 隐私限制 -->
@@ -21,6 +26,11 @@
 
   <!-- 报告内容（仅分析完成时展示，分析中只显示进度条，避免渲染半成品/旧缓存） -->
   <view wx:if="{{analysis && !restricted && progress && progress.step === 'done'}}">
+
+    <view class="evidence-version-banner">
+      本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据
+      <text wx:if="{{analysis.singlePartyEvidence}}"> · 单方证据，置信度已调低</text>
+    </view>
 
     <!-- 补充内容标记 -->
     <view class="supplement-banner" wx:if="{{isReanalysis}}">

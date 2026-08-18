@@ -49,5 +49,6 @@
     <view class="send-btn {{inputText && !streaming ? 'active' : ''}}" bindtap="onSend">
       📤
     </view>
+    <view class="cancel-send-btn" wx:if="{{streaming}}" bindtap="onCancelSend">停止</view>
   </view>
 </view>

@@ -1,8 +1,8 @@
 // CloudRun 渐进迁移配置。
-// 默认关闭，确保未部署 CloudRun 时继续使用现有云函数流程。
+// v0.2.0 起关键写入统一通过小程序私有 CloudRun 服务。
 module.exports = {
-  enabled: false,
-  env: '',
-  serviceName: '',
+  enabled: true,
+  env: 'cloudbase-d4g5p82875fe1a5ce',
+  serviceName: 'ai-mediator-backend',
   progressPollIntervalMs: 1500,
 };

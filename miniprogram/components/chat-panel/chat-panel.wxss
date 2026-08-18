@@ -134,3 +134,9 @@
   opacity: 1;
   background: var(--color-brand);
 }
+.cancel-send-btn {
+  flex-shrink: 0;
+  padding: 12rpx 16rpx;
+  color: #b45309;
+  font-size: 24rpx;
+}

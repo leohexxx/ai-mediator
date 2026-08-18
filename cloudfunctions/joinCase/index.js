@@ -64,7 +64,7 @@ exports.main = async function (event, context) {
     }
 
     var now = new Date().toISOString();
-    var nextStatus = caseStatus.assertTransition(caseData.status, STATUS.WAITING_SUBMISSION);
+    var nextStatus = caseStatus.assertTransition(caseData.status, STATUS.DUAL_COLLECTING);
 
     // 用条件更新原子抢占邀请码，解决两个用户同时加入的竞态。
     var reserveResult = await db.collection('invitations').where({

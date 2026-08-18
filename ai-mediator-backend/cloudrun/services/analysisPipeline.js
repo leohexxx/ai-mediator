@@ -2,6 +2,7 @@ var llm = require('./llm');
 var config = require('../config');
 var db = require('./db');
 var parser = require('../utils/chatFormatter');
+var metrics = require('./metrics');
 
 var ANALYSIS_SYSTEM_PROMPT = '你是一位专业的对话争议分析师，同时精通 MBTI 性格类型学和星座性格分析。' +
   '请从聊天记录中分析：核心结论、性格分析、关键证据、情绪轨迹、调解策略和建议。用中文输出 JSON 格式。';
@@ -121,12 +122,9 @@ async function run(analysisId, options) {
 
   await updateProgress(analysisId, 'formatting', '正在格式化聊天记录...', 10);
   var batches = await evidenceForRevision(analysis.caseId, Number(analysis.lockedEvidenceRevision) || 1);
-  var allMessages = [];
-  batches.forEach(function (batch) {
-    if (batch.parsedMessages) allMessages = allMessages.concat(batch.parsedMessages);
-  });
-  if (!allMessages.length) throw new Error('尚未提交有效证据');
-  allMessages.sort(function (a, b) { return (a.timestamp || '').localeCompare(b.timestamp || ''); });
+  batches.sort(function (a, b) { return (Number(a.revision) || 1) - (Number(b.revision) || 1); });
+  var messageCount = batches.reduce(function (sum, batch) { return sum + ((batch.parsedMessages && batch.parsedMessages.length) || 0); }, 0);
+  if (!messageCount) throw new Error('尚未提交有效证据');
 
   var hasPartyB = caseData.party_b && caseData.party_b.openid;
   var parties = [{ name: caseData.party_a.nickname || '甲方', role: 'party_a' }];
@@ -134,27 +132,34 @@ async function run(analysisId, options) {
     ? { name: caseData.party_b.nickname || '乙方', role: 'party_b' }
     : { name: '对方', role: 'other_party' });
 
-  var formatted = parser.formatChatForLLM(allMessages, parties);
+  var formatted = batches.map(function (batch) {
+    return '### 证据第' + (Number(batch.revision) || 1) + '版（' + (batch.party || 'unknown') + '）\n' +
+      parser.formatChatForLLM(batch.parsedMessages || [], parties);
+  }).join('\n\n');
   var caseContext = '关系: ' + (caseData.relationship || '未设置') + '\n案例标题: ' + (caseData.title || '调解案例');
   var chatText = formatted;
-  if (formatted.length > 8000) {
-    await updateProgress(analysisId, 'compressing', '正在压缩长文本...', 20);
-    chatText = await llm.chatCompletion(
-      '请压缩以下聊天记录，保留关键对话原文（说话人+时间戳），压缩为 1/3 长度。输出纯净文本。',
-      [{ role: 'user', content: formatted }], 2048
-    );
+  var inputLimit = analysis.deep ? 48000 : 24000;
+  if (formatted.length > inputLimit) {
+    await updateProgress(analysisId, 'summarizing', '正在装配证据批次摘要...', 20);
+    chatText = batches.map(function (batch) {
+      return '### 证据第' + (Number(batch.revision) || 1) + '版（' + (batch.party || 'unknown') + '）\n' +
+        (batch.analysisInputSummary || batch.rawText || '').slice(0, 6000);
+    }).join('\n\n').slice(0, inputLimit);
   }
 
   await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'analyzing', '正在分析性格与综合判断...', 40);
   var model = analysis.deep ? config.llm.deepModel : config.llm.model;
+  var modelStartedAt = Date.now();
   var analysisText = await llm.chatCompletion(ANALYSIS_SYSTEM_PROMPT, [{
     role: 'user',
     content: ANALYSIS_USER_TEMPLATE.replace('{{caseContext}}', caseContext).replace('{{chatText}}', chatText),
   }], analysis.deep ? 8192 : 4096, model);
+  var modelCompletedAt = Date.now();
 
   await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'parsing', '正在提取证据与情绪...', 70);
+  var parseStartedAt = Date.now();
   var jsonMatch = analysisText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('LLM 返回格式异常，未找到 JSON');
   var result = JSON.parse(jsonMatch[0]);
@@ -166,13 +171,28 @@ async function run(analysisId, options) {
   }
 
   await db.collection('analyses').doc(analysisId).update({ data: {
-    'timings.modelAndParseMs': Date.now() - startedAtMs,
+    'timings.queueMs': Math.max(0, startedAtMs - new Date(analysis.timings && analysis.timings.queuedAt || analysis.createdAt).getTime()),
+    'timings.modelMs': modelCompletedAt - modelStartedAt,
+    'timings.parseMs': Date.now() - parseStartedAt,
+    'timings.totalMs': Date.now() - new Date(analysis.timings && analysis.timings.queuedAt || analysis.createdAt).getTime(),
     model: model,
     updatedAt: new Date().toISOString(),
   } });
   await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'finalizing', '正在制定调解策略...', 90);
   await complete(analysisId, result, options.leaseOwner);
+  metrics.increment('analysis_jobs_completed');
+  metrics.observe('analysis_total_latency', Date.now() - startedAtMs);
+  if (!config.notificationInternalToken) {
+    console.warn('[Analyze] NOTIFICATION_INTERNAL_TOKEN missing; completion notification skipped');
+  } else await db.callFunction('sendAnalysisNotification', {
+    analysisId: analysisId,
+    miniprogramState: config.miniprogramState,
+    internalToken: config.notificationInternalToken,
+  }).catch(function (error) {
+    console.warn('[Analyze] completion notification failed:', error.message);
+    metrics.increment('analysis_notifications_failed');
+  });
   console.log('[Analyze] complete: ' + analysisId);
 }
 

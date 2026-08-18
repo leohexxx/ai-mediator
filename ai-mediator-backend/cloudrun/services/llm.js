@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════
 var https = require('https');
 var config = require('../config');
+var metrics = require('./metrics');
 
 // Key 池（模块级，进程内轮询）
 var KEY_INDEX = 0;
@@ -29,17 +30,18 @@ function markKeyBad(key) {
 /**
  * 发送 HTTP POST 请求
  */
-function httpPost(url, headers, bodyStr, timeoutMs) {
+function httpPost(url, headers, bodyStr, timeoutMs, callOptions) {
+  callOptions = callOptions || {};
   return new Promise(function (resolve, reject) {
     var urlObj = new URL(url);
     var payload = Buffer.from(bodyStr, 'utf8');
-    var options = {
+    var requestOptions = {
       hostname: urlObj.hostname, port: urlObj.port || 443,
       path: urlObj.pathname + urlObj.search, method: 'POST',
       headers: Object.assign({}, headers, { 'Content-Length': payload.length }),
     };
     var timer = setTimeout(function () { req.destroy(); reject(new Error('HTTP timeout after ' + timeoutMs + 'ms')); }, timeoutMs || 120000);
-    var req = https.request(options, function (res) {
+    var req = https.request(requestOptions, function (res) {
       var chunks = [];
       res.on('data', function (c) { chunks.push(c); });
       res.on('end', function () {
@@ -48,12 +50,21 @@ function httpPost(url, headers, bodyStr, timeoutMs) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           try { resolve(JSON.parse(text)); } catch (e) { reject(new Error('Invalid JSON response')); }
         } else {
-          if (res.statusCode === 401 || res.statusCode === 429) markKeyBad(key);
           reject(new Error('LLM API ' + res.statusCode + ': ' + text.substring(0, 200)));
         }
       });
     });
     req.on('error', function (err) { clearTimeout(timer); reject(err); });
+    if (callOptions.signal) {
+      var abortRequest = function () {
+        var abortError = new Error('Aborted');
+        abortError.name = 'AbortError';
+        abortError.code = 'ABORT_ERR';
+        req.destroy(abortError);
+      };
+      if (callOptions.signal.aborted) abortRequest();
+      else callOptions.signal.addEventListener('abort', abortRequest, { once: true });
+    }
     req.write(payload); req.end();
   });
 }
@@ -66,7 +77,7 @@ function httpPost(url, headers, bodyStr, timeoutMs) {
  * @param {string} [model] - 模型覆盖
  * @returns {Promise<string>} 生成文本
  */
-async function chatCompletion(systemPrompt, messages, maxTokens, model) {
+async function chatCompletion(systemPrompt, messages, maxTokens, model, options) {
   var key = getNextKey();
   if (!key) throw new Error('No LLM API keys configured');
 
@@ -82,11 +93,20 @@ async function chatCompletion(systemPrompt, messages, maxTokens, model) {
     temperature: 0.7,
   });
 
-  var data = await httpPost(endpoint,
-    { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-    body, 120000);
-
-  return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  var startedAt = Date.now();
+  try {
+    var data = await httpPost(endpoint,
+      { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body, 120000, options);
+    metrics.increment('llm_requests_completed');
+    metrics.increment('llm_tokens_total', data.usage && data.usage.total_tokens || 0);
+    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  } catch (error) {
+    metrics.increment(error && (error.name === 'AbortError' || error.code === 'ABORT_ERR') ? 'llm_requests_canceled' : 'llm_requests_failed');
+    throw error;
+  } finally {
+    metrics.observe('llm_latency', Date.now() - startedAt);
+  }
 }
 
 module.exports = {

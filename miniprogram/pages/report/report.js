@@ -29,6 +29,7 @@ Page({
     personalityA: null,
     personalityB: null,
     reanalyzing: false,
+    canceling: false,
     /** 是否为补充内容后的重新分析 */
     isReanalysis: false,
   },
@@ -64,6 +65,18 @@ Page({
 
   onUnload: function () {
     this._cleanup();
+  },
+
+  onHide: function () {
+    if (this._progressWatcher) {
+      this._progressWatcher.close();
+      this._progressWatcher = null;
+    }
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+    this._clearStuckTimer();
   },
 
   onShow: function () {
@@ -106,6 +119,9 @@ Page({
         progressStuck: false,
         loading: true,
       });
+      this.loadReport();
+      this._startPolling();
+    } else if (this.data.caseId && !this._progressWatcher && this._isAnalyzing()) {
       this.loadReport();
       this._startPolling();
     }
@@ -172,7 +188,7 @@ Page({
    */
   _isAnalyzing: function () {
     var progress = this.data.progress;
-    return !progress || (progress.step !== 'done' && progress.step !== 'error');
+    return !progress || (progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled');
   },
 
   loadReport: function () {
@@ -203,7 +219,12 @@ Page({
 
         if (analysis) {
           if (analysis.progress && analysis.progress.step === 'done') {
-            that.setData({ analysis: analysis, progress: analysis.progress, progressStuck: false, isReanalysis: analysis.isReanalysis === true });
+            that.setData({
+              analysis: analysis,
+              progress: analysis.progress,
+              progressStuck: false,
+              isReanalysis: analysis.isReanalysis === true || Number(analysis.lockedEvidenceRevision || analysis.evidenceRevision) > 1,
+            });
             // 已完成，停止轮询
             if (that._pollTimer) {
               clearInterval(that._pollTimer);
@@ -255,7 +276,7 @@ Page({
         that.setData({ progressStuck: true });
       }, 90000);
 
-      if (progress.step === 'done' || progress.step === 'error') {
+      if (progress.step === 'done' || progress.step === 'error' || progress.step === 'canceled') {
         that._clearStuckTimer();
         // 清理轮询（已完成）
         if (that._pollTimer) {
@@ -402,8 +423,60 @@ Page({
    * 跳转到上传页（带 supplement 参数）
    */
   onSupplementEvidence: function () {
+    if (this._isAnalyzing() && this._analysisId) {
+      this.onCancelAndSupplement();
+      return;
+    }
     wx.navigateTo({
       url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1',
+    });
+  },
+
+  onCancelAndSupplement: function () {
+    var that = this;
+    if (!this._analysisId || this.data.canceling) return;
+    wx.showModal({
+      title: '打断当前分析？',
+      content: '打断完成后，双方才能继续补充证据。本轮未完成结果不会被采用。',
+      confirmText: '打断并补证',
+      success: function (modalResult) {
+        if (!modalResult.confirm) return;
+        that.setData({ canceling: true });
+        wx.showLoading({ title: '正在打断...', mask: true });
+        analysisService.cancelAnalysis(that._analysisId).then(function (result) {
+          var status = result.data && result.data.status;
+          if (status === 'canceled') return status;
+          return that._waitForCancellation(that._analysisId, 0);
+        }).then(function () {
+          wx.hideLoading();
+          that.setData({ canceling: false });
+          wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1' });
+        }).catch(function (error) {
+          wx.hideLoading();
+          that.setData({ canceling: false });
+          if (error && error.errorCode === 'ANALYSIS_ALREADY_COMPLETED') {
+            wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1' });
+            return;
+          }
+          wx.showToast({ title: error && error.message || '打断失败，请重试', icon: 'none' });
+        });
+      },
+    });
+  },
+
+  _waitForCancellation: function (analysisId, attempt) {
+    var that = this;
+    if (attempt >= 40) return Promise.reject(new Error('打断超时，请稍后重试'));
+    return new Promise(function (resolve) { setTimeout(resolve, 1500); }).then(function () {
+      return analysisService.getAnalysis(analysisId);
+    }).then(function (analysis) {
+      if (analysis && analysis.status === 'canceled') return 'canceled';
+      if (analysis && analysis.status === 'completed') {
+        var completed = new Error('本轮分析已完成');
+        completed.errorCode = 'ANALYSIS_ALREADY_COMPLETED';
+        throw completed;
+      }
+      return that._waitForCancellation(analysisId, attempt + 1);
     });
   },
 

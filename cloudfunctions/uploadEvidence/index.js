@@ -59,7 +59,12 @@ exports.main = async function (event, context) {
       return { code: -1, data: null, message: '无权操作此案例' };
     }
 
-    // 检查案例状态（补充证据模式跳过此检查）
+    // 分析锁对新旧客户端都生效，supplement 不得绕过。
+    if (caseData.analysisLock === true || caseData.status === STATUS.ANALYZING || caseData.status === STATUS.CANCEL_REQUESTED) {
+      return { code: -1, errorCode: 'EVIDENCE_LOCKED', data: null, message: 'AI正在分析，需先打断分析后才能补充证据' };
+    }
+
+    // 兼容旧客户端的其他状态检查
     if (!supplement) {
       var invalidStatuses = [STATUS.COMPLETED, STATUS.SINGLE_COMPLETED, STATUS.DUAL_B_SUBMITTED, STATUS.ANALYZING, STATUS.EXPIRED];
       if (invalidStatuses.indexOf(caseData.status) !== -1) {

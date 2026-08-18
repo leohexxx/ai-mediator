@@ -2,6 +2,7 @@ var uuid = require('uuid');
 var defaultDb = require('./db');
 var defaultPipeline = require('./analysisPipeline');
 var config = require('../config');
+var metrics = require('./metrics');
 
 function createWorker(options) {
   options = options || {};
@@ -17,7 +18,7 @@ function createWorker(options) {
   var running = {};
 
   async function candidatesFor(status) {
-    var result = await db.collection('analyses').where({ status: status }).limit(20).get();
+    var result = await db.collection('analyses').where({ status: status }).limit(100).get();
     return result.data || [];
   }
 
@@ -43,9 +44,12 @@ function createWorker(options) {
         } });
         var caseRef = transaction.collection('cases').doc(current.caseId);
         var caseResult = await caseRef.get();
-        if (caseResult.data && caseResult.data.analysisId === current._id) {
+        if (caseResult.data && caseResult.data.activeAnalysisId === current._id) {
           await caseRef.update({ data: {
             status: job.previousCaseStatus || 'waiting_submission',
+            analysisLock: false,
+            activeAnalysisId: null,
+            lockedEvidenceRevision: null,
             updatedAt: failedAt,
           } });
         }
@@ -92,9 +96,12 @@ function createWorker(options) {
       if (terminal) {
         var caseRef = transaction.collection('cases').doc(latest.caseId);
         var caseResult = await caseRef.get();
-        if (caseResult.data && caseResult.data.analysisId === latest._id) {
+        if (caseResult.data && caseResult.data.activeAnalysisId === latest._id) {
           await caseRef.update({ data: {
             status: (latest.job && latest.job.previousCaseStatus) || 'waiting_submission',
+            analysisLock: false,
+            activeAnalysisId: null,
+            lockedEvidenceRevision: null,
             updatedAt: now,
           } });
         }
@@ -140,6 +147,7 @@ function createWorker(options) {
       await pipeline.run(job._id, { leaseOwner: workerId });
     } catch (error) {
       console.error('[AnalysisWorker] job failed ' + job._id + ':', error.message);
+      metrics.increment(error && error.code === 'ANALYSIS_CANCELED' ? 'analysis_jobs_canceled' : 'analysis_jobs_failed');
       if (error && error.code === 'ANALYSIS_CANCELED') await acknowledgeCanceled(job);
       else await fail(job, error);
     } finally {
@@ -150,6 +158,8 @@ function createWorker(options) {
   async function scan() {
     var queued = await candidatesFor('queued');
     var leased = await candidatesFor('running');
+    metrics.gauge('analysis_queue_length', queued.length);
+    metrics.gauge('analysis_running', leased.length);
     var candidates = queued.concat(leased).filter(function (item) { return !running[item._id]; });
     var available = Math.max(0, maxConcurrent - Object.keys(running).length);
     await Promise.all(candidates.slice(0, available).map(execute));

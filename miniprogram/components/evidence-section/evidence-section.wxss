@@ -54,3 +54,9 @@
 .evidence-actions .btn-ghost.disabled {
   opacity: 0.4;
 }
+
+.locked-tip {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  padding: 12rpx 0;
+}

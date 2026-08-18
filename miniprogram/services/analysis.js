@@ -4,6 +4,7 @@
 
 var cloudUtil = require('../utils/cloud');
 var cloudRunConfig = require('../config/cloudrun');
+var cloudRun = require('../utils/cloudrun');
 
 function isCloudRunEnabled() {
   return cloudRunConfig.enabled === true &&
@@ -13,41 +14,31 @@ function isCloudRunEnabled() {
 }
 
 function callCloudRun(path, method, data) {
-  return new Promise(function (resolve, reject) {
-    var request = {
-      config: { env: cloudRunConfig.env },
-      path: path,
-      method: method,
-      header: { 'X-WX-SERVICE': cloudRunConfig.serviceName },
-      success: function (res) {
-        if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.code === 0) {
-          resolve(res.data);
-          return;
-        }
-        reject(new Error((res.data && res.data.message) || 'CloudRun 请求失败'));
-      },
-      fail: function (err) { reject(err); },
-    };
-    if (data !== undefined) request.data = data;
-    wx.cloud.callContainer(request);
-  });
+  return cloudRun.call(path, method, data);
 }
 
 /**
  * 触发案例分析
  * @param {string} caseId
- * @param {boolean} [force=false] - 强制重新分析（用于卡死恢复/重新分析，绕过 analyzing 拦截）
+ * @param {boolean} [force=false] - 仅供旧云函数回滚链路使用；CloudRun 不允许绕过分析锁
  * @param {boolean} [deep=false] - 深度模式（Pro 加强判断/建议，耗时更长）
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
-function analyzeCase(caseId, force, deep) {
+function analyzeCase(caseId, force, deep, options) {
+  options = options || {};
   var data = { caseId: caseId };
-  if (force) data.force = true;
   if (deep) data.deep = true;
+  if (options.evidenceRevision != null) data.evidenceRevision = options.evidenceRevision;
+  data.idempotencyKey = options.idempotencyKey || cloudRun.idempotencyKey('analysis_' + caseId);
   if (isCloudRunEnabled()) {
     return callCloudRun('/api/analyze/start', 'POST', data);
   }
-  return cloudUtil.callFunction('analyzeCase', data);
+  var legacyData = Object.assign({}, data, { force: force === true });
+  return cloudUtil.callFunction('analyzeCase', legacyData);
+}
+
+function cancelAnalysis(analysisId) {
+  return callCloudRun('/api/analyze/' + encodeURIComponent(analysisId) + '/cancel', 'POST', {});
 }
 
 /**
@@ -86,7 +77,7 @@ function watchAnalysisProgress(analysisId, onProgress) {
       if (!active) return;
       var progress = analysis && analysis.progress;
       if (progress && onProgress) onProgress(progress);
-      if (!progress || (progress.step !== 'done' && progress.step !== 'error')) {
+      if (!progress || (progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled')) {
         timer = setTimeout(poll, 1500);
       }
     }).catch(function (err) {
@@ -102,10 +93,12 @@ function watchCloudRunAnalysisProgress(analysisId, onProgress) {
   var active = true;
   var timer = null;
   var lastProgress = '';
+  var baseDelay = cloudRunConfig.progressPollIntervalMs || 1500;
+  var nextDelay = baseDelay;
 
   function isTerminal(analysis) {
-    return analysis && (analysis.status === 'completed' || analysis.status === 'failed' ||
-      (analysis.progress && (analysis.progress.step === 'done' || analysis.progress.step === 'error')));
+    return analysis && (analysis.status === 'completed' || analysis.status === 'failed' || analysis.status === 'canceled' ||
+      (analysis.progress && (analysis.progress.step === 'done' || analysis.progress.step === 'error' || analysis.progress.step === 'canceled')));
   }
 
   function poll() {
@@ -116,15 +109,19 @@ function watchCloudRunAnalysisProgress(analysisId, onProgress) {
       var progressKey = progress ? [progress.step, progress.message, progress.progress].join('|') : '';
       if (progress && progressKey !== lastProgress && onProgress) {
         lastProgress = progressKey;
+        nextDelay = baseDelay;
         onProgress(progress);
+      } else {
+        nextDelay = Math.min(Math.round(nextDelay * 1.5), 8000);
       }
 
       if (!isTerminal(analysis)) {
-        timer = setTimeout(poll, cloudRunConfig.progressPollIntervalMs || 1500);
+        timer = setTimeout(poll, nextDelay);
       }
     }).catch(function (err) {
       console.error('CloudRun analysis progress query failed:', err);
-      if (active) timer = setTimeout(poll, cloudRunConfig.progressPollIntervalMs || 1500);
+      nextDelay = Math.min(Math.round(nextDelay * 1.5), 8000);
+      if (active) timer = setTimeout(poll, nextDelay);
     });
   }
 
@@ -141,4 +138,5 @@ module.exports = {
   analyzeCase: analyzeCase,
   getAnalysis: getAnalysis,
   watchAnalysisProgress: watchAnalysisProgress,
+  cancelAnalysis: cancelAnalysis,
 };

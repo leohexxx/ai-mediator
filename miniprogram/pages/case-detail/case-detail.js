@@ -179,8 +179,12 @@ Page({
             if (doc.status === 'completed') {
               wx.showToast({ title: '分析完成！', icon: 'success' });
               that.loadDetail(); // 重新加载以获取分析结果
-            } else if (doc.status === 'analyzing' && oldStatus === 'waiting_submission') {
-              wx.showToast({ title: '双方已提交，开始分析', icon: 'none' });
+            } else if (doc.status === 'analyzing') {
+              wx.showToast({ title: '一方已启动分析，证据已锁定', icon: 'none' });
+            } else if (doc.status === 'cancel_requested') {
+              wx.showToast({ title: '正在打断分析', icon: 'none' });
+            } else if (doc.status === 'dual_collecting' && oldStatus === 'cancel_requested') {
+              wx.showToast({ title: '分析已打断，可以继续补证', icon: 'success' });
             } else if (doc.status === 'dual_a_submitted') {
               wx.showToast({ title: '甲方分析完成，等待补充', icon: 'none' });
               that.loadDetail();
@@ -242,8 +246,12 @@ Page({
    * 点击上传证据
    */
   onUploadTap: function () {
+    if (this.data.caseData && (this.data.caseData.analysisLock === true || this.data.caseData.status === 'analyzing' || this.data.caseData.status === 'cancel_requested')) {
+      wx.showToast({ title: '分析期间证据已锁定', icon: 'none' });
+      return;
+    }
     wx.navigateTo({
-      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&role=' + this.data.role + '&mode=dual',
+      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&role=' + this.data.role + '&mode=dual&supplement=' + (this.data.myEvidence ? '1' : '0'),
     });
   },
 

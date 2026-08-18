@@ -22,8 +22,9 @@
     <view class="evidence-actions">
       <view class="btn-ghost">查看聊天记录</view>
       <view class="btn-ghost {{canModify ? '' : 'disabled'}}" wx:if="{{canModify}}" bindtap="onUploadTap">
-        重新上传
+        继续补充
       </view>
+      <view class="locked-tip" wx:else>分析期间已锁定</view>
     </view>
   </view>
 </view>
