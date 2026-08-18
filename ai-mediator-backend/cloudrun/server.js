@@ -13,6 +13,7 @@ var chatRoute = require('./routes/chat');
 var evidenceRoute = require('./routes/evidence');
 var database = require('./services/db');
 var analysisWorker = require('./services/analysisWorker').createWorker();
+var metrics = require('./services/metrics');
 
 database.assertReady();
 var app = express();
@@ -37,6 +38,10 @@ var server = app.listen(config.port, function () {
 });
 
 analysisWorker.start();
-server.on('close', function () { analysisWorker.stop(); });
+var metricsLogger = config.localMode ? null : metrics.startStructuredLogging(config.metrics.structuredLogIntervalMs);
+server.on('close', function () {
+  analysisWorker.stop();
+  if (metricsLogger) metricsLogger.close();
+});
 
 module.exports = { app: app, server: server, analysisWorker: analysisWorker };

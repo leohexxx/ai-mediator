@@ -58,6 +58,10 @@ var config = {
     perUserStartsPerMinute: parseInt(process.env.ANALYSIS_USER_STARTS_PER_MINUTE || '5', 10),
   },
 
+  metrics: {
+    structuredLogIntervalMs: parseInt(process.env.METRICS_LOG_INTERVAL_MS || '60000', 10),
+  },
+
   miniprogramState: ['developer', 'trial', 'formal'].indexOf(process.env.MINIPROGRAM_STATE) !== -1
     ? process.env.MINIPROGRAM_STATE : 'developer',
   notificationInternalToken: process.env.NOTIFICATION_INTERNAL_TOKEN || '',

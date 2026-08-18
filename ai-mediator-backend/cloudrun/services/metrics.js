@@ -34,4 +34,13 @@ function snapshot() {
   return { startedAt: startedAt, counters: Object.assign({}, counters), gauges: Object.assign({}, gauges), timings: timingSnapshot };
 }
 
-module.exports = { increment: increment, gauge: gauge, observe: observe, snapshot: snapshot };
+function startStructuredLogging(intervalMs) {
+  var delay = Math.max(15000, Number(intervalMs) || 60000);
+  var timer = setInterval(function () {
+    console.log(JSON.stringify({ event: 'operational_metrics', timestamp: new Date().toISOString(), metrics: snapshot() }));
+  }, delay);
+  if (timer.unref) timer.unref();
+  return { close: function () { clearInterval(timer); } };
+}
+
+module.exports = { increment: increment, gauge: gauge, observe: observe, snapshot: snapshot, startStructuredLogging: startStructuredLogging };

@@ -2,6 +2,7 @@ var uuid = require('uuid');
 var crypto = require('crypto');
 var defaultDb = require('./db');
 var config = require('../config');
+var evidenceIntelligence = require('./evidenceIntelligence');
 
 var LOCKED_STATUSES = ['analyzing', 'cancel_requested'];
 var ACTIVE_ANALYSIS_STATUSES = ['queued', 'running', 'cancel_requested'];
@@ -96,7 +97,7 @@ function createWorkflow(options) {
         party: role,
         revision: revision,
         rawText: input.rawText,
-        analysisInputSummary: buildEvidenceSummary(input.rawText),
+        analysisInputSummary: evidenceIntelligence.buildBatchSummary(input.parsedMessages || [], role, revision),
         parsedMessages: input.parsedMessages || [],
         fileIds: input.fileIds || [],
         sourceHashes: input.sourceHashes || [],
@@ -186,7 +187,8 @@ function createWorkflow(options) {
       var analysis = {
         _id: analysisId,
         caseId: input.caseId,
-        schemaVersion: 'v4',
+        schemaVersion: 'v5',
+        promptVersion: evidenceIntelligence.PROMPT_VERSION,
         mode: caseMode,
         deep: input.deep === true,
         status: 'queued',
