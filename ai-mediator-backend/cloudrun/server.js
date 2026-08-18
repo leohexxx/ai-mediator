@@ -7,6 +7,8 @@ var http = require('http');
 var { WebSocketServer } = require('ws');
 var config = require('./config');
 var errorHandler = require('./middleware/errorHandler');
+var auth = require('./middleware/auth');
+var caseAccess = require('./services/caseAccess');
 var healthRoute = require('./routes/health');
 var analyzeRoute = require('./routes/analyze');
 var uploadRoute = require('./routes/upload');
@@ -19,6 +21,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use('/api/health', healthRoute);
+app.use(auth.authMiddleware);
 app.use('/api/analyze', analyzeRoute);
 app.use('/api/upload', uploadRoute);
 app.use('/api/chat', chatRoute);
@@ -28,19 +31,28 @@ var server = http.createServer(app);
 var wss = new WebSocketServer({ server: server, path: '/ws' });
 var wsClients = {};
 
-wss.on('connection', function (ws) {
+wss.on('connection', function (ws, request) {
+  ws.openid = auth.getOpenid(request);
+  if (!ws.openid) {
+    ws.close(4401, 'Unauthorized');
+    return;
+  }
+
   ws.subscribedIds = [];
-  ws.on('message', function (data) {
+  ws.on('message', async function (data) {
     try {
       var msg = JSON.parse(data.toString());
       if (msg.type === 'subscribe' && msg.analysisId) {
         var id = msg.analysisId;
+        await caseAccess.getAnalysisForUser(id, ws.openid);
         if (!wsClients[id]) wsClients[id] = [];
         wsClients[id].push(ws);
         ws.subscribedIds.push(id);
         ws.send(JSON.stringify({ event: 'subscribed', data: { analysisId: id } }));
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      ws.send(JSON.stringify({ event: 'error', data: { message: e.message || '订阅失败' } }));
+    }
   });
   ws.on('close', function () {
     ws.subscribedIds.forEach(function (id) {

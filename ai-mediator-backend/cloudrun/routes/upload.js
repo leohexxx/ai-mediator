@@ -11,6 +11,10 @@ var config = require('../config');
 var ocrService = require('../services/ocr');
 var videoService = require('../services/video');
 var parser = require('../utils/chatFormatter');
+var auth = require('../middleware/auth');
+var caseAccess = require('../services/caseAccess');
+
+router.use(auth.requireAuth);
 
 // multer 配本地临时存储
 var upload = multer({
@@ -23,7 +27,7 @@ var upload = multer({
  * 多图上传 + OCR（并行），返回合并文本
  * Body: multipart/form-data, fields: caseId, images[]
  */
-router.post('/ocr-images', upload.array('images', 20), async function (req, res, next) {
+router.post('/ocr-images', upload.array('images', 20), caseAccess.requireCaseAccess, async function (req, res, next) {
   try {
     var files = req.files || [];
     if (files.length === 0) return res.status(400).json({ code: -1, data: null, message: '未提供图片' });
@@ -62,7 +66,7 @@ router.post('/ocr-images', upload.array('images', 20), async function (req, res,
  * 视频上传 + 云端抽帧 + OCR
  * Body: multipart/form-data, fields: caseId, video
  */
-router.post('/video', upload.single('video'), async function (req, res, next) {
+router.post('/video', upload.single('video'), caseAccess.requireCaseAccess, async function (req, res, next) {
   try {
     if (!req.file) return res.status(400).json({ code: -1, data: null, message: '未提供视频' });
 
@@ -123,7 +127,7 @@ router.post('/video', upload.single('video'), async function (req, res, next) {
  * 文本直接上传
  * Body: JSON { caseId, text, note }
  */
-router.post('/text', async function (req, res, next) {
+router.post('/text', caseAccess.requireCaseAccess, async function (req, res, next) {
   try {
     var { caseId, text, note } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ code: -1, data: null, message: '文本为空' });

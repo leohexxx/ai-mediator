@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "dev:docker": "docker compose up --build"
+    "dev:docker": "docker compose up --build",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "express": "^4.21.0",

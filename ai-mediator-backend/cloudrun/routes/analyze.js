@@ -7,6 +7,10 @@ var llm = require('../services/llm');
 var config = require('../config');
 var db = require('../services/db');
 var parser = require('../utils/chatFormatter');
+var auth = require('../middleware/auth');
+var caseAccess = require('../services/caseAccess');
+
+router.use(auth.requireAuth);
 
 // ── 分析提示词（简化版，完整版参考原 analysisPrompt.js）──
 var ANALYSIS_SYSTEM_PROMPT = '你是一位专业的对话争议分析师，同时精通 MBTI 性格类型学和星座性格分析。' +
@@ -28,15 +32,12 @@ var ANALYSIS_USER_TEMPLATE = '## 案件背景\n{{caseContext}}\n\n## 聊天记�
  * POST /api/analyze/start
  * 启动分析。创建记录后异步执行完整流水线，通过 WebSocket 推送进度。
  */
-router.post('/start', async function (req, res, next) {
+router.post('/start', caseAccess.requireCaseAccess, async function (req, res, next) {
   try {
-    var { caseId, openid, deep } = req.body;
-    if (!caseId) return res.status(400).json({ code: -1, data: null, message: '缺少 caseId' });
+    var { caseId, deep } = req.body;
 
-    // 1. 获取案例 & 证据
-    var caseDoc = await db.collection('cases').doc(caseId).get();
-    var caseData = caseDoc.data;
-    if (!caseData) return res.status(404).json({ code: -1, data: null, message: '案例不存在' });
+    // 1. 案例权限已由 requireCaseAccess 校验。
+    var caseData = req.caseData;
 
     var evidenceRes = await db.collection('evidence').where({ caseId: caseId, party: 'party_a' }).get();
     var messagesA = (evidenceRes.data && evidenceRes.data[0] && evidenceRes.data[0].parsedMessages) || [];
@@ -59,9 +60,10 @@ router.post('/start', async function (req, res, next) {
     // 2. 创建分析记录
     var analysisRes = await db.collection('analyses').add({
       data: {
-        caseId: caseId, schemaVersion: 'v3',
+        caseId: caseId, schemaVersion: 'v2',
         mode: hasPartyB ? 'dual' : 'single', deep: !!deep,
-        coreConclusion: {}, progress: { step: 'started', message: '分析已启动', progress: 0 },
+        status: 'queued', coreConclusion: {},
+        progress: { step: 'started', message: '分析已启动', progress: 0 },
         createdAt: new Date().toISOString(),
       },
     });
@@ -69,67 +71,80 @@ router.post('/start', async function (req, res, next) {
     var pushProgress = req.app.get('pushProgress');
 
     // 3. 返回 analysisId，流水线在后台运行
-    res.json({ code: 0, data: { analysisId: analysisId, status: 'analyzing' } });
+    res.status(202).json({ code: 0, data: { analysisId: analysisId, status: 'queued' } });
 
     // ════ 异步分析流水线 ════
-    try {
-      pushProgress(analysisId, 'progress', { step: '格式化聊天记录', progress: 10 });
+    async function runPipeline() {
+      try {
+        await db.collection('analyses').doc(analysisId).update({ data: { status: 'running' } });
+        pushProgress(analysisId, 'progress', { step: '格式化聊天记录', progress: 10 });
 
-      // 长文本先摘要
-      var chatText = formatted;
-      if (formatted.length > 8000) {
-        pushProgress(analysisId, 'progress', { step: '正在压缩长文本...', progress: 20 });
-        chatText = await llm.chatCompletion(
-          '请压缩以下聊天记录，保留关键对话原文（说话人+时间戳），压缩为 1/3 长度。输出纯净文本。',
-          [{ role: 'user', content: formatted }], 2048
-        );
+        // 长文本先摘要
+        var chatText = formatted;
+        if (formatted.length > 8000) {
+          pushProgress(analysisId, 'progress', { step: '正在压缩长文本...', progress: 20 });
+          chatText = await llm.chatCompletion(
+            '请压缩以下聊天记录，保留关键对话原文（说话人+时间戳），压缩为 1/3 长度。输出纯净文本。',
+            [{ role: 'user', content: formatted }], 2048
+          );
+        }
+
+        // 完整分析（一次 LLM 调用，不分阶段）
+        pushProgress(analysisId, 'progress', { step: '正在分析性格与综合判断...', progress: 40 });
+        var model = deep ? config.llm.deepModel : config.llm.model;
+        var analysisText = await llm.chatCompletion(ANALYSIS_SYSTEM_PROMPT, [
+          { role: 'user', content: ANALYSIS_USER_TEMPLATE.replace('{{caseContext}}', caseContext).replace('{{chatText}}', chatText) },
+        ], 8192, model);
+
+        // 解析 JSON
+        pushProgress(analysisId, 'progress', { step: '正在提取证据与情绪...', progress: 70 });
+        var jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('LLM 返回格式异常，未找到 JSON');
+        var result = JSON.parse(jsonMatch[0]);
+
+        // 单人模式调低置信度
+        if (!hasPartyB && result.coreConclusion) {
+          var cc = result.coreConclusion;
+          cc.confidence = Math.max(30, (cc.confidence || 75) - 15);
+          cc.confidenceReasons = ['(单人视角，已自动调低 15%)'].concat(cc.confidenceReasons || []);
+        }
+
+        // 写数据库
+        pushProgress(analysisId, 'progress', { step: '正在制定调解策略...', progress: 90 });
+        await db.collection('analyses').doc(analysisId).update({
+          data: {
+            coreConclusion: result.coreConclusion || {},
+            evidenceWeights: result.evidenceWeights || [],
+            emotionCurve: result.emotionCurve || [],
+            mediationStrategy: result.mediationStrategy || [],
+            detailedAnalysis: result.detailedAnalysis || {},
+            advice: result.advice || { toA: [], toB: [], toBoth: [] },
+            status: 'completed',
+            progress: { step: 'done', message: '分析完成', progress: 100 },
+          },
+        });
+
+        pushProgress(analysisId, 'done', { analysisId: analysisId, result: result });
+        console.log('[Analyze] complete: ' + analysisId);
+
+      } catch (pipelineErr) {
+        console.error('[Analyze] pipeline error:', pipelineErr.message);
+        await db.collection('analyses').doc(analysisId).update({
+          data: {
+            status: 'failed',
+            progress: { step: 'error', message: '分析失败，请稍后重试', progress: 0 },
+          },
+        }).catch(function () {});
+        pushProgress(analysisId, 'error', { message: pipelineErr.message });
       }
-
-      // 完整分析（一次 LLM 调用，不分阶段）
-      pushProgress(analysisId, 'progress', { step: '正在分析性格与综合判断...', progress: 40 });
-      var model = deep ? config.llm.deepModel : config.llm.model;
-      // 注: config 需在顶部 require
-      var analysisText = await llm.chatCompletion(ANALYSIS_SYSTEM_PROMPT, [
-        { role: 'user', content: ANALYSIS_USER_TEMPLATE.replace('{{caseContext}}', caseContext).replace('{{chatText}}', chatText) },
-      ], 8192, model);
-
-      // 解析 JSON
-      pushProgress(analysisId, 'progress', { step: '正在提取证据与情绪...', progress: 70 });
-      var jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('LLM 返回格式异常，未找到 JSON');
-      var result = JSON.parse(jsonMatch[0]);
-
-      // 单人模式调低置信度
-      if (!hasPartyB && result.coreConclusion) {
-        var cc = result.coreConclusion;
-        cc.confidence = Math.max(30, (cc.confidence || 75) - 15);
-        cc.confidenceReasons = ['(单人视角，已自动调低 15%)'].concat(cc.confidenceReasons || []);
-      }
-
-      // 写数据库
-      pushProgress(analysisId, 'progress', { step: '正在制定调解策略...', progress: 90 });
-      await db.collection('analyses').doc(analysisId).update({
-        data: {
-          coreConclusion: result.coreConclusion || {},
-          evidenceWeights: result.evidenceWeights || [],
-          emotionCurve: result.emotionCurve || [],
-          mediationStrategy: result.mediationStrategy || [],
-          detailedAnalysis: result.detailedAnalysis || {},
-          advice: result.advice || { toA: [], toB: [], toBoth: [] },
-          progress: { step: 'done', message: '分析完成', progress: 100 },
-        },
-      });
-
-      pushProgress(analysisId, 'done', { analysisId: analysisId, result: result });
-      console.log('[Analyze] complete: ' + analysisId);
-
-    } catch (pipelineErr) {
-      console.error('[Analyze] pipeline error:', pipelineErr.message);
-      await db.collection('analyses').doc(analysisId).update({
-        data: { progress: { step: 'error', message: '分析失败: ' + pipelineErr.message, progress: 0 } },
-      }).catch(function () {});
-      pushProgress(analysisId, 'error', { message: pipelineErr.message });
     }
+
+    setImmediate(function () {
+      runPipeline().catch(function (pipelineErr) {
+        console.error('[Analyze] unexpected pipeline error:', pipelineErr.message);
+      });
+    });
+    return;
 
   } catch (err) {
     next(err);
@@ -142,9 +157,8 @@ router.post('/start', async function (req, res, next) {
  */
 router.get('/:id', async function (req, res, next) {
   try {
-    var doc = await db.collection('analyses').doc(req.params.id).get();
-    if (!doc || !doc.data) return res.status(404).json({ code: -1, data: null, message: '分析不存在' });
-    res.json({ code: 0, data: doc.data, message: 'ok' });
+    var analysis = await caseAccess.getAnalysisForUser(req.params.id, req.openid);
+    res.json({ code: 0, data: analysis, message: 'ok' });
   } catch (err) { next(err); }
 });
 
