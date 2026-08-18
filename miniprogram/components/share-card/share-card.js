@@ -66,7 +66,7 @@ Component({
       var template = data.template || 'verdict';
 
       // 背景
-      ctx.fillStyle = '#111827';
+      ctx.fillStyle = '#F7F4EC';
       this._roundRect(ctx, 0, 0, w, h, 16);
       ctx.fill();
 
@@ -80,143 +80,71 @@ Component({
     },
 
     /**
-     * 裁决版卡片
+     * V3 证据摘要卡片：不展示输赢和双方评分
      */
     _renderVerdictCard: function (ctx, w, h, data) {
-      var scoreA = data.scoreA || 50;
-      var scoreB = data.scoreB || 50;
-      var winner = data.winner || 'tie';
-      var partyAName = data.partyAName || '甲方';
-      var partyBName = data.partyBName || '乙方';
+      ctx.fillStyle = '#287A65';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('EVIDENCE SUMMARY', 28, 38);
+      ctx.fillStyle = '#202824';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('现有证据说明了什么', 28, 73);
+      ctx.fillStyle = '#C9822B';
+      ctx.fillRect(28, 91, 54, 4);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 18px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('啷个对仲裁结果', w / 2, 40);
-
-      // 分数对比条
-      var barY = 70;
-      var barH = 32;
-      var barW = w - 80;
-      var barX = 40;
-
-      ctx.fillStyle = '#374151';
-      this._roundRect(ctx, barX, barY, barW, barH, 8);
-      ctx.fill();
-
-      var ratioA = scoreA / (scoreA + scoreB);
-      var fillW = Math.max(barW * ratioA, 4);
-
-      var gradA = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
-      gradA.addColorStop(0, '#6366f1');
-      gradA.addColorStop(1, '#818cf8');
-      ctx.fillStyle = gradA;
-      this._roundRect(ctx, barX, barY, fillW, barH, 8);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(partyAName + ' ' + scoreA + ' : ' + scoreB + ' ' + partyBName, w / 2, barY + barH / 2 + 6);
-
-      // 结论
-      var winnerText = '双方各有道理';
-      if (winner === 'party_a') winnerText = partyAName + ' 更有理';
-      if (winner === 'party_b') winnerText = partyBName + ' 更有理';
-
-      ctx.fillStyle = winner === 'tie' ? '#facc15' : '#22c55e';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(winnerText, w / 2, 140);
-
-      // 一句话结论
       if (data.verdict) {
-        ctx.fillStyle = '#d1d5db';
-        ctx.font = '13px sans-serif';
-        ctx.textAlign = 'center';
-        var lines = this._wrapText(ctx, '"' + data.verdict + '"', w - 60);
-        for (var i = 0; i < Math.min(lines.length, 3); i++) {
-          ctx.fillText(lines[i], w / 2, 170 + i * 20);
+        ctx.fillStyle = '#202824';
+        ctx.font = '15px sans-serif';
+        ctx.textAlign = 'left';
+        var lines = this._wrapText(ctx, data.verdict, w - 56);
+        for (var i = 0; i < Math.min(lines.length, 6); i++) {
+          ctx.fillText(lines[i], 28, 130 + i * 24);
         }
       }
-
-      // 置信度
-      var confY = h - 120;
-      ctx.fillStyle = '#9ca3af';
+      var confidence = data.confidence || 50;
+      var confY = h - 142;
+      ctx.fillStyle = '#59635E';
       ctx.font = '12px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('置信度 ' + (data.confidence || 75) + '%', w / 2, confY);
-
+      ctx.fillText('证据充分度  ' + confidence + '/100', 28, confY);
+      ctx.fillStyle = '#D8D0C0';
+      ctx.fillRect(28, confY + 14, w - 56, 7);
+      ctx.fillStyle = '#287A65';
+      ctx.fillRect(28, confY + 14, (w - 56) * Math.min(confidence, 100) / 100, 7);
       if (data.isSingleParty) {
-        ctx.fillStyle = '#f59e0b';
+        ctx.fillStyle = '#C9822B';
         ctx.font = '11px sans-serif';
-        ctx.fillText('(单人分析，已自动调低)', w / 2, confY + 18);
+        ctx.fillText('单方证据 · 不能代表另一方完整立场', 28, confY + 43);
       }
-
-      // CTA
-      ctx.fillStyle = '#6366f1';
+      ctx.fillStyle = '#287A65';
       ctx.font = 'bold 13px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('想知道你的聊天记录中谁更有理？', w / 2, h - 65);
-      ctx.fillText('扫码立即分析', w / 2, h - 45);
-
-      // 底部品牌
-      ctx.fillStyle = '#4b5563';
+      ctx.fillText('先整理事实，再看见分歧', 28, h - 48);
+      ctx.fillStyle = '#7C827E';
       ctx.font = '11px sans-serif';
-      ctx.fillText('啷个对', w / 2, h - 20);
-
-      // 小程序码占位区
-      ctx.strokeStyle = '#374151';
-      ctx.strokeRect(w - 80, h - 100, 60, 60);
-      ctx.fillStyle = '#4b5563';
-      ctx.font = '11px sans-serif';
-      ctx.fillText('小程序码', w - 50, h - 68);
+      ctx.fillText('啷个对 · AI 辅助沟通整理', 28, h - 24);
     },
 
     /**
      * 趣味版卡片
      */
     _renderFunCard: function (ctx, w, h, data) {
-      var scoreA = data.scoreA || 50;
-      var scoreB = data.scoreB || 50;
-      var partyAName = data.partyAName || '甲方';
-      var partyBName = data.partyBName || '乙方';
-
-      // 标题
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('谁更有理？', w / 2, 45);
-
-      // 两个人物
-      var leftX = w / 4;
-      var rightX = w * 3 / 4;
-
-      ctx.fillStyle = '#6366f1';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(scoreA + '%', leftX, 110);
-
-      ctx.fillStyle = '#ec4899';
-      ctx.fillText(scoreB + '%', rightX, 110);
-
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '13px sans-serif';
-      ctx.fillText(partyAName, leftX, 135);
-      ctx.fillText(partyBName, rightX, 135);
-
-      // VS
-      ctx.fillStyle = '#facc15';
-      ctx.font = 'bold 18px sans-serif';
-      ctx.fillText('VS', w / 2, 110);
-
-      // CTA
-      ctx.fillStyle = '#d1d5db';
-      ctx.font = '13px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('你的聊天记录里，谁更有理？', w / 2, h - 80);
-      ctx.fillStyle = '#6366f1';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText('扫码测测看', w / 2, h - 58);
+      ctx.fillStyle = '#C9822B';
+      ctx.fillRect(0, 0, 10, h);
+      ctx.fillStyle = '#202824';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('下一步怎么谈？', 34, 62);
+      ctx.fillStyle = '#59635E';
+      ctx.font = '14px sans-serif';
+      var text = data.verdict || '先确认共同事实，再一次只解决一个具体问题。';
+      var lines = this._wrapText(ctx, text, w - 68);
+      for (var i = 0; i < Math.min(lines.length, 7); i++) ctx.fillText(lines[i], 34, 112 + i * 26);
+      ctx.fillStyle = '#287A65';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('保存原始记录 · 补齐信息缺口 · 提出具体请求', 34, h - 58);
+      ctx.fillStyle = '#7C827E';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('啷个对 · 报告仅供沟通整理', 34, h - 30);
     },
 
     // 工具函数

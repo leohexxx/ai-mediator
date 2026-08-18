@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 啷个对 — 类型定义 (v2, JSDoc 版本)
+// 啷个对 — 类型定义 (V3, JSDoc 版本)
 // 来源: src/types/index.ts
 // 小程序端使用 JSDoc 类型注释，无需 TypeScript 编译
 // ═══════════════════════════════════════════════
@@ -102,8 +102,14 @@
  * @property {string} id
  * @property {string} caseId
  * @property {string} createdAt
- * @property {'v1'|'v2'} schemaVersion
+ * @property {'v1'|'v2'|'v4'|'v5'} schemaVersion
  * @property {CoreConclusion} coreConclusion
+ * @property {Object} reportSections
+ * @property {Object} evidenceFeatures
+ * @property {Object} evidenceQuality
+ * @property {Object[]} extractedFacts
+ * @property {Object[]} safetySignals
+ * @property {Object[]} knowledgeReferences
  * @property {EvidenceWeight[]} evidenceWeights
  * @property {EmotionCurve[]} emotionCurve
  * @property {MediationStep[]} mediationStrategy
@@ -113,7 +119,7 @@
 
 /**
  * @typedef {Object} AnalysisProgress
- * @property {string} step - parsing/understanding/evidence/emotion/judging/strategy/done
+ * @property {string} step - queued/formatting/extracting/quality_gate/retrieving/analyzing/validating/finalizing/done
  * @property {string} message
  * @property {number} progress - 0-100
  */

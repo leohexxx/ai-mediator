@@ -51,8 +51,8 @@
 
   <!-- 提示信息 -->
   <view class="form-tip">
-    <view class="tip-icon">💡</view>
-    <view class="tip-text">创建后将生成邀请码，分享给对方一起加入。双方上传聊天记录后，AI 将自动分析。</view>
+    <view class="tip-icon">i</view>
+    <view class="tip-text">创建后会生成邀请码。任意一方提交自己的有效证据后即可启动分析；分析期间双方证据会锁定。</view>
   </view>
 
   <!-- 提交按钮 -->

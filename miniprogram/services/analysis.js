@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════
 
 var cloudRun = require('../utils/cloudrun');
+var cloudRunConfig = require('../config/cloudrun');
 
 function callCloudRun(path, method, data) {
   return cloudRun.call(path, method, data);
@@ -11,7 +12,7 @@ function callCloudRun(path, method, data) {
 /**
  * 触发案例分析
  * @param {string} caseId
- * @param {boolean} [force=false] - 兼容旧调用签名，V2 不允许绕过分析锁
+ * @param {boolean} [force=false] - 兼容旧调用签名，V3 不允许绕过分析锁
  * @param {boolean} [deep=false] - 深度模式（Pro 加强判断/建议，耗时更长）
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */

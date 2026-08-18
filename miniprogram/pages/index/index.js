@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 首页 (v3) — 合规弹窗 + 单人模式 CTA
+// 首页 (V3) — 证据整理优先，弱化输赢裁判表达
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -21,7 +21,7 @@ Page({
     // 隐私同意弹窗
     showPrivacyModal: false,
 
-    // 评理模式: 'single' | 'dual'
+    // 协作模式: 'single' | 'dual'
     mode: 'single',
   },
 
@@ -179,7 +179,7 @@ Page({
     } catch (_) {}
 
     caseService.createCase({
-      title: '调解案例',
+      title: '沟通分析',
       relationship: '',
       privacy: 'both',
       mode: 'single',
@@ -229,7 +229,7 @@ Page({
    */
   onShareAppMessage: function () {
     return {
-      title: '啷个对 — 上传聊天记录，看谁更在理',
+      title: '啷个对 — 先整理事实，再看见分歧',
       path: '/pages/index/index',
       imageUrl: '',
     };

@@ -2,7 +2,7 @@
 <view class="detailed-analysis card" wx:if="{{detailedAnalysis}}">
   <!-- 案情摘要 -->
   <view class="analysis-summary" wx:if="{{summary}}">
-    <view class="summary-title">📝 案情摘要</view>
+    <view class="summary-title">背景摘要</view>
     <view class="summary-text">{{summary}}</view>
   </view>
 
@@ -28,7 +28,7 @@
         </view>
         <view class="char-name">{{item.name}}</view>
       </view>
-      <view class="char-attr"><text class="attr-label">性格：</text>{{item.personality}}</view>
+      <view class="char-attr"><text class="attr-label">对话中表现：</text>{{item.personality}}</view>
       <view class="char-attr"><text class="attr-label">立场：</text>{{item.stance}}</view>
       <view class="char-attr"><text class="attr-label">情绪：</text>{{item.emotionalState}}</view>
       <view class="char-attr"><text class="attr-label">沟通风格：</text>{{item.communicationStyle}}</view>
@@ -41,7 +41,7 @@
       <view class="conflict-header">
         <view class="conflict-topic">{{item.topic}}</view>
         <view class="conflict-severity {{item.severity}}">
-          {{item.severity === 'high' ? '🔴严重' : item.severity === 'medium' ? '🟡中等' : '🟢轻微'}}
+          {{item.severity === 'high' ? '高关注' : item.severity === 'medium' ? '中关注' : '低关注'}}
         </view>
       </view>
       <view class="conflict-stance">
@@ -49,9 +49,7 @@
         <view class="stance-b">对方: {{item.partyBStance}}</view>
       </view>
       <view class="conflict-judgment">
-        <view class="judgment-winner {{item.winner}}">
-          {{item.winner === 'a' ? '→ 你更有理' : item.winner === 'b' ? '→ 对方更有理' : '→ 双方各有道理'}}
-        </view>
+        <view class="judgment-winner {{item.winner}}">证据说明</view>
         <view class="judgment-text">{{item.aiJudgment}}</view>
       </view>
     </view>
@@ -72,7 +70,7 @@
         </view>
         <view class="tl-desc">{{item.content}}</view>
         <view class="tl-significance text-secondary" wx:if="{{item.significance}}">{{item.significance}}</view>
-        <view class="tl-turning" wx:if="{{item.isTurningPoint}}">⚡ 转折点</view>
+        <view class="tl-turning" wx:if="{{item.isTurningPoint}}">关键转折</view>
       </view>
     </view>
   </view>

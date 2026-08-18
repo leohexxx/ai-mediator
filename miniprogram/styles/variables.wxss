@@ -1,53 +1,53 @@
 /* ═══════════════════════════════════════════════
   啷个对 — 设计系统 CSS 变量
-   暗色主题，整体色调与 Web 版一致
+   V3 纸张色主题
    ═══════════════════════════════════════════════ */
 
 page {
   /* 品牌色 */
-  --color-brand: #6366F1;
-  --color-brand-light: #818CF8;
-  --color-brand-dark: #4F46E5;
+  --color-brand: #287A65;
+  --color-brand-light: #4A947F;
+  --color-brand-dark: #1E5E4D;
 
   /* 背景色 */
-  --color-bg: #111827;
-  --color-bg-secondary: #1A1F2E;
-  --color-bg-tertiary: #0F172A;
+  --color-bg: #F7F4EC;
+  --color-bg-secondary: #EFE9DC;
+  --color-bg-tertiary: #E7E0D2;
 
   /* 卡片 & 表面 */
-  --color-card: #1F2937;
-  --color-card-hover: #263244;
-  --color-card-active: #2D3A50;
+  --color-card: #FFFDF8;
+  --color-card-hover: #F1ECE1;
+  --color-card-active: #E8E1D4;
 
   /* 边框 */
-  --color-border: #374151;
-  --color-border-light: #4B5563;
+  --color-border: #D8D0C0;
+  --color-border-light: #C7BDAA;
 
   /* 文字 */
-  --color-text-primary: #F9FAFB;
-  --color-text-secondary: #9CA3AF;
-  --color-text-muted: #6B7280;
+  --color-text-primary: #202824;
+  --color-text-secondary: #59635E;
+  --color-text-muted: #7C827E;
 
   /* 语义色 */
-  --color-success: #10B981;
-  --color-success-bg: rgba(16, 185, 129, 0.15);
-  --color-warning: #F59E0B;
-  --color-warning-bg: rgba(245, 158, 11, 0.15);
-  --color-error: #EF4444;
-  --color-error-bg: rgba(239, 68, 68, 0.15);
-  --color-info: #3B82F6;
-  --color-info-bg: rgba(59, 130, 246, 0.15);
+  --color-success: #287A65;
+  --color-success-bg: rgba(40, 122, 101, 0.12);
+  --color-warning: #C9822B;
+  --color-warning-bg: rgba(201, 130, 43, 0.12);
+  --color-error: #B7433A;
+  --color-error-bg: rgba(183, 67, 58, 0.12);
+  --color-info: #376D78;
+  --color-info-bg: rgba(55, 109, 120, 0.12);
 
   /* 甲乙方专属色 */
-  --color-party-a: #6366F1;
-  --color-party-b: #EC4899;
-  --color-score-a: #6366F1;
-  --color-score-b: #F472B6;
+  --color-party-a: #287A65;
+  --color-party-b: #C9822B;
+  --color-score-a: #287A65;
+  --color-score-b: #C9822B;
 
   /* 聊天气泡 */
-  --color-bubble-user: #6366F1;
-  --color-bubble-ai: #1F2937;
-  --color-bubble-ai-border: #374151;
+  --color-bubble-user: #287A65;
+  --color-bubble-ai: #FFFDF8;
+  --color-bubble-ai-border: #D8D0C0;
 
   /* 圆角 */
   --radius-xs: 4rpx;

@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════
-// 上传聊天记录页 (v4) — UI 温和化
+// 上传聊天记录页 (V3) — 批次证据、OCR校对与分析方式分离
 // ═══════════════════════════════════════════════
 
 var evidenceService = require('../../services/evidence');
 var analysisService = require('../../services/analysis');
-var caseService = require('../../services/case');
 var storage = require('../../utils/storage');
 
 Page({
@@ -37,9 +36,8 @@ Page({
     videoPath: '',
     videoContext: null,
 
-    // 性格弹窗
+    // 证据保存后的分析方式面板（沿用字段名以兼容旧状态）
     showPersonalityModal: false,
-    personalitySubmitted: false,
     // 深度模式（Pro 模型，更深入但更慢）
     deepMode: false,
     // 视频帧 OCR 的离屏 canvas 缓存
@@ -243,13 +241,13 @@ Page({
   },
 
   /**
-   * 长文本保留原文；V2 由 CloudRun 按证据版本生成并缓存摘要。
+   * 长文本保留原文；V3 由 CloudRun 先提取结构化事实，再只选择必要片段进入模型。
    */
   _handleOversizedText: function (text, fileIds, count) {
     var that = this;
     wx.showModal({
       title: '文字内容较多',
-      content: '识别出约 ' + text.length + ' 字。V2 会保留全部原文，并由服务端自动生成增量摘要以缩短分析时间。',
+      content: '识别出约 ' + text.length + ' 字。V3 会保存原始证据，并由服务端先做规则提取、脱敏和片段筛选，以缩短分析时间。',
       showCancel: false,
       success: function () {
         that.setData({
@@ -604,13 +602,13 @@ Page({
       if (res.code === 0 && res.data) {
         that.setData({ evidenceRevision: res.data.revision });
         that._clearDraft();
-        wx.showToast({ title: '已发送！', icon: 'success' });
+        wx.showToast({ title: '证据已保存', icon: 'success' });
 
         if (that.data.supplement) {
-          // 补充内容模式：跳过性格弹窗，基于新证据版本开始分析
+          // 补充内容模式：沿用当前分析方式，基于新证据版本开始分析
           that._startAnalysis(true);
         } else {
-          // 普通模式：弹出性格信息弹窗
+          // 普通模式：由用户手势选择快速/深度分析，并申请完成通知
           that.setData({
             showPersonalityModal: true,
           });
@@ -626,45 +624,24 @@ Page({
     });
   },
 
-  // ===== 性格信息弹窗 =====
+  // ===== 分析方式面板 =====
 
   /**
-   * 补充性格信息并开始分析
+   * 深度分析：不使用性格类型判断事实，只切换模型深度
    */
   onPersonalityConfirm: function () {
     var that = this;
-    var picker = this.selectComponent('#personalityPicker');
-
-    // 先触发订阅消息（必须在 tap 手势内同步调用，不能异步延迟）
-    if (picker && picker.hasAnyData()) {
-      var data = picker.getData();
-      // 请求订阅后，再异步保存性格信息 + 开始分析
-      that._requestSubscribe(function () {
-        caseService.updatePersonality(
-          that.data.caseId,
-          data.personalityA,
-          data.personalityB
-        ).then(function () {
-          that._startAnalysis(false);
-        }).catch(function () {
-          that._startAnalysis(false);
-        });
-      });
-    } else {
-      that._requestSubscribe(function () {
-        that._startAnalysis(false);
-      });
-    }
+    this.setData({ deepMode: true });
+    that._requestSubscribe(function () { that._startAnalysis(false); });
   },
 
   /**
-   * 跳过性格信息，先请求订阅再分析
+   * 快速分析
    */
   onPersonalitySkip: function () {
     var that = this;
-    that._requestSubscribe(function () {
-      that._startAnalysis(false);
-    });
+    this.setData({ deepMode: false });
+    that._requestSubscribe(function () { that._startAnalysis(false); });
   },
 
   /**
@@ -700,13 +677,14 @@ Page({
   /**
    * 切换深度模式
    */
-  onToggleDeepMode: function () {
-    this.setData({ deepMode: !this.data.deepMode });
+  onToggleDeepMode: function (e) {
+    var hasValue = e && e.detail && typeof e.detail.value === 'boolean';
+    this.setData({ deepMode: hasValue ? e.detail.value : !this.data.deepMode });
   },
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
-   * @param {boolean} [force=false] - 兼容旧调用签名，V2 不允许绕过分析锁
+   * @param {boolean} [force=false] - 兼容旧调用签名，V3 不允许绕过分析锁
    */
   _startAnalysis: function (force) {
     var that = this;

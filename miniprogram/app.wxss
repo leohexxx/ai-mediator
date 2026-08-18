@@ -1,43 +1,44 @@
 /* ═══════════════════════════════════════════════
    啷个对 — 全局样式
-   调皮浮夸 · 深紫霓虹设计系统
+   V3 · 编辑式温和理性设计系统
    ═══════════════════════════════════════════════ */
 
 @import './styles/variables.wxss';
 
 /* 全局重置 */
 page {
-  --color-brand: #FF4D6A;
-  --color-brand-glow: #FF3366;
-  --color-accent: #A855F7;
-  --color-accent-glow: #C084FC;
-  --color-bg: #0B0716;
-  --color-bg-secondary: #110B24;
-  --color-card: #1A1033;
-  --color-card-hover: #231747;
-  --color-border: #2D1F54;
-  --color-text-primary: #FFFFFF;
-  --color-text-secondary: #C4B5E3;
-  --color-text-muted: #7B6B9E;
-  --color-success: #34D399;
-  --color-warning: #FBBF24;
-  --color-error: #F87171;
-  --color-info: #60A5FA;
-  --color-party-a: #FF4D6A;
-  --color-party-b: #A855F7;
-  --color-score-a: #FF4D6A;
-  --color-score-b: #C084FC;
-  --radius-sm: 12rpx;
-  --radius-md: 20rpx;
-  --radius-lg: 32rpx;
-  --radius-xl: 48rpx;
-  --shadow-sm: 0 2rpx 12rpx rgba(168, 85, 247, 0.12);
-  --shadow-md: 0 4rpx 24rpx rgba(168, 85, 247, 0.18);
-  --shadow-lg: 0 8rpx 40rpx rgba(168, 85, 247, 0.25);
+  --color-brand: #287A65;
+  --color-brand-glow: #4A947F;
+  --color-accent: #C9822B;
+  --color-accent-glow: #E0A45B;
+  --color-bg: #F7F4EC;
+  --color-bg-secondary: #EFE9DC;
+  --color-bg-tertiary: #E7E0D2;
+  --color-card: #FFFDF8;
+  --color-card-hover: #F1ECE1;
+  --color-border: #D8D0C0;
+  --color-text-primary: #202824;
+  --color-text-secondary: #59635E;
+  --color-text-muted: #7C827E;
+  --color-success: #287A65;
+  --color-warning: #C9822B;
+  --color-error: #B7433A;
+  --color-info: #376D78;
+  --color-party-a: #287A65;
+  --color-party-b: #C9822B;
+  --color-score-a: #287A65;
+  --color-score-b: #C9822B;
+  --radius-sm: 6rpx;
+  --radius-md: 10rpx;
+  --radius-lg: 16rpx;
+  --radius-xl: 24rpx;
+  --shadow-sm: 0 2rpx 8rpx rgba(32, 40, 36, 0.06);
+  --shadow-md: 0 8rpx 24rpx rgba(32, 40, 36, 0.08);
+  --shadow-lg: 0 16rpx 40rpx rgba(32, 40, 36, 0.10);
 
   background-color: var(--color-bg);
   color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 28rpx;
   line-height: 1.6;
 }

@@ -1,32 +1,15 @@
-<!-- 分析进度组件 — CoT 7 步进度条 -->
-<view class="analysis-progress card">
-  <view class="progress-header">
-    <view class="progress-icon">🔍</view>
-    <view class="progress-info">
-      <view class="progress-message">{{progress.message || '准备分析...'}}</view>
-      <view class="progress-bar-wrapper">
-        <view class="progress-bar">
-          <view class="progress-fill" style="width: {{progress.progress || 0}}%"></view>
-        </view>
-        <text class="progress-percent">{{progress.progress || 0}}%</text>
-      </view>
-    </view>
+<view class="analysis-progress">
+  <view class="progress-kicker">SERVER TASK</view>
+  <view class="progress-message">{{progress.message || '正在准备分析...'}}</view>
+  <view class="progress-row">
+    <view class="progress-track"><view class="progress-fill" style="width: {{progress.progress || 0}}%"></view></view>
+    <text class="progress-percent">{{progress.progress || 0}}%</text>
   </view>
-
-  <!-- 步骤列表 -->
   <view class="step-list">
-    <view
-      wx:for="{{steps}}"
-      wx:key="key"
-      class="step-item {{index < currentStepIndex ? 'done' : ''}} {{index === currentStepIndex ? 'active' : ''}}"
-    >
-      <view class="step-dot">
-        <text wx:if="{{index < currentStepIndex}}">✓</text>
-        <text wx:elif="{{index === currentStepIndex}}">{{item.icon}}</text>
-        <text wx:else>{{index + 1}}</text>
-      </view>
+    <view wx:for="{{steps}}" wx:key="key" class="step-item {{index < currentStepIndex ? 'done' : ''}} {{index === currentStepIndex ? 'active' : ''}}">
+      <view class="step-index">{{index + 1}}</view>
       <view class="step-label">{{item.label}}</view>
-      <view class="step-line" wx:if="{{index < steps.length - 1}}"></view>
     </view>
   </view>
+  <view class="progress-note">这是后端任务阶段，不展示模型内部思考。离开页面后任务仍会继续。</view>
 </view>

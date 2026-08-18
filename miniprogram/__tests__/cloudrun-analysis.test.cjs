@@ -41,12 +41,21 @@ async function run() {
   var analysisSource = fs.readFileSync(path.join(__dirname, '../services/analysis.js'), 'utf8');
   var evidenceSource = fs.readFileSync(path.join(__dirname, '../services/evidence.js'), 'utf8');
   var uploadPageSource = fs.readFileSync(path.join(__dirname, '../pages/upload/upload.js'), 'utf8');
-  assert.strictEqual(analysisSource.includes("callFunction('analyzeCase'"), false, 'V2 analysis must not fall back to legacy cloud function');
-  assert.strictEqual(analysisSource.includes("callFunction('getAnalysis'"), false, 'V2 reads must stay on authenticated CloudRun');
-  assert.strictEqual(evidenceSource.includes("callFunction('ocrImage'"), false, 'V2 OCR must not use legacy OCR function');
-  assert.strictEqual(evidenceSource.includes("callFunction('ocrBatch'"), false, 'V2 batch OCR must not use legacy OCR function');
-  assert.strictEqual(evidenceSource.includes('compressText'), false, 'V2 must preserve original evidence instead of client-side compression');
+  var homeMarkup = fs.readFileSync(path.join(__dirname, '../pages/index/index.wxml'), 'utf8');
+  var reportMarkup = fs.readFileSync(path.join(__dirname, '../components/core-verdict/core-verdict.wxml'), 'utf8');
+  var progressMarkup = fs.readFileSync(path.join(__dirname, '../components/analysis-progress/analysis-progress.wxml'), 'utf8');
+  assert.strictEqual(analysisSource.includes("callFunction('analyzeCase'"), false, 'V3 analysis must not fall back to legacy cloud function');
+  assert.strictEqual(analysisSource.includes("callFunction('getAnalysis'"), false, 'V3 reads must stay on authenticated CloudRun');
+  assert.strictEqual(evidenceSource.includes("callFunction('ocrImage'"), false, 'V3 OCR must not use legacy OCR function');
+  assert.strictEqual(evidenceSource.includes("callFunction('ocrBatch'"), false, 'V3 batch OCR must not use legacy OCR function');
+  assert.strictEqual(evidenceSource.includes('compressText'), false, 'V3 must preserve original evidence instead of client-side compression');
   assert.strictEqual(uploadPageSource.includes('?.'), false, 'Mini Program upload code must not use unsupported optional chaining');
+  assert.strictEqual(homeMarkup.includes('秒出结果'), false, 'V3 home must not promise an unverified instant result');
+  assert.strictEqual(homeMarkup.includes('全程匿名'), false, 'V3 home must not make an absolute anonymity claim');
+  assert.strictEqual(reportMarkup.includes('仲裁结论'), false, 'V3 report must not frame AI as an arbitrator');
+  assert.strictEqual(reportMarkup.includes('更有理'), false, 'V3 report must not lead with winner language');
+  assert.ok(reportMarkup.includes('还缺什么'), 'V3 report must expose missing evidence');
+  assert.ok(progressMarkup.includes('不展示模型内部思考'), 'Progress UI must distinguish task state from model reasoning');
 
   var started = await analysis.analyzeCase('case-1', true, true, { evidenceRevision: 2, idempotencyKey: 'start-1' });
   assert.strictEqual(started.data.analysisId, 'a-1');
@@ -71,6 +80,17 @@ async function run() {
   var reply = await chat.sendMessage({ caseId: 'case-1', analysisId: 'a-1', message: '继续问', jobId: 'j-1' });
   assert.strictEqual(reply.data.reply, 'reply');
   assert.strictEqual(calls[4].path, '/api/chat/messages');
+
+  var watched = await new Promise(function (resolve, reject) {
+    var timeout = setTimeout(function () { reject(new Error('progress watcher timeout')); }, 1000);
+    var watcher = analysis.watchAnalysisProgress('a-1', function (progress) {
+      clearTimeout(timeout);
+      watcher.close();
+      resolve(progress);
+    });
+  });
+  assert.strictEqual(watched.step, 'done');
+  assert.strictEqual(calls[5].path, '/api/analyze/a-1');
 
   var originalCallContainer = global.wx.cloud.callContainer;
   delete global.wx.cloud.callContainer;

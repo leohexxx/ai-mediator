@@ -1,65 +1,60 @@
-<!-- 核心结论卡片 -->
-<view class="core-verdict card" wx:if="{{coreConclusion}}">
-  <!-- 仲裁结论 -->
-  <view class="verdict-header">
-    <view class="verdict-icon">⚖️</view>
-    <view class="verdict-title">仲裁结论</view>
+<view class="report-core" wx:if="{{coreConclusion}}">
+  <view class="report-label">EVIDENCE-BASED SUMMARY</view>
+  <view class="report-title">现有证据说明了什么</view>
+  <view class="summary-text">{{summary}}</view>
+
+  <view class="risk-notice" wx:if="{{riskNotice}}">
+    <view class="risk-label">优先留意</view>
+    <view>{{riskNotice}}</view>
   </view>
 
-  <!-- 分数对比条 -->
-  <view class="score-compare">
-    <view class="score-side score-a">
-      <view class="score-label">你</view>
-      <view class="score-value" style="color: var(--color-party-a)">{{scoreA}}分</view>
-    </view>
-    <view class="score-bar-wrapper">
-      <view class="score-bar">
-        <view class="score-fill-a" style="width: {{scoreA}}%; background: var(--color-score-a)"></view>
-        <view class="score-fill-b" style="width: {{scoreB}}%; background: var(--color-score-b)"></view>
+  <view class="quality-panel">
+    <view class="quality-top">
+      <view>
+        <view class="quality-label">证据充分度</view>
+        <view class="quality-value">{{confidenceLevel}}</view>
       </view>
+      <view class="quality-score">{{confidence}}<text>/100</text></view>
     </view>
-    <view class="score-side score-b">
-      <view class="score-label">对方</view>
-      <view class="score-value" style="color: var(--color-party-b)">{{scoreB}}分</view>
+    <view class="quality-track"><view class="quality-fill" style="width: {{confidence}}%"></view></view>
+    <view class="single-party" wx:if="{{isSinglePartyEvidence}}">当前为单方证据，系统已限制置信度上限。</view>
+    <view class="basis-row" wx:if="{{analysisBasis.messageCount}}">
+      <text>{{analysisBasis.messageCount}} 条消息</text>
+      <text>{{analysisBasis.factCount || 0}} 项规则提取事实</text>
+      <text>版本 {{analysisBasis.promptVersion || 'V3'}}</text>
+    </view>
+    <view class="reason-item" wx:for="{{confidenceReasons}}" wx:key="*this">{{item}}</view>
+  </view>
+
+  <view class="report-section" wx:if="{{commonGround.length}}">
+    <view class="section-number">01</view>
+    <view class="section-heading">可以共同确认</view>
+    <view class="line-item positive" wx:for="{{commonGround}}" wx:key="*this">{{item}}</view>
+  </view>
+
+  <view class="report-section" wx:if="{{disputedIssues.length}}">
+    <view class="section-number">02</view>
+    <view class="section-heading">仍有分歧</view>
+    <view class="dispute-item" wx:for="{{disputedIssues}}" wx:key="id">
+      <view class="dispute-title">{{item.title || item}}</view>
+      <view class="party-view" wx:if="{{item.partyAView}}"><text>甲方：</text>{{item.partyAView}}</view>
+      <view class="party-view" wx:if="{{item.partyBView}}"><text>乙方：</text>{{item.partyBView}}</view>
+      <view class="uncertainty" wx:if="{{item.uncertainty}}">未确定：{{item.uncertainty}}</view>
     </view>
   </view>
 
-  <!-- 胜方标记 -->
-  <view class="winner-badge">{{winner}}</view>
-
-  <!-- 一句话结论 -->
-  <view class="verdict-text">{{oneLineVerdict}}</view>
-
-  <!-- 核心原因 -->
-  <view class="key-reasons" wx:if="{{keyReasons.length > 0}}">
-    <view class="reasons-title">核心原因</view>
-    <view wx:for="{{keyReasons}}" wx:key="*this" class="reason-item">
-      <text class="reason-dot">•</text>
-      <text>{{item}}</text>
-    </view>
+  <view class="report-section missing" wx:if="{{missingEvidence.length}}">
+    <view class="section-number">03</view>
+    <view class="section-heading">还缺什么</view>
+    <view class="line-item" wx:for="{{missingEvidence}}" wx:key="*this">{{item}}</view>
   </view>
 
-  <!-- 置信度 -->
-  <view class="confidence-section">
-    <view class="confidence-header">
-      <text>📊 置信度 {{confidenceLevel}}({{confidence}}%)</text>
+  <view class="report-section actions" wx:if="{{nextActions.length}}">
+    <view class="section-number">04</view>
+    <view class="section-heading">建议下一步</view>
+    <view class="action-item" wx:for="{{nextActions}}" wx:key="*this">
+      <text class="action-number">{{index + 1}}</text>
+      <text class="action-copy">{{item}}</text>
     </view>
-    <view class="confidence-bar-wrapper">
-      <view class="confidence-bar">
-        <view
-          class="confidence-fill {{confidence >= 75 ? 'high' : confidence >= 50 ? 'medium' : 'low'}}"
-          style="width: {{confidence}}%"
-        ></view>
-      </view>
-    </view>
-    <view wx:for="{{confidenceReasons}}" wx:key="*this" class="confidence-reason text-secondary">
-      {{item}}
-    </view>
-  </view>
-
-  <!-- 建议行动 -->
-  <view class="action-section" wx:if="{{recommendedAction}}">
-    <view class="action-label">➡️ 建议行动</view>
-    <view class="action-text">{{recommendedAction}}</view>
   </view>
 </view>

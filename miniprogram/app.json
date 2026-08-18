@@ -9,11 +9,11 @@
     "pages/privacy/privacy"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#0B0716",
+    "navigationBarBackgroundColor": "#202824",
     "navigationBarTitleText": "啷个对",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#0B0716",
-    "backgroundTextStyle": "light",
+    "backgroundColor": "#F7F4EC",
+    "backgroundTextStyle": "dark",
     "enablePullDownRefresh": true,
     "onReachBottomDistance": 50
   },

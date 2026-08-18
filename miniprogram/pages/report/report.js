@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 分析报告页 (v4) — 轮询保底 + 实时监听
+// 分析报告页 (V3) — 证据版本、规则质量与中性报告
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -24,11 +24,6 @@ Page({
     shareCardData: null,
     shareLoading: false,
 
-    // 性格信息
-    showPersonalityEditor: false,
-    personalityA: null,
-    personalityB: null,
-    reanalyzing: false,
     canceling: false,
     /** 是否为补充内容后的重新分析 */
     isReanalysis: false,
@@ -50,7 +45,7 @@ Page({
     if (options.analyzing === '1') {
       this.setData({
         loading: false,
-        progress: { step: 'parsing', message: '分析已提交，正在准备中...', progress: 0 },
+        progress: { step: 'queued', message: '分析已进入队列...', progress: 0 },
       });
       // 如果有传 analysisId，直接记下来，避免 loadReport 的竞态
       if (options.analysisId) {
@@ -204,8 +199,6 @@ Page({
           caseData: caseData,
           role: res.data.role,
           loading: false,
-          personalityA: (caseData.party_a && caseData.party_a.personality) || null,
-          personalityB: (caseData.party_b && caseData.party_b.personality) || null,
         });
 
         if (analysis && analysis.restricted) {
@@ -346,22 +339,9 @@ Page({
 
   onShareAppMessage: function () {
     var analysis = this.data.analysis;
-    var caseData = this.data.caseData;
-
-    var title = '啷个对';
-    if (analysis && analysis.coreConclusion) {
-      var winner = analysis.coreConclusion.overallWinner;
-      if (winner === 'party_a') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '你') + '更在理！';
-      } else if (winner === 'party_b') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '对方') + '更在理！';
-      } else {
-        title = '啷个对：都有道理';
-      }
-    }
-
+    var revision = analysis && (analysis.lockedEvidenceRevision || analysis.evidenceRevision) || 1;
     return {
-      title: title,
+      title: '啷个对：第 ' + revision + ' 版证据的分歧与下一步',
       path: '/pages/report/report?caseId=' + this.data.caseId,
       imageUrl: '',
     };
@@ -369,7 +349,7 @@ Page({
 
   onShareTimeline: function () {
     return {
-      title: '啷个对 — 粘贴聊天记录，看谁更在理',
+      title: '啷个对 — 先整理事实，再看见分歧',
       query: 'caseId=' + this.data.caseId,
       imageUrl: '',
     };
@@ -480,62 +460,4 @@ Page({
     });
   },
 
-  // ===== 性格信息 =====
-
-  onEditPersonality: function () {
-    this.setData({ showPersonalityEditor: true });
-  },
-
-  onClosePersonalityEditor: function () {
-    this.setData({ showPersonalityEditor: false });
-  },
-
-  onSavePersonality: function () {
-    var that = this;
-    var picker = this.selectComponent('#reportPersonalityPicker');
-
-    if (!picker || !picker.hasAnyData()) {
-      wx.showToast({ title: '请至少填写一项信息', icon: 'none' });
-      return;
-    }
-
-    var data = picker.getData();
-    this.setData({ showPersonalityEditor: false, reanalyzing: true });
-
-    wx.showLoading({ title: '正在保存并重新分析...', mask: true });
-
-    caseService.updatePersonality(
-          that.data.caseId,
-          data.personalityA,
-          data.personalityB
-        ).then(function () {
-          return analysisService.analyzeCase(that.data.caseId, true);
-        }).then(function (analysisRes) {
-          wx.hideLoading();
-          that.setData({ reanalyzing: false });
-
-          if (analysisRes.code === 0) {
-            wx.showToast({ title: '分析已重新开始', icon: 'success' });
-            that.loadReport();
-          } else {
-            wx.showToast({ title: analysisRes.message || '分析失败', icon: 'none' });
-          }
-        }).catch(function () {
-          wx.hideLoading();
-          that.setData({ reanalyzing: false });
-          wx.showToast({ title: '操作失败，请重试', icon: 'none' });
-        });
-  },
-
-  _formatPersonalityDisplay: function (p) {
-    if (!p) return null;
-    var parts = [];
-    if (p.mbti) parts.push(p.mbti);
-    if (p.zodiac) {
-      var personalityUtil = require('../../utils/personality');
-      parts.push(personalityUtil.getZodiacLabel(p.zodiac) || p.zodiac);
-    }
-    if (p.element) parts.push(p.element);
-    return parts.length > 0 ? parts.join(' / ') : null;
-  },
 });

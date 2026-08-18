@@ -1,8 +1,8 @@
 <!-- OCR 预览编辑页 -->
 <view class="container">
   <view class="preview-header">
-    <view class="preview-title">📋 聊天记录预览</view>
-    <view class="preview-hint text-muted">共 {{parsedMessages.length}} 条消息，点击说话人或内容可编辑</view>
+    <view class="preview-title">OCR 校对</view>
+    <view class="preview-hint text-muted">共 {{parsedMessages.length}} 条消息。低置信度内容已标出，请同时核对说话人和阅读顺序。</view>
   </view>
 
   <view class="message-list">
@@ -32,7 +32,6 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{parsedMessages.length === 0}}">
-      <view class="icon">📭</view>
       <view class="text">未解析到消息</view>
     </view>
   </view>
