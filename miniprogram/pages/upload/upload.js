@@ -477,11 +477,12 @@ Page({
             allResults.combinedText += (allResults.combinedText ? '\n\n' : '') + res.data.combinedText;
           }
         } else {
-          console.warn('批次失败:', startIdx, '-', endIdx, res?.message);
+          console.warn('批次失败:', startIdx, '-', endIdx, res && res.message);
         }
         processBatch(endIdx);
       }).catch(function (err) {
-        console.error('批次OCR失败', startIdx, '-', endIdx, ':', err?.errMsg || err?.message || err);
+        console.error('批次OCR失败', startIdx, '-', endIdx, ':',
+          (err && (err.errMsg || err.message)) || err);
         processBatch(endIdx);
       });
     }
