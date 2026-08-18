@@ -1,5 +1,5 @@
 {
-  "read": "doc.userId == auth.openid",
+  "read": false,
   "create": false,
   "update": false,
   "delete": false

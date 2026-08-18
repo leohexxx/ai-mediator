@@ -85,6 +85,12 @@
       "timeout": 120,
       "runtime": "Nodejs20.19",
       "handler": "index.main"
+    },
+    {
+      "name": "sendAnalysisNotification",
+      "timeout": 10,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
     }
   ]
 }

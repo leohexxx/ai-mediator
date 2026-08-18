@@ -2,8 +2,14 @@ var test = require('node:test');
 var assert = require('node:assert/strict');
 
 process.env.LOCAL_MODE = 'true';
+var fs = require('node:fs');
+var path = require('node:path');
+var testStoreDir = path.join(require('node:os').tmpdir(), 'ai-mediator-workflow-test-' + process.pid + '-' + Date.now());
+process.env.LOCAL_STORE_DIR = testStoreDir;
 var db = require('../services/db');
 var createWorkflow = require('../services/workflow').createWorkflow;
+
+test.after(function () { fs.rmSync(testStoreDir, { recursive: true, force: true }); });
 
 function validMessages(speaker) {
   return [{ speaker: speaker, content: '用于测试的有效证据', timestamp: '2026-08-18 10:00' }];
@@ -112,4 +118,41 @@ test('证据和分析幂等键不会创建重复版本', async function () {
   await removeDoc('analyses', analysis.analysis._id);
   await removeDoc('evidence_batches', first.batch._id);
   await removeDoc('cases', caseId);
+});
+
+test('20个用户并发启动分析不会串案或污染证据版本', async function () {
+  var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
+  var workflow = createWorkflow({ db: db });
+  var fixtures = [];
+  for (var i = 0; i < 20; i++) {
+    var caseId = 'load-case-' + i + '-' + suffix;
+    var openid = 'load-user-' + i + '-' + suffix;
+    await db.collection('cases').doc(caseId).set({ data: {
+      mode: 'single', status: 'single_submitted', evidenceRevision: 0, analysisLock: false,
+      party_a: { openid: openid }, party_b: null,
+    } });
+    var batch = await workflow.appendEvidence({
+      caseId: caseId, openid: openid, rawText: '用户' + i + ': 独立证据', parsedMessages: validMessages('用户' + i),
+    });
+    fixtures.push({ caseId: caseId, openid: openid, batchId: batch.batch._id });
+  }
+
+  var results = await Promise.all(fixtures.map(function (fixture) {
+    return workflow.startAnalysis({
+      caseId: fixture.caseId, openid: fixture.openid, evidenceRevision: 1,
+      idempotencyKey: 'load-start-' + fixture.caseId,
+    });
+  }));
+  assert.equal(results.length, 20);
+  assert.equal(new Set(results.map(function (item) { return item.analysis._id; })).size, 20);
+  for (var j = 0; j < fixtures.length; j++) {
+    assert.equal(results[j].analysis.caseId, fixtures[j].caseId);
+    assert.equal(results[j].analysis.lockedEvidenceRevision, 1);
+    var caseResult = await db.collection('cases').doc(fixtures[j].caseId).get();
+    assert.equal(caseResult.data.activeAnalysisId, results[j].analysis._id);
+    await workflow.cancelAnalysis({ analysisId: results[j].analysis._id, openid: fixtures[j].openid });
+    await removeDoc('analyses', results[j].analysis._id);
+    await removeDoc('evidence_batches', fixtures[j].batchId);
+    await removeDoc('cases', fixtures[j].caseId);
+  }
 });

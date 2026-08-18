@@ -14,8 +14,12 @@ if (!config.localMode && config.cloudbase.envId) {
   try {
     tcb = require('@cloudbase/node-sdk');
     var initParams = { env: config.cloudbase.envId };
-    if (config.cloudbase.secretId) initParams.secretId = config.cloudbase.secretId;
-    if (config.cloudbase.secretKey) initParams.secretKey = config.cloudbase.secretKey;
+    if (config.cloudbase.apiKey) {
+      initParams.accessKey = config.cloudbase.apiKey;
+    } else {
+      if (config.cloudbase.secretId) initParams.secretId = config.cloudbase.secretId;
+      if (config.cloudbase.secretKey) initParams.secretKey = config.cloudbase.secretKey;
+    }
     var app = tcb.init(initParams);
     db = app.database();
     console.log('[DB] CloudBase connected: ' + config.cloudbase.envId);
@@ -28,7 +32,7 @@ if (!config.localMode && config.cloudbase.envId) {
 }
 
 // ── 本地 JSON 文件存储（替代 DB）─────────────────
-var STORE_DIR = path.join(__dirname, '..', 'data');
+var STORE_DIR = process.env.LOCAL_STORE_DIR || path.join(__dirname, '..', 'data');
 var _cache = {};
 
 function ensureStore() {
@@ -95,6 +99,7 @@ function wrapNativeQuery(ref) {
     where: function (filter) { return wrapNativeQuery(ref.where(filter)); },
     orderBy: function (field, direction) { return wrapNativeQuery(ref.orderBy(field, direction)); },
     limit: function (count) { return wrapNativeQuery(ref.limit(count)); },
+    skip: function (count) { return wrapNativeQuery(ref.skip(count)); },
     field: function (projection) { return wrapNativeQuery(ref.field(projection)); },
   };
 }
@@ -143,19 +148,25 @@ class LocalCollection {
   }
 
   where(filter) {
-    var that = this;
+    var offset = 0;
+    var maxCount = Infinity;
     var filtered = this._data.filter(function (d) {
       for (var k in filter) {
         if (d[k] !== filter[k]) return false;
       }
       return true;
     });
-    return {
-      get: function () { return { data: filtered, length: filtered.length }; },
-      orderBy: function () { return this; },
-      limit: function () { return this; },
+    var query = {
+      get: function () {
+        var data = filtered.slice(offset, offset + maxCount);
+        return { data: data, length: data.length };
+      },
+      orderBy: function () { return query; },
+      limit: function (count) { maxCount = count; return query; },
+      skip: function (count) { offset = count; return query; },
       field: function () { return { get: function () { return { data: filtered }; } }; },
     };
+    return query;
   }
 
   add({ data }) {
@@ -202,5 +213,10 @@ module.exports = {
   isLocalMode: function () { return config.localMode; },
   assertReady: function () {
     if (!config.localMode && !db) throw initError || new Error('CloudBase database is unavailable');
+  },
+  callFunction: function (name, data) {
+    if (config.localMode) return Promise.resolve({ result: { code: 0, message: 'local skipped' } });
+    if (!app || typeof app.callFunction !== 'function') return Promise.reject(new Error('CloudBase function client is unavailable'));
+    return app.callFunction({ name: name, data: data || {} });
   },
 };

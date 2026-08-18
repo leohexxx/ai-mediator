@@ -2,8 +2,14 @@ var test = require('node:test');
 var assert = require('node:assert/strict');
 
 process.env.LOCAL_MODE = 'true';
+var fs = require('node:fs');
+var path = require('node:path');
+var testStoreDir = path.join(require('node:os').tmpdir(), 'ai-mediator-worker-test-' + process.pid + '-' + Date.now());
+process.env.LOCAL_STORE_DIR = testStoreDir;
 var db = require('../services/db');
 var createWorker = require('../services/analysisWorker').createWorker;
+
+test.after(function () { fs.rmSync(testStoreDir, { recursive: true, force: true }); });
 
 test('worker claims a queued analysis with a durable lease', async function () {
   var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -40,7 +46,10 @@ test('worker requeues a failed job before the terminal attempt', async function 
   var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
   var caseId = 'retry-case-' + suffix;
   var analysisId = 'retry-analysis-' + suffix;
-  await db.collection('cases').doc(caseId).set({ data: { analysisId: analysisId, status: 'analyzing' } });
+  await db.collection('cases').doc(caseId).set({ data: {
+    analysisId: analysisId, activeAnalysisId: analysisId, analysisLock: true,
+    lockedEvidenceRevision: 1, status: 'analyzing',
+  } });
   await db.collection('analyses').doc(analysisId).set({ data: {
     caseId: caseId,
     status: 'queued',
@@ -68,7 +77,10 @@ test('worker restores the previous case status after terminal failure', async fu
   var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
   var caseId = 'failed-case-' + suffix;
   var analysisId = 'failed-analysis-' + suffix;
-  await db.collection('cases').doc(caseId).set({ data: { analysisId: analysisId, status: 'analyzing' } });
+  await db.collection('cases').doc(caseId).set({ data: {
+    analysisId: analysisId, activeAnalysisId: analysisId, analysisLock: true,
+    lockedEvidenceRevision: 1, status: 'analyzing',
+  } });
   await db.collection('analyses').doc(analysisId).set({ data: {
     caseId: caseId,
     status: 'queued',
@@ -86,6 +98,8 @@ test('worker restores the previous case status after terminal failure', async fu
   var caseResult = await db.collection('cases').doc(caseId).get();
   assert.equal(analysis.data.status, 'failed');
   assert.equal(caseResult.data.status, 'single_submitted');
+  assert.equal(caseResult.data.analysisLock, false);
+  assert.equal(caseResult.data.activeAnalysisId, null);
 
   await db.collection('analyses').doc(analysisId).remove();
   await db.collection('cases').doc(caseId).remove();
@@ -95,7 +109,10 @@ test('worker terminalizes an expired lease that exhausted all attempts', async f
   var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
   var caseId = 'expired-case-' + suffix;
   var analysisId = 'expired-analysis-' + suffix;
-  await db.collection('cases').doc(caseId).set({ data: { analysisId: analysisId, status: 'analyzing' } });
+  await db.collection('cases').doc(caseId).set({ data: {
+    analysisId: analysisId, activeAnalysisId: analysisId, analysisLock: true,
+    lockedEvidenceRevision: 1, status: 'analyzing',
+  } });
   await db.collection('analyses').doc(analysisId).set({ data: {
     caseId: caseId,
     status: 'running',
@@ -117,6 +134,7 @@ test('worker terminalizes an expired lease that exhausted all attempts', async f
   var caseResult = await db.collection('cases').doc(caseId).get();
   assert.equal(analysis.data.status, 'failed');
   assert.equal(caseResult.data.status, 'waiting_submission');
+  assert.equal(caseResult.data.analysisLock, false);
   await db.collection('analyses').doc(analysisId).remove();
   await db.collection('cases').doc(caseId).remove();
 });

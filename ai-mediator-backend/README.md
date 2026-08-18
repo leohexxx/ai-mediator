@@ -64,6 +64,11 @@ LLM_MODEL=deepseek-v4-flash
 
 # CloudBase 环境 ID（部署后填）
 CLOUDBASE_ENV_ID=cloudbase-xxxxx
+CLOUDBASE_APIKEY=<server-api-key>
+
+# 腾讯高精度 OCR
+TENCENT_OCR_SECRET_ID=<secret-id>
+TENCENT_OCR_SECRET_KEY=<secret-key>
 ```
 
 ### 3. API 验证
@@ -95,7 +100,7 @@ docker build -t ai-mediator-backend .
 ```
 
 生产环境必须配置 `CLOUDBASE_ENV_ID`，连接失败会终止启动，不会降级到容器本地文件。
-分析任务使用数据库租约恢复；建议 CloudRun 最小实例数设为 1，使队列持续消费。若允许缩容到 0，
+分析任务使用数据库租约恢复；生产环境建议 CloudRun 最小实例数设为 2、最大实例数 10，使队列持续消费。若允许缩容到 0，
 任务仍不会丢失，但要等下一次请求唤醒实例后继续。
 
 详见解锁脚本 `scripts/deploy.sh`。
@@ -116,7 +121,7 @@ docker build -t ai-mediator-backend .
 1. 在 `miniprogram/config/cloudrun.js` 中填写 CloudBase 环境 ID 与 CloudRun 服务名，并设置 `enabled: true`
 2. 小程序分析服务会通过 `wx.cloud.callContainer` 访问私有 CloudRun，不需要配置公网域名
 3. 报告页会通过受权 HTTP 轮询读取已持久化的分析进度
-4. 上传/OCR 仍使用现有云函数，待后续阶段完成端到端迁移后再切换
+4. 证据、OCR、分析和追问均通过私有 CloudRun；旧云函数仅保留为紧急回滚链路
 
 ## 技术栈
 
@@ -124,6 +129,6 @@ docker build -t ai-mediator-backend .
 - **进度读取**: 持久化状态 + 受权 HTTP 轮询
 - **数据库**: CloudBase NoSQL（@cloudbase/node-sdk）；仅显式 `LOCAL_MODE=true` 时使用本地 JSON
 - **LLM**: DeepSeek API（多 key 轮询 + 故障切换）
-- **OCR**: OCR.space / 腾讯OCR
+- **OCR**: 腾讯高精度 OCR（长图分块、置信度校对、哈希去重）
 - **视频**: ffmpeg 云端抽帧
 - **部署**: Docker + CloudRun（腾讯云托管）

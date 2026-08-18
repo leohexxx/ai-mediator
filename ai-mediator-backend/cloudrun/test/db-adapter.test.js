@@ -2,7 +2,13 @@ var test = require('node:test');
 var assert = require('node:assert/strict');
 
 process.env.LOCAL_MODE = 'true';
+var fs = require('node:fs');
+var path = require('node:path');
+var testStoreDir = path.join(require('node:os').tmpdir(), 'ai-mediator-db-test-' + process.pid + '-' + Date.now());
+process.env.LOCAL_STORE_DIR = testStoreDir;
 var db = require('../services/db');
+
+test.after(function () { fs.rmSync(testStoreDir, { recursive: true, force: true }); });
 
 test('local adapter uses the same { data } write contract as CloudBase facade', async function () {
   var id = 'adapter-' + Date.now();
