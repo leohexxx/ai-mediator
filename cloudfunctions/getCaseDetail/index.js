@@ -7,6 +7,7 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
 
 /**
  * 云函数入口
@@ -43,8 +44,7 @@ exports.main = async function (event, context) {
 
     var role = isPartyA ? 'party_a' : 'party_b';
     var isSingleMode = caseData.mode === 'single' || (!hasPartyB);
-    var isCompleted = caseData.status === 'completed' || caseData.status === 'single_completed' 
-      || caseData.status === 'dual_a_submitted' || caseData.status === 'dual_b_submitted';
+    var isCompleted = caseStatus.isReportReady(caseData.status);
 
     // 获取己方证据
     var myEvidence = await db.collection('evidence')
@@ -55,7 +55,7 @@ exports.main = async function (event, context) {
     var otherParty = role === 'party_a' ? 'party_b' : 'party_a';
     var otherEvidence = null;
 
-    if (!isSingleMode && (isCompleted || caseData.status === 'dual_a_submitted' || caseData.status === 'dual_b_submitted') && caseData.privacy === 'both') {
+    if (!isSingleMode && isCompleted && caseData.privacy === 'both') {
       var otherResult = await db.collection('evidence')
         .where({ caseId: caseId, party: otherParty })
         .get();

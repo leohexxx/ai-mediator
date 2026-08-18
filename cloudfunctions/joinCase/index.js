@@ -7,6 +7,8 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 /**
  * 云函数入口
@@ -57,7 +59,7 @@ exports.main = async function (event, context) {
     }
 
     // 检查案例状态
-    if (caseData.status === 'completed' || caseData.status === 'expired') {
+    if (caseStatus.isClosed(caseData.status)) {
       return { code: -1, data: null, message: '该案例已完成或已过期，无法加入' };
     }
 
@@ -69,7 +71,7 @@ exports.main = async function (event, context) {
         'party_b.openid': openid,
         'party_b.nickname': userInfo.nickname,
         'party_b.avatarUrl': userInfo.avatarUrl,
-        'status': 'waiting_submission',
+        'status': caseStatus.assertTransition(caseData.status, STATUS.WAITING_SUBMISSION),
         updatedAt: now,
       },
     });

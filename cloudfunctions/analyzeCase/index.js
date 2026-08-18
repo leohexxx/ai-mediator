@@ -23,6 +23,8 @@ var parser = require('./common/parser');
 var llm = require('./common/llm');
 var personalityUtil = require('./common/personality');
 var analysisPrompt = require('./common/prompts/analysisPrompt');
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 // 卡死判定
 var STUCK_MS = 3 * 60 * 1000;
@@ -143,7 +145,7 @@ async function failStage(caseId, analysisId, isSingleMode, err) {
   }).catch(function () {});
   if (await isCurrentAnalysis(caseId, analysisId)) {
     await db.collection('cases').doc(caseId).update({
-      data: { status: isSingleMode ? 'single_submitted' : 'waiting_submission', updatedAt: new Date().toISOString() },
+      data: { status: isSingleMode ? STATUS.SINGLE_SUBMITTED : STATUS.WAITING_SUBMISSION, updatedAt: new Date().toISOString() },
     }).catch(function () {});
   }
 }
@@ -170,14 +172,14 @@ async function handleInitial(event, openid) {
   var mode = isSingleMode ? 'single' : 'dual';
 
   // 辩论模式检测
-  var isDebate = caseData.mode === 'dual' && caseData.status === 'dual_a_submitted';
+  var isDebate = caseData.mode === 'dual' && caseData.status === STATUS.DUAL_A_SUBMITTED;
   if (isDebate) {
     isSingleMode = false; // 双方证据都要考虑
     mode = 'dual';
   }
 
   // analyzing 拦截 — 但缩短卡死阈值到 30s，方便用户重试
-  if (caseData.status === 'analyzing' && caseData.analysisId && !force) {
+  if (caseData.status === STATUS.ANALYZING && caseData.analysisId && !force) {
     var existing = await db.collection('analyses').doc(caseData.analysisId).get().catch(function () { return { data: null }; });
     var prog = existing.data && existing.data.progress;
     if (existing.data) {
@@ -213,7 +215,7 @@ async function handleInitial(event, openid) {
   var analysisId = analysisResult._id;
 
   await db.collection('cases').doc(caseId).update({
-    data: { status: 'analyzing', analysisId: analysisId, updatedAt: now },
+    data: { status: caseStatus.assertTransition(caseData.status, STATUS.ANALYZING), analysisId: analysisId, updatedAt: now },
   });
 
   return {
@@ -365,21 +367,14 @@ async function handleStrategy(caseId, analysisId, fallback) {
         progress: { step: 'done', message: isSingleMode ? '单人分析完成' : '分析完成', progress: 100 },
       },
     });
-    var finalStatus;
-    if (analysisDoc.data && analysisDoc.data.isDebate) {
-      finalStatus = 'dual_b_submitted';
-    } else if (analysis.mode === 'single') {
-      // 需要判断是真正单人模式还是双人甲方初版分析
-      var caseModeResult = await db.collection('cases').doc(caseId).get();
-      var caseModeData = caseModeResult.data;
-      if (caseModeData && caseModeData.mode === 'dual') {
-        finalStatus = 'dual_a_submitted';
-      } else {
-        finalStatus = 'single_completed';
-      }
-    } else {
-      finalStatus = 'completed';
-    }
+    var caseModeResult = await db.collection('cases').doc(caseId).get();
+    var caseModeData = caseModeResult.data;
+    var finalStatus = caseStatus.finalAnalysisStatus({
+      isDebate: analysisDoc.data && analysisDoc.data.isDebate,
+      analysisMode: analysis.mode,
+      caseMode: caseModeData && caseModeData.mode,
+    });
+    caseStatus.assertTransition(caseModeData.status, finalStatus);
     await db.collection('cases').doc(caseId).update({ data: { status: finalStatus, updatedAt: new Date().toISOString() } });
     try {
       var caseResult2 = await db.collection('cases').doc(caseId).get();

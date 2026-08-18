@@ -251,10 +251,11 @@ test('analyzeCase: 文件包含单人模式标记', function () {
     path.join(CLOUD_DIR, 'analyzeCase', 'index.js'),
     'utf8'
   );
+  var caseStatus = require(path.join(CLOUD_DIR, 'common', 'caseStatus'));
 
   // 验证单人模式关键代码存在
   assert(content.indexOf('isSingleMode') !== -1, '应包含 isSingleMode 逻辑');
-  assert(content.indexOf('single_completed') !== -1, '应包含 single_completed 状态');
+  assertEqual(caseStatus.STATUS.SINGLE_COMPLETED, 'single_completed', '应统一 single_completed 状态');
   assert(content.indexOf('单人模式') !== -1 || content.indexOf('single') !== -1, '应包含单人模式处理');
   assert(content.indexOf('confidence') !== -1, '应包含置信度调整逻辑');
 });

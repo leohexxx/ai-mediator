@@ -7,6 +7,8 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 /**
  * 生成6位数字邀请码
@@ -62,7 +64,7 @@ exports.main = async function (event, context) {
     }
 
     // 初始状态：单人模式直接等待上传，双人模式等待对方加入
-    var initialStatus = mode === 'single' ? 'waiting_submission' : 'waiting_party_b';
+    var initialStatus = mode === 'single' ? STATUS.WAITING_SUBMISSION : STATUS.WAITING_PARTY_B;
 
     // 创建案例文档
     var caseData = {
