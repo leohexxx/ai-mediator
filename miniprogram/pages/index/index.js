@@ -1,0 +1,296 @@
+// ═══════════════════════════════════════════════
+// 首页 (v3) — 合规弹窗 + 单人模式 CTA
+// ═══════════════════════════════════════════════
+
+var caseService = require('../../services/case');
+var formatUtil = require('../../utils/format');
+var app = getApp();
+
+Page({
+  data: {
+    caseList: [],
+    loading: true,
+    hasMore: true,
+    page: 1,
+    pageSize: 10,
+    isEmpty: false,
+    refreshing: false,
+    creating: false,
+
+    // 隐私同意弹窗
+    showPrivacyModal: false,
+
+    // 评理模式: 'single' | 'dual'
+    mode: 'single',
+  },
+
+  onLoad: function () {
+    this.loadCases();
+
+    // 检查是否需要展示隐私弹窗
+    // 优先使用微信原生 getPrivacySetting，降级到 localStorage
+    var that = this;
+    if (wx.getPrivacySetting) {
+      wx.getPrivacySetting({
+        success: function (res) {
+          if (res.needAuthorization || app._pendingPrivacyAuth) {
+            that.setData({ showPrivacyModal: true });
+          }
+        },
+        fail: function () {
+          // 降级: 用 localStorage 判断
+          if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
+            that.setData({ showPrivacyModal: true });
+          }
+        },
+      });
+    } else {
+      // 低版本基础库降级
+      if (!app.hasAgreedPrivacy() || app._pendingPrivacyAuth) {
+        that.setData({ showPrivacyModal: true });
+      }
+    }
+  },
+
+  onShow: function () {
+    if (this.data.caseList.length > 0) {
+      this.refreshCases();
+    }
+  },
+
+  onPullDownRefresh: function () {
+    this.setData({ refreshing: true });
+    this.refreshCases();
+  },
+
+  onReachBottom: function () {
+    if (this.data.hasMore && !this.data.loading) {
+      this.loadMore();
+    }
+  },
+
+  loadCases: function () {
+    var that = this;
+    this.setData({ loading: true, page: 1 });
+
+    caseService.getCaseList({ page: 1, pageSize: this.data.pageSize }).then(function (res) {
+      if (res.code === 0 && res.data) {
+        var list = (res.data.list || []).map(function (item) {
+          return that.formatCaseItem(item);
+        });
+
+        that.setData({
+          caseList: list,
+          loading: false,
+          hasMore: res.data.hasMore || false,
+          isEmpty: list.length === 0,
+          refreshing: false,
+        });
+      } else {
+        that.setData({ loading: false, isEmpty: true, refreshing: false });
+      }
+      wx.stopPullDownRefresh();
+    }).catch(function () {
+      that.setData({ loading: false, refreshing: false });
+      wx.stopPullDownRefresh();
+    });
+  },
+
+  refreshCases: function () {
+    this.loadCases();
+  },
+
+  loadMore: function () {
+    var that = this;
+    var nextPage = this.data.page + 1;
+    this.setData({ loading: true });
+
+    caseService.getCaseList({ page: nextPage, pageSize: this.data.pageSize }).then(function (res) {
+      if (res.code === 0 && res.data) {
+        var newList = (res.data.list || []).map(function (item) {
+          return that.formatCaseItem(item);
+        });
+        that.setData({
+          caseList: that.data.caseList.concat(newList),
+          page: nextPage,
+          loading: false,
+          hasMore: res.data.hasMore || false,
+        });
+      } else {
+        that.setData({ loading: false });
+      }
+    }).catch(function () {
+      that.setData({ loading: false });
+    });
+  },
+
+  formatCaseItem: function (item) {
+    item.formattedTime = formatUtil.formatTime(item.updatedAt || item.createdAt);
+    item.statusLabel = this.getStatusLabel(item.status);
+    item.statusType = this.getStatusType(item.status);
+    item.isSingleMode = item.mode === 'single' || (!item.party_b || !item.party_b.openid);
+    return item;
+  },
+
+  getStatusLabel: function (status) {
+    var map = {
+      'single_submitted': '已上传，待分析',
+      'waiting_party_b': '等待对方加入',
+      'waiting_submission': '等待上传',
+      'analyzing': '分析中...',
+      'single_completed': '分析完成',
+      'completed': '分析完成',
+      'expired': '已过期',
+    };
+    return map[status] || status || '未知';
+  },
+
+  getStatusType: function (status) {
+    if (status === 'single_completed' || status === 'completed') return 'success';
+    if (status === 'analyzing') return 'analyzing';
+    if (status === 'expired') return 'expired';
+    return 'pending';
+  },
+
+  /**
+   * 切换评理模式
+   */
+  onSwitchMode: function (e) {
+    var newMode = e.currentTarget.dataset.mode;
+    if (newMode === this.data.mode) return;
+    this.setData({ mode: newMode });
+  },
+
+  /**
+   * 一键开始分析
+   * 单人模式: 直接创建案例 → 跳转上传页
+   * 双人模式: 跳转创建案例页（设置邀请码等）
+   */
+  onStartAnalyze: function () {
+    var that = this;
+
+    if (this.data.creating) return;
+
+    // 双人模式 → 跳转创建案例页
+    if (this.data.mode === 'dual') {
+      wx.navigateTo({
+        url: '/pages/create-case/create-case',
+      });
+      return;
+    }
+
+    // 单人模式 → 直接创建
+    this.setData({ creating: true });
+
+    wx.showLoading({ title: '创建案例中...', mask: true });
+
+    // 获取用户信息（可选）
+    var userInfo = { nickname: '微信用户', avatarUrl: '' };
+    try {
+      var cache = wx.getStorageSync('userInfo');
+      if (cache) userInfo = cache;
+    } catch (_) {}
+
+    caseService.createCase({
+      title: '调解案例',
+      relationship: '',
+      privacy: 'both',
+      mode: 'single',
+      userInfo: userInfo,
+    }).then(function (res) {
+      wx.hideLoading();
+      that.setData({ creating: false });
+
+      if (res.code === 0 && res.data && res.data.caseId) {
+        // 直接跳转到上传页
+        wx.navigateTo({
+          url: '/pages/upload/upload?caseId=' + res.data.caseId + '&mode=single',
+        });
+      } else {
+        wx.showToast({ title: res.message || '创建失败', icon: 'none' });
+      }
+    }).catch(function (err) {
+      wx.hideLoading();
+      that.setData({ creating: false });
+      wx.showToast({ title: '创建失败，请重试', icon: 'none' });
+      console.error('创建案例失败:', err);
+    });
+  },
+
+  /**
+   * 点击案例卡片 → 根据状态跳转
+   */
+  onCaseTap: function (e) {
+    var caseId = e.currentTarget.dataset.id;
+    var status = e.currentTarget.dataset.status;
+
+    if (status === 'single_completed' || status === 'completed') {
+      // 分析完成 → 跳转报告页
+      wx.navigateTo({
+        url: '/pages/report/report?caseId=' + caseId,
+      });
+    } else {
+      // 未完成 → 跳转详情/上传
+      wx.navigateTo({
+        url: '/pages/case-detail/case-detail?caseId=' + caseId,
+      });
+    }
+  },
+
+  /**
+   * 分享配置（首页分享）
+   */
+  onShareAppMessage: function () {
+    return {
+      title: '啷个对 — 上传聊天记录，看谁更在理',
+      path: '/pages/index/index',
+      imageUrl: '',
+    };
+  },
+
+  // ===== 隐私同意弹窗 (v3 合规新增) =====
+
+  /**
+   * 用户同意隐私政策（bindagreeprivacyauthorization 事件回调）
+   * 微信在用户点击 open-type="agreePrivacyAuthorization" 按钮后自动处理授权
+   */
+  onAgreePrivacy: function () {
+    app.agreePrivacy();
+    this.setData({ showPrivacyModal: false });
+
+    // 联动微信原生隐私授权（兜底）
+    if (app._privacyResolve) {
+      app._privacyResolve({ event: 'agree', buttonId: 'agree-btn' });
+      app._privacyResolve = null;
+      app._pendingPrivacyAuth = false;
+    }
+  },
+
+  /**
+   * 用户不同意 — 退出小程序
+   */
+  onDisagreePrivacy: function () {
+    // 联动微信原生隐私拒绝
+    if (app._privacyResolve) {
+      app._privacyResolve({ event: 'disagree' });
+      app._privacyResolve = null;
+      app._pendingPrivacyAuth = false;
+    }
+
+    wx.showModal({
+      title: '提示',
+      content: '需要同意隐私政策才能使用本小程序。',
+      showCancel: false,
+      confirmText: '我知道了',
+    });
+  },
+
+  /**
+   * 打开隐私政策页
+   */
+  onViewPrivacy: function () {
+    wx.navigateTo({
+      url: '/pages/privacy/privacy',
+    });
+  },
+});

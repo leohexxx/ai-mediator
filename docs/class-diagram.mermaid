@@ -1,0 +1,140 @@
+classDiagram
+    class Case {
+        +string _id
+        +string title
+        +string relationship
+        +string privacy
+        +string mode
+        +string status
+        +Party party_a
+        +Party party_b
+        +string analysisId
+        +string expiresAt
+        +string createdAt
+        +string updatedAt
+    }
+
+    class Party {
+        +string openid
+        +string nickname
+        +string avatarUrl
+        +boolean submitted
+        +string submittedAt
+        +Personality personality
+    }
+
+    class Personality {
+        +string mbti
+        +string zodiac
+        +string zodiacSign
+    }
+
+    class Evidence {
+        +string _id
+        +string caseId
+        +string party
+        +string openid
+        +string rawText
+        +Object[] parsedMessages
+        +string[] fileIds
+        +string note
+        +string createdAt
+        +string updatedAt
+    }
+
+    class Analysis {
+        +string _id
+        +string caseId
+        +string schemaVersion
+        +string mode
+        +boolean deep
+        +Object coreConclusion
+        +Object[] evidenceWeights
+        +Object[] emotionCurve
+        +Object[] mediationStrategy
+        +Object detailedAnalysis
+        +Object advice
+        +Object progress
+        +boolean isReanalysis
+        +boolean isDebate
+        +number shareCount
+        +string createdAt
+    }
+
+    class Invitation {
+        +string _id
+        +string caseId
+        +string inviteCode
+        +boolean used
+        +string usedBy
+        +string createdAt
+    }
+
+    class MessageSession {
+        +string _id
+        +string caseId
+        +string userId
+        +string status
+        +Object[] chunks
+        +string fullText
+        +boolean safetyShown
+        +string createdAt
+        +string updatedAt
+    }
+
+    class uploadEvidence {
+        +async main(event, context)
+    }
+
+    class analyzeCase {
+        +async main(event, context)
+        +async handleInitial(event, openid)
+        +async runSequentialPipeline(caseId, analysisId)
+        +async handleCore(caseId, analysisId, fallback)
+        +async handleEvidence(caseId, analysisId)
+        +async handleStrategy(caseId, analysisId, fallback)
+        +async getMergedMessages(caseId, isSingleMode)
+        +buildPartiesAndContext(caseData, isSingleMode, isDebate)
+    }
+
+    class getCaseDetail {
+        +async main(event, context)
+    }
+
+    class chatWithAnalysis {
+        +async main(event, context)
+    }
+
+    class chatPrompt {
+        +buildChatSystemPrompt(analysisContext, safetyShown)
+        +buildCompressUserPrompt(text)
+    }
+
+    class analysisPrompt {
+        +buildStageUserPrompt(stage, chatText, parties, caseContext, priorContext)
+        +buildContextBlock(caseContext, parties)
+        +buildDebateContextBlock()
+        +getStageMaxTokens(stage)
+    }
+
+    class llm {
+        +async analyzeChatStage(stage, chatText, parties, caseContext, priorContext, model)
+        +async analyzeChat(formattedChat, parties, caseContext, onProgress)
+        +async chatWithAnalysis(context, history, newMessage, onChunk)
+        +mergeStages(core, evidence, strategy)
+    }
+
+    Case "1" --> "2" Party : has
+    Case "1" --> "*" Evidence : contains
+    Case "1" --> "1" Analysis : has
+    Case "1" --> "1" Invitation : has
+    Case "1" --> "*" MessageSession : has
+    Party "1" --> "1" Personality : has
+
+    analyzeCase --> llm : uses
+    analyzeCase --> analysisPrompt : uses
+    chatWithAnalysis --> llm : uses
+    chatWithAnalysis --> chatPrompt : uses
+    llm --> chatPrompt : uses
+    llm --> analysisPrompt : uses
+    getCaseDetail --> db : queries

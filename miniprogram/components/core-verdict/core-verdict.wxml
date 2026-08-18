@@ -1,0 +1,65 @@
+<!-- 核心结论卡片 -->
+<view class="core-verdict card" wx:if="{{coreConclusion}}">
+  <!-- 仲裁结论 -->
+  <view class="verdict-header">
+    <view class="verdict-icon">⚖️</view>
+    <view class="verdict-title">仲裁结论</view>
+  </view>
+
+  <!-- 分数对比条 -->
+  <view class="score-compare">
+    <view class="score-side score-a">
+      <view class="score-label">你</view>
+      <view class="score-value" style="color: var(--color-party-a)">{{scoreA}}分</view>
+    </view>
+    <view class="score-bar-wrapper">
+      <view class="score-bar">
+        <view class="score-fill-a" style="width: {{scoreA}}%; background: var(--color-score-a)"></view>
+        <view class="score-fill-b" style="width: {{scoreB}}%; background: var(--color-score-b)"></view>
+      </view>
+    </view>
+    <view class="score-side score-b">
+      <view class="score-label">对方</view>
+      <view class="score-value" style="color: var(--color-party-b)">{{scoreB}}分</view>
+    </view>
+  </view>
+
+  <!-- 胜方标记 -->
+  <view class="winner-badge">{{winner}}</view>
+
+  <!-- 一句话结论 -->
+  <view class="verdict-text">{{oneLineVerdict}}</view>
+
+  <!-- 核心原因 -->
+  <view class="key-reasons" wx:if="{{keyReasons.length > 0}}">
+    <view class="reasons-title">核心原因</view>
+    <view wx:for="{{keyReasons}}" wx:key="*this" class="reason-item">
+      <text class="reason-dot">•</text>
+      <text>{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 置信度 -->
+  <view class="confidence-section">
+    <view class="confidence-header">
+      <text>📊 置信度 {{confidenceLevel}}({{confidence}}%)</text>
+    </view>
+    <view class="confidence-bar-wrapper">
+      <view class="confidence-bar">
+        <view
+          class="confidence-fill {{confidence >= 75 ? 'high' : confidence >= 50 ? 'medium' : 'low'}}"
+          style="width: {{confidence}}%"
+        ></view>
+      </view>
+    </view>
+    <view wx:for="{{confidenceReasons}}" wx:key="*this" class="confidence-reason text-secondary">
+      {{item}}
+    </view>
+  </view>
+
+  <!-- 建议行动 -->
+  <view class="action-section" wx:if="{{recommendedAction}}">
+    <view class="action-label">➡️ 建议行动</view>
+    <view class="action-text">{{recommendedAction}}</view>
+  </view>
+</view>

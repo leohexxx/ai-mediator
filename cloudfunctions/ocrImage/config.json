@@ -1,0 +1,9 @@
+{
+  "timeout": 60,
+  "permissions": {
+    "openapi": [
+      "ocr.printedText"
+    ]
+  }
+}
+

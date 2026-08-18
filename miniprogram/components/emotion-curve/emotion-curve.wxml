@@ -1,0 +1,14 @@
+<!-- Canvas 2D 情绪曲线 -->
+<view class="emotion-curve card" wx:if="{{hasData}}">
+  <view class="curve-title">📈 情绪曲线</view>
+  <canvas
+    type="2d"
+    id="emotionCanvas"
+    class="curve-canvas"
+    style="width: {{canvasWidth || 680}}px; height: {{canvasHeight}}px;"
+  ></canvas>
+</view>
+<view class="emotion-curve card" wx:else>
+  <view class="curve-title">📈 情绪曲线</view>
+  <view class="empty text-muted">暂无情绪数据</view>
+</view>

@@ -1,0 +1,53 @@
+/* 案例卡片组件样式 */
+.case-card {
+  padding: 24rpx 32rpx;
+  transition: var(--transition-fast);
+}
+
+.case-card:active {
+  background: var(--color-card-hover);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+}
+
+.card-status-icon {
+  font-size: 32rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: var(--font-md);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-subtitle {
+  font-size: var(--font-sm);
+  margin-top: 4rpx;
+}
+
+.card-time {
+  font-size: var(--font-xs);
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.card-footer {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--color-border);
+  font-size: var(--font-sm);
+  text-align: right;
+}

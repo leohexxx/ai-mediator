@@ -1,0 +1,29 @@
+<!-- 聊天记录操作区 -->
+<view class="evidence-section card">
+  <view class="section-title">📤 我的聊天记录</view>
+
+  <!-- 未上传 -->
+  <view wx:if="{{!hasSubmitted}}" class="evidence-empty">
+    <view class="empty-text text-secondary">尚未上传聊天记录</view>
+    <view class="btn-primary evidence-btn" bindtap="onUploadTap">
+      上传聊天记录
+    </view>
+  </view>
+
+  <!-- 已提交 -->
+  <view wx:if="{{hasSubmitted}}" class="evidence-submitted">
+    <view class="submitted-info">
+      <view class="submitted-icon">✅</view>
+      <view class="submitted-text">
+        <view>已上传 {{messageCount}} 条消息</view>
+        <view class="text-muted">{{submittedTime}}</view>
+      </view>
+    </view>
+    <view class="evidence-actions">
+      <view class="btn-ghost">查看聊天记录</view>
+      <view class="btn-ghost {{canModify ? '' : 'disabled'}}" wx:if="{{canModify}}" bindtap="onUploadTap">
+        重新上传
+      </view>
+    </view>
+  </view>
+</view>

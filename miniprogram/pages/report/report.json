@@ -1,0 +1,15 @@
+{
+  "usingComponents": {
+    "analysis-progress": "/components/analysis-progress/analysis-progress",
+    "core-verdict": "/components/core-verdict/core-verdict",
+    "evidence-weights": "/components/evidence-weights/evidence-weights",
+    "emotion-curve": "/components/emotion-curve/emotion-curve",
+    "mediation-strategy": "/components/mediation-strategy/mediation-strategy",
+    "detailed-analysis": "/components/detailed-analysis/detailed-analysis",
+    "chat-panel": "/components/chat-panel/chat-panel",
+    "share-card": "/components/share-card/share-card",
+    "personality-picker": "/components/personality-picker/personality-picker"
+  },
+  "navigationBarTitleText": "分析报告",
+  "disableScroll": false
+}

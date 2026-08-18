@@ -1,0 +1,83 @@
+sequenceDiagram
+    participant A as 甲方 (Party A)
+    participant B as 乙方 (Party B)
+    participant FE as 小程序前端
+    participant UE as uploadEvidence
+    participant AC as analyzeCase
+    participant DB as 云数据库
+    participant LLM as DeepSeek API
+
+    Note over A,LLM: ═══ 阶段1: 甲方创建案例 ═══
+    A->>FE: 创建双人案例
+    FE->>DB: createCase(mode=dual)
+    DB-->>FE: caseId, status=waiting_party_b
+
+    Note over A,LLM: ═══ 阶段2: 乙方加入 ═══
+    B->>FE: 输入邀请码加入
+    FE->>DB: joinCase(inviteCode)
+    DB-->>FE: status=waiting_submission
+
+    Note over A,LLM: ═══ 阶段3: 甲方上传+初次分析 ═══
+    A->>FE: 上传聊天记录+备注note
+    FE->>UE: uploadEvidence(caseId, rawText, note)
+    UE->>DB: 写入evidence(含note字段)
+    UE->>DB: 更新party_a.submitted=true
+    Note over UE: mode=dual, party_a已提交, 乙方已加入
+    UE->>FE: autoAnalyze=true
+    FE->>AC: analyzeCase(caseId)
+    AC->>DB: 读取caseData+evidence(含note)
+    AC->>AC: buildPartiesAndContext()读取evidence.note→caseContext
+    AC->>LLM: 分析prompt(含备注)
+    LLM-->>AC: 分析结果
+    AC->>DB: status=dual_a_submitted
+    AC-->>FE: 分析完成
+
+    Note over A,LLM: ═══ 阶段4: 乙方查看+补充 ═══
+    B->>FE: 查看案例详情
+    FE->>DB: getCaseDetail(caseId)
+    Note over DB: 权限放宽
+    DB-->>FE: status=dual_a_submitted
+
+    Note over B,LLM: ═══ 阶段5: 乙方补充+辩论分析 ═══
+    B->>FE: 补充己方聊天记录
+    FE->>UE: uploadEvidence(caseId, rawText, supplement=true)
+    UE->>DB: 写入乙方evidence
+    UE->>FE: autoAnalyze=true
+    FE->>AC: analyzeCase(caseId, force=true)
+    AC->>DB: 读取caseData
+    Note over AC: mode=dual, status=dual_a_submitted → 辩论模式
+    AC->>AC: buildPartiesAndContext()注入双人辩论指引
+    AC->>LLM: 辩论模式prompt(对比双方证据)
+    LLM-->>AC: 对比分析结果
+    AC->>DB: status=dual_b_submitted, isDebate=true
+    AC-->>FE: 辩论分析完成
+
+    Note over U,LLM: ═══ 追问安全提示流程 ═══
+    participant U as 用户
+    participant CW as chatWithAnalysis
+
+    U->>FE: 输入追问
+    FE->>CW: chatWithAnalysis(caseId, message, sessionId)
+    CW->>DB: 读取分析报告+session记录
+    CW->>CW: buildChatSystemPrompt含安全提示段落
+    alt 首次追问(safetyShown=false)
+        CW->>LLM: system prompt(含完整安全提示)
+        LLM-->>CW: 回复开头: 🔒 全程匿名...
+        CW->>DB: safetyShown=true
+    else 后续追问
+        CW->>LLM: system prompt(含简版安全提示)
+        LLM-->>CW: 回复开头: 🔒 您的隐私全程受保护...
+    end
+    CW->>DB: 流式写入chunks
+    FE->>DB: watch实时接收
+    DB-->>FE: chunks流式更新
+    FE-->>U: 显示AI回复
+
+    Note over U,LLM: ═══ 备注数据流 ═══
+    U->>FE: 填写note
+    FE->>UE: uploadEvidence({note:"..."})
+    UE->>DB: evidence.note="..."
+    FE->>AC: analyzeCase
+    AC->>DB: 查询最新evidence(note)
+    AC->>AC: caseContext+="用户补充说明:..."
+    AC->>LLM: prompt含备注

@@ -1,0 +1,36 @@
+.privacy-container {
+  padding: 32rpx;
+  font-size: 28rpx;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+}
+
+.update-date {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--color-text-muted);
+  margin-bottom: 32rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.section {
+  margin-bottom: 36rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 16rpx;
+}
+
+.section-text {
+  font-size: 26rpx;
+  color: var(--color-text-secondary);
+  line-height: 1.9;
+}
+
+.bottom-space {
+  height: 80rpx;
+}

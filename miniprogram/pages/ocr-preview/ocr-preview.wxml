@@ -1,0 +1,47 @@
+<!-- OCR 预览编辑页 -->
+<view class="container">
+  <view class="preview-header">
+    <view class="preview-title">📋 聊天记录预览</view>
+    <view class="preview-hint text-muted">共 {{parsedMessages.length}} 条消息，点击说话人或内容可编辑</view>
+  </view>
+
+  <view class="message-list">
+    <view wx:for="{{parsedMessages}}" wx:key="index" class="msg-item">
+      <view class="msg-header">
+        <input
+          class="speaker-input"
+          value="{{item.speaker}}"
+          data-index="{{index}}"
+          bindinput="onSpeakerEdit"
+          maxlength="20"
+        />
+        <text class="msg-type text-muted" wx:if="{{item.type !== 'text'}}">[{{item.type}}]</text>
+        <text class="msg-time text-muted" wx:if="{{item.timestamp}}">{{item.timestamp}}</text>
+        <view class="msg-delete" data-index="{{index}}" bindtap="onDeleteMessage">×</view>
+      </view>
+      <textarea
+        class="content-input"
+        value="{{item.content}}"
+        data-index="{{index}}"
+        bindinput="onContentEdit"
+        auto-height
+        maxlength="-1"
+      />
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{parsedMessages.length === 0}}">
+      <view class="icon">📭</view>
+      <view class="text">未解析到消息</view>
+    </view>
+  </view>
+
+  <!-- 确认按钮 -->
+  <view class="confirm-area">
+    <button class="btn-primary" bindtap="onConfirm" disabled="{{submitting}}">
+      确认导入
+    </button>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

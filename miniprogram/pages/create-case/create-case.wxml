@@ -1,0 +1,71 @@
+<!-- 创建案例页 -->
+<view class="container">
+  <!-- 案例标题 -->
+  <view class="form-section">
+    <view class="form-label">给它起个名（可选）</view>
+    <input
+      class="form-input"
+      placeholder="如：和前任的纠纷"
+      placeholder-class="input-placeholder"
+      value="{{title}}"
+      bindinput="onTitleInput"
+      maxlength="50"
+    />
+  </view>
+
+  <!-- 关系类型 -->
+  <view class="form-section">
+    <view class="form-label">双方关系（可选）</view>
+    <view class="option-grid">
+      <view
+        wx:for="{{relationshipOptions}}"
+        wx:key="value"
+        class="option-chip {{relationship === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onRelationshipTap"
+      >
+        {{item.label}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 隐私设置 -->
+  <view class="form-section">
+    <view class="form-label">结果可见范围</view>
+    <view
+      wx:for="{{privacyOptions}}"
+      wx:key="value"
+      class="option-card {{privacy === item.value ? 'active' : ''}}"
+      data-value="{{item.value}}"
+      bindtap="onPrivacyTap"
+    >
+      <view class="option-radio">
+        <view class="radio-dot {{privacy === item.value ? 'checked' : ''}}"></view>
+      </view>
+      <view class="option-content">
+        <view class="option-title">{{item.label}}</view>
+        <view class="option-desc">{{item.desc}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提示信息 -->
+  <view class="form-tip">
+    <view class="tip-icon">💡</view>
+    <view class="tip-text">创建后将生成邀请码，分享给对方一起加入。双方上传聊天记录后，AI 将自动分析。</view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="form-submit">
+    <button
+      class="btn-primary"
+      bindtap="onSubmit"
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '创建中...' : '创建并邀请对方'}}
+    </button>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

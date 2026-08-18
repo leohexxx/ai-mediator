@@ -1,0 +1,53 @@
+<!-- 追问聊天面板 -->
+<view class="chat-panel card" wx:if="{{analysis}}">
+  <view class="chat-header">💬 追问调解员</view>
+
+  <!-- 消息列表 -->
+  <scroll-view
+    class="chat-messages"
+    scroll-y
+    scroll-top="{{scrollTop}}"
+    scroll-with-animation
+    enable-back-to-top
+  >
+    <!-- 空状态 -->
+    <view class="chat-empty text-muted" wx:if="{{messages.length === 0 && !streaming}}">
+      有任何疑问？向调解员追问吧
+    </view>
+
+    <!-- 消息气泡 -->
+    <view wx:for="{{messages}}" wx:key="timestamp" class="msg-row {{item.role === 'user' ? 'msg-user' : 'msg-ai'}}">
+      <view class="msg-bubble">
+        <text>{{item.content}}</text>
+        <text wx:if="{{item.streaming}}" class="cursor-blink">|</text>
+      </view>
+    </view>
+
+    <!-- 流式输入中指示器 -->
+    <view class="msg-row msg-ai" wx:if="{{streaming && streamingText === ''}}">
+      <view class="msg-bubble typing-indicator">
+        <view class="typing-dot"></view>
+        <view class="typing-dot"></view>
+        <view class="typing-dot"></view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 输入区 -->
+  <view class="chat-input-area">
+    <input
+      class="chat-input"
+      placeholder="输入你的问题..."
+      placeholder-class="input-placeholder"
+      value="{{inputText}}"
+      bindinput="onInput"
+      confirm-type="send"
+      bindconfirm="onSend"
+      disabled="{{streaming}}"
+      maxlength="500"
+    />
+    <view class="send-btn {{inputText && !streaming ? 'active' : ''}}" bindtap="onSend">
+      📤
+    </view>
+  </view>
+</view>

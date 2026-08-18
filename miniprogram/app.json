@@ -1,0 +1,24 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/upload/upload",
+    "pages/report/report",
+    "pages/create-case/create-case",
+    "pages/case-detail/case-detail",
+    "pages/ocr-preview/ocr-preview",
+    "pages/privacy/privacy"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#0B0716",
+    "navigationBarTitleText": "啷个对",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0B0716",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": true,
+    "onReachBottomDistance": 50
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "cloud": true,
+  "lazyCodeLoading": "requiredComponents"
+}

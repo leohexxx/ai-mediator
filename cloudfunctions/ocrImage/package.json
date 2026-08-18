@@ -1,0 +1,9 @@
+{
+  "name": "ocrImage",
+  "version": "1.0.0",
+  "description": "OCR 识别云函数 - 从截图提取文字",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

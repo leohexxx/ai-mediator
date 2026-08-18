@@ -1,0 +1,100 @@
+/* ═══════════════════════════════════════════════
+  啷个对 — 设计系统 CSS 变量
+   暗色主题，整体色调与 Web 版一致
+   ═══════════════════════════════════════════════ */
+
+page {
+  /* 品牌色 */
+  --color-brand: #6366F1;
+  --color-brand-light: #818CF8;
+  --color-brand-dark: #4F46E5;
+
+  /* 背景色 */
+  --color-bg: #111827;
+  --color-bg-secondary: #1A1F2E;
+  --color-bg-tertiary: #0F172A;
+
+  /* 卡片 & 表面 */
+  --color-card: #1F2937;
+  --color-card-hover: #263244;
+  --color-card-active: #2D3A50;
+
+  /* 边框 */
+  --color-border: #374151;
+  --color-border-light: #4B5563;
+
+  /* 文字 */
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #9CA3AF;
+  --color-text-muted: #6B7280;
+
+  /* 语义色 */
+  --color-success: #10B981;
+  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-error: #EF4444;
+  --color-error-bg: rgba(239, 68, 68, 0.15);
+  --color-info: #3B82F6;
+  --color-info-bg: rgba(59, 130, 246, 0.15);
+
+  /* 甲乙方专属色 */
+  --color-party-a: #6366F1;
+  --color-party-b: #EC4899;
+  --color-score-a: #6366F1;
+  --color-score-b: #F472B6;
+
+  /* 聊天气泡 */
+  --color-bubble-user: #6366F1;
+  --color-bubble-ai: #1F2937;
+  --color-bubble-ai-border: #374151;
+
+  /* 圆角 */
+  --radius-xs: 4rpx;
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-xl: 32rpx;
+  --radius-full: 9999rpx;
+
+  /* 间距 */
+  --space-xs: 8rpx;
+  --space-sm: 16rpx;
+  --space-md: 24rpx;
+  --space-lg: 32rpx;
+  --space-xl: 48rpx;
+  --space-2xl: 64rpx;
+
+  /* 字号 */
+  --font-xs: 20rpx;
+  --font-sm: 24rpx;
+  --font-md: 28rpx;
+  --font-lg: 32rpx;
+  --font-xl: 36rpx;
+  --font-2xl: 44rpx;
+  --font-3xl: 56rpx;
+
+  /* 字重 */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* 阴影 */
+  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.35);
+
+  /* 过渡 */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* Z-index 层级 */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}

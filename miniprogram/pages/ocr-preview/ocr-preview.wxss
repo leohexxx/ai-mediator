@@ -1,0 +1,83 @@
+/* OCR 预览页样式 */
+.preview-header {
+  margin-bottom: 24rpx;
+}
+
+.preview-title {
+  font-size: var(--font-lg);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin-bottom: 8rpx;
+}
+
+.preview-hint {
+  font-size: var(--font-sm);
+}
+
+.message-list {
+  margin-bottom: 32rpx;
+}
+
+.msg-item {
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.speaker-input {
+  width: 160rpx;
+  height: 56rpx;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 0 16rpx;
+  font-size: var(--font-sm);
+  color: var(--color-brand);
+  font-weight: var(--font-medium);
+}
+
+.msg-type {
+  font-size: var(--font-xs);
+  margin-left: 12rpx;
+}
+
+.msg-time {
+  font-size: var(--font-xs);
+  margin-left: auto;
+  margin-right: 12rpx;
+}
+
+.msg-delete {
+  width: 44rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-lg);
+  color: var(--color-error);
+  opacity: 0.6;
+}
+
+.content-input {
+  width: 100%;
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.confirm-area {
+  padding: 16rpx 0;
+}
+
+.confirm-area .btn-primary {
+  width: 100%;
+}

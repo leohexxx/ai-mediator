@@ -1,0 +1,31 @@
+<!-- 邀请面板 -->
+<view class="invite-panel card">
+  <view class="panel-header">
+    <view class="panel-title">📨 邀请对方</view>
+    <view class="panel-close btn-ghost" bindtap="onToggle">收起</view>
+  </view>
+
+  <!-- 邀请码 -->
+  <view class="invite-code-section">
+    <view class="invite-label">邀请码</view>
+    <view class="invite-code">{{inviteCode}}</view>
+    <view class="btn-ghost copy-btn" bindtap="onCopyCode">复制邀请码</view>
+  </view>
+
+  <!-- 小程序码占位 -->
+  <view class="qrcode-section">
+    <view class="qrcode-placeholder" wx:if="{{!qrcodeFileID}}">
+      <view class="qrcode-icon">📱</view>
+      <view class="qrcode-text text-muted">小程序码</view>
+      <view class="qrcode-hint text-muted">部署后自动生成</view>
+    </view>
+    <image wx:else class="qrcode-image" src="{{qrcodeFileID}}" mode="aspectFit" />
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="panel-actions">
+    <button class="btn-primary" open-type="share">
+      分享给微信好友
+    </button>
+  </view>
+</view>

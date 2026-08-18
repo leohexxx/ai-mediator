@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "party-status": "/components/party-status/party-status",
+    "evidence-section": "/components/evidence-section/evidence-section",
+    "invite-panel": "/components/invite-panel/invite-panel"
+  },
+  "navigationBarTitleText": "案例详情"
+}
