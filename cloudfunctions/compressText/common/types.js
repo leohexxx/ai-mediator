@@ -134,7 +134,7 @@
  * @property {'both'|'initiator_only'} privacy
  * @property {{openid: string, nickname: string, avatarUrl: string, submitted: boolean, submittedAt: string|null}} party_a
  * @property {{openid: string|null, nickname: string, avatarUrl: string, submitted: boolean, submittedAt: string|null}} party_b
- * @property {'waiting_party_b'|'waiting_submission'|'analyzing'|'completed'|'expired'} status
+ * @property {'waiting_party_b'|'waiting_submission'|'single_submitted'|'analyzing'|'single_completed'|'completed'|'dual_a_submitted'|'dual_b_submitted'|'expired'} status
  * @property {string|null} analysisId
  * @property {string|null} expiresAt
  * @property {string} createdAt
@@ -158,7 +158,7 @@
  * @typedef {Object} AnalysisRecord
  * @property {string} _id
  * @property {string} caseId
- * @property {'v2'} schemaVersion
+ * @property {'v2'|'v3'} schemaVersion
  * @property {CoreConclusion} coreConclusion
  * @property {EvidenceWeight[]} evidenceWeights
  * @property {EmotionCurve[]} emotionCurve

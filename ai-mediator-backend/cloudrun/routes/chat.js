@@ -4,7 +4,10 @@
 var express = require('express');
 var router = express.Router();
 var llm = require('../services/llm');
-var db = require('../services/db');
+var auth = require('../middleware/auth');
+var caseAccess = require('../services/caseAccess');
+
+router.use(auth.requireAuth);
 
 var CHAT_SYSTEM_PROMPT = '你是一位专业的对话调解助手。用户正在查看一份聊天分析报告，你可以结合报告内容回答用户的问题、提供建议、或解释分析逻辑。请用中文回答，语气温和但专业。';
 
@@ -16,23 +19,18 @@ var CHAT_SYSTEM_PROMPT = '你是一位专业的对话调解助手。用户正在
 router.post('/', async function (req, res, next) {
   try {
     var { analysisId, message, history } = req.body;
+    if (!analysisId) return res.status(400).json({ code: -1, data: null, message: '缺少 analysisId' });
     if (!message) return res.status(400).json({ code: -1, data: null, message: '请输入消息' });
 
     // 获取分析结果作为上下文
-    var contextStr = '';
-    if (analysisId) {
-      var doc = await db.collection('analyses').doc(analysisId).get();
-      if (doc && doc.data) {
-        var a = doc.data;
-        contextStr = '分析报告摘要：\n' + JSON.stringify({
-          coreConclusion: a.coreConclusion,
-          evidenceCount: (a.evidenceWeights || []).length,
-          strategyCount: (a.mediationStrategy || []).length,
-          summary: (a.detailedAnalysis && a.detailedAnalysis.summary) || '',
-          relationship: (a.detailedAnalysis && a.detailedAnalysis.relationship) || '',
-        }, null, 2);
-      }
-    }
+    var a = await caseAccess.getAnalysisForUser(analysisId, req.openid);
+    var contextStr = '分析报告摘要：\n' + JSON.stringify({
+      coreConclusion: a.coreConclusion,
+      evidenceCount: (a.evidenceWeights || []).length,
+      strategyCount: (a.mediationStrategy || []).length,
+      summary: (a.detailedAnalysis && a.detailedAnalysis.summary) || '',
+      relationship: (a.detailedAnalysis && a.detailedAnalysis.relationship) || '',
+    }, null, 2);
 
     var messages = [{ role: 'system', content: CHAT_SYSTEM_PROMPT + '\n\n' + contextStr }];
     if (history && Array.isArray(history)) {

@@ -3,8 +3,8 @@
 // 职责: 接收客户端预生成的 sessionId，await LLM 流式写入 messages 集合
 //
 // 流水线设计（解决容器回收问题）：
-//   客户端预生成 sessionId → 客户端在 DB 创建 session 文档 →
-//   客户端 watch session → 调用本云函数（传 sessionId） →
+//   客户端预生成 sessionId → 客户端 watch 查询 →
+//   调用本云函数，由服务端创建 session 文档 →
 //   本函数 await LLM 调用（直接流式写入 DB，不 setTimeout） →
 //   LLM 完成 → 本函数返回（此时客户端 watch 已收到全部数据）
 // ═══════════════════════════════════════════════
@@ -46,6 +46,9 @@ exports.main = async function (event, context) {
     }
     if (!message || !message.trim()) {
       return { code: -1, data: null, message: '请输入问题' };
+    }
+    if (sessionId && !/^chat_[A-Za-z0-9_-]{8,80}$/.test(sessionId)) {
+      return { code: -1, data: null, message: '会话 ID 格式无效' };
     }
 
     // 获取案例和分析数据作为上下文
@@ -113,11 +116,10 @@ exports.main = async function (event, context) {
       sessionDoc = null;
     }
 
-    // 如果 session 是新客户端创建但未传完整数据，先初始化
+    // 仅云函数可以初始化会话，客户端只保留只读 watch 权限。
     if (!sessionDoc) {
-      await db.collection('messages').add({
+      await db.collection('messages').doc(sessionId).set({
         data: {
-          _id: sessionId,
           caseId: caseId,
           userId: openid,
           chunks: [],
@@ -128,6 +130,8 @@ exports.main = async function (event, context) {
         },
       });
       sessionDoc = { _id: sessionId, chunks: [] };
+    } else if (sessionDoc.caseId !== caseId || sessionDoc.userId !== openid) {
+      return { code: -1, data: null, message: '无权访问此会话' };
     }
 
     var existingChunks = sessionDoc.chunks || [];
@@ -142,7 +146,7 @@ exports.main = async function (event, context) {
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++
     // 流式接收 LLM 回答（直接 await，不 setTimeout）
-    // 客户端已先创建了 session 并 watch，实时接收 chunks
+    // 客户端已先 watch 查询，文档创建后即可实时接收 chunks
     // 本函数会阻塞直到 LLM 完成，但客户端已通过 watch 收到流
     // ++++++++++++++++++++++++++++++++++++++++++++++++++
     var chunkBuffer = '';

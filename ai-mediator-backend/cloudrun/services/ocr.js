@@ -46,14 +46,29 @@ function ocrViaOcrSpace(base64Image) {
  * @param {string[]} base64List - base64 图片数组
  * @returns {Promise<string[]>} 识别文本数组
  */
+async function mapLimit(items, concurrency, mapper) {
+  var results = new Array(items.length);
+  var nextIndex = 0;
+  var workerCount = Math.min(Math.max(concurrency || 1, 1), items.length);
+  async function worker() {
+    while (nextIndex < items.length) {
+      var index = nextIndex++;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+  var workers = [];
+  for (var i = 0; i < workerCount; i++) workers.push(worker());
+  await Promise.all(workers);
+  return results;
+}
+
 async function batchOcr(base64List) {
-  var promises = base64List.map(function (b64) {
+  return mapLimit(base64List, config.ocr.maxConcurrent, function (b64) {
     return ocrViaOcrSpace(b64).catch(function (e) {
       console.warn('[OCR] single image failed:', e.message);
       return '';
     });
   });
-  return Promise.all(promises);
 }
 
-module.exports = { ocrViaOcrSpace: ocrViaOcrSpace, batchOcr: batchOcr };
+module.exports = { ocrViaOcrSpace: ocrViaOcrSpace, batchOcr: batchOcr, mapLimit: mapLimit };

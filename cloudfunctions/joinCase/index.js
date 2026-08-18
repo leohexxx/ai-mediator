@@ -7,6 +7,8 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 /**
  * 云函数入口
@@ -57,30 +59,46 @@ exports.main = async function (event, context) {
     }
 
     // 检查案例状态
-    if (caseData.status === 'completed' || caseData.status === 'expired') {
+    if (caseStatus.isClosed(caseData.status)) {
       return { code: -1, data: null, message: '该案例已完成或已过期，无法加入' };
     }
 
     var now = new Date().toISOString();
+    var nextStatus = caseStatus.assertTransition(caseData.status, STATUS.WAITING_SUBMISSION);
 
-    // 更新案例
-    await db.collection('cases').doc(invitation.caseId).update({
-      data: {
-        'party_b.openid': openid,
-        'party_b.nickname': userInfo.nickname,
-        'party_b.avatarUrl': userInfo.avatarUrl,
-        'status': 'waiting_submission',
-        updatedAt: now,
-      },
-    });
-
-    // 标记邀请码已使用
-    await db.collection('invitations').doc(invitation._id).update({
+    // 用条件更新原子抢占邀请码，解决两个用户同时加入的竞态。
+    var reserveResult = await db.collection('invitations').where({
+      _id: invitation._id,
+      used: false,
+    }).update({
       data: {
         used: true,
         usedBy: openid,
+        usedAt: now,
       },
     });
+    var reserved = reserveResult.stats ? reserveResult.stats.updated : reserveResult.updated;
+    if (reserved !== 1) {
+      return { code: -1, data: null, message: '邀请码已被其他用户使用' };
+    }
+
+    try {
+      await db.collection('cases').doc(invitation.caseId).update({
+        data: {
+          'party_b.openid': openid,
+          'party_b.nickname': userInfo.nickname,
+          'party_b.avatarUrl': userInfo.avatarUrl,
+          'status': nextStatus,
+          updatedAt: now,
+        },
+      });
+    } catch (caseUpdateError) {
+      // 补偿释放只属于本次调用的占用，避免后续无法重试。
+      await db.collection('invitations').where({ _id: invitation._id, usedBy: openid }).update({
+        data: { used: false, usedBy: null, usedAt: null },
+      }).catch(function () {});
+      throw caseUpdateError;
+    }
 
     return {
       code: 0,

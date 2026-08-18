@@ -5,17 +5,21 @@
 // ═══════════════════════════════════════════════
 var config = require('../config');
 
-function authMiddleware(req, res, next) {
-  // CloudRun 生产环境: openid 从请求头自动注入
-  // CloudBase 网关会自动附加 X-Wx-Openid 头
-  var openid = req.headers['x-wx-openid'] ||
-               req.headers['x-cloudbase-openid'] ||
-               req.headers['x-openid'];
+function getOpenid(req) {
+  var headers = (req && req.headers) || {};
+  var openid = headers['x-wx-openid'] || headers['x-cloudbase-openid'];
 
-  // 本地调试: 允许通过请求头或参数模拟
+  // 模拟身份只能用于本地调试，生产环境不信任任意客户端提交的 openid。
   if (!openid && config.localMode) {
-    openid = req.headers['x-mock-openid'] || req.query._openid;
+    openid = headers['x-mock-openid'] || (req.query && req.query._openid);
   }
+
+  return typeof openid === 'string' && openid.trim() ? openid.trim() : null;
+}
+
+function authMiddleware(req, res, next) {
+  // 生产环境仅信任 CloudBase 网关注入的身份头。
+  var openid = getOpenid(req);
 
   if (!openid) {
     // 不强制要求 openid（公开接口除外），交由路由自行处理
@@ -37,4 +41,8 @@ function requireAuth(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware: authMiddleware, requireAuth: requireAuth };
+module.exports = {
+  getOpenid: getOpenid,
+  authMiddleware: authMiddleware,
+  requireAuth: requireAuth,
+};

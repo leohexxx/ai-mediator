@@ -128,7 +128,7 @@ Page({
   },
 
   /**
-   * 启动自动轮询（每 3 秒检查一次分析状态，作为 watch 的保底机制）
+   * 启动分析 ID 发现轮询；进度由 analysisService 的单一受权轮询负责。
    * 注意：_analysisId 可能延迟设置（loadReport 异步加载），首次 tick 若为 null
    * 直接跳过继续等待下一轮，不可清除定时器。
    */
@@ -148,16 +148,13 @@ Page({
       }
       // _analysisId 还没设上（loadReport 未完成），先查 case 数据获取
       if (!that._analysisId) {
-        var db = wx.cloud.database();
-        db.collection('cases').doc(that.data.caseId).field({ analysisId: true, status: true }).get({
-          success: function (res) {
-            if (res.data && res.data.analysisId) {
-              that._analysisId = res.data.analysisId;
-              that.watchProgress(res.data.analysisId);
+        caseService.getCaseDetail(that.data.caseId, { summaryOnly: true }).then(function (res) {
+            var caseData = res.code === 0 && res.data && res.data.caseData;
+            if (caseData && caseData.analysisId) {
+              that._analysisId = caseData.analysisId;
+              that.watchProgress(caseData.analysisId);
             }
-          },
-          fail: function () {},
-        });
+        }).catch(function () {});
         return;
       }
       // 分析已完成，停止轮询
@@ -166,22 +163,7 @@ Page({
         that._pollTimer = null;
         return;
       }
-      // 通过 DB 直接查询分析进度
-      var db = wx.cloud.database();
-      db.collection('analyses').doc(that._analysisId).field({ progress: true }).get({
-        success: function (res) {
-          var progress = res.data && res.data.progress;
-          if (progress) {
-            that.setData({ progress: progress, progressStuck: false });
-            if (progress.step === 'done' || progress.step === 'error') {
-              clearInterval(that._pollTimer);
-              that._pollTimer = null;
-              that.loadReport();
-            }
-          }
-        },
-        fail: function () {},
-      });
+      // 已建立进度监听后不再发起第二套轮询。
     }, 3000);
   },
 

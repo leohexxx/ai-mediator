@@ -8,6 +8,7 @@ var path = require('path');
 // ── 初始化 CloudBase SDK（仅在非本地模式下）──
 var tcb = null;
 var db = null;
+var initError = null;
 
 if (!config.localMode && config.cloudbase.envId) {
   try {
@@ -15,19 +16,19 @@ if (!config.localMode && config.cloudbase.envId) {
     var initParams = { env: config.cloudbase.envId };
     if (config.cloudbase.secretId) initParams.secretId = config.cloudbase.secretId;
     if (config.cloudbase.secretKey) initParams.secretKey = config.cloudbase.secretKey;
-    tcb.init(initParams);
-    db = tcb.database();
+    var app = tcb.init(initParams);
+    db = app.database();
     console.log('[DB] CloudBase connected: ' + config.cloudbase.envId);
   } catch (e) {
-    console.warn('[DB] CloudBase init failed, falling back to local mode:', e.message);
-    config.localMode = true;
+    initError = e;
+    console.error('[DB] CloudBase init failed:', e.message);
   }
 } else {
-  if (!config.localMode) console.warn('[DB] No CloudBase envId configured, using local mode');
+  if (!config.localMode) initError = new Error('CLOUDBASE_ENV_ID is required when LOCAL_MODE is not true');
 }
 
 // ── 本地 JSON 文件存储（替代 DB）─────────────────
-var STORE_DIR = path.join(__dirname, '..', '..', 'data');
+var STORE_DIR = path.join(__dirname, '..', 'data');
 var _cache = {};
 
 function ensureStore() {
@@ -60,7 +61,49 @@ function collection(name) {
   if (config.localMode) {
     return new LocalCollection(name);
   }
-  return db.collection(name);
+  if (!db) throw initError || new Error('CloudBase database is unavailable');
+  return wrapNativeCollection(db.collection(name));
+}
+
+function assignFields(target, fields) {
+  Object.keys(fields).forEach(function (key) {
+    var parts = key.split('.');
+    var cursor = target;
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (!cursor[parts[i]] || typeof cursor[parts[i]] !== 'object') cursor[parts[i]] = {};
+      cursor = cursor[parts[i]];
+    }
+    cursor[parts[parts.length - 1]] = fields[key];
+  });
+  return target;
+}
+
+// 将 node-sdk 的裸 data 参数适配成项目统一使用的云函数风格 { data }。
+function wrapNativeDocument(ref) {
+  return {
+    get: function () { return ref.get(); },
+    field: function (projection) { return wrapNativeDocument(ref.field(projection)); },
+    update: function (options) { return ref.update(options.data); },
+    set: function (options) { return ref.set(options.data); },
+    remove: function () { return ref.remove(); },
+  };
+}
+
+function wrapNativeQuery(ref) {
+  return {
+    get: function () { return ref.get(); },
+    where: function (filter) { return wrapNativeQuery(ref.where(filter)); },
+    orderBy: function (field, direction) { return wrapNativeQuery(ref.orderBy(field, direction)); },
+    limit: function (count) { return wrapNativeQuery(ref.limit(count)); },
+    field: function (projection) { return wrapNativeQuery(ref.field(projection)); },
+  };
+}
+
+function wrapNativeCollection(ref) {
+  var query = wrapNativeQuery(ref);
+  query.doc = function (id) { return wrapNativeDocument(ref.doc(id)); };
+  query.add = function (options) { return ref.add(options.data); };
+  return query;
 }
 
 // ── 本地集合模拟（CRUD）────────────────────────
@@ -78,9 +121,23 @@ class LocalCollection {
       },
       update: function ({ data }) {
         var idx = that._data.findIndex(function (d) { return d._id === id; });
-        if (idx !== -1) Object.assign(that._data[idx], data);
+        if (idx !== -1) assignFields(that._data[idx], data);
         that._save();
         return { updated: 1 };
+      },
+      set: function ({ data }) {
+        var idx = that._data.findIndex(function (d) { return d._id === id; });
+        var next = Object.assign({}, data, { _id: id });
+        if (idx === -1) that._data.unshift(next);
+        else that._data[idx] = next;
+        that._save();
+        return { updated: idx === -1 ? 0 : 1, upserted: idx === -1 ? id : null };
+      },
+      remove: function () {
+        var before = that._data.length;
+        that._data = that._data.filter(function (d) { return d._id !== id; });
+        that._save();
+        return { deleted: before - that._data.length };
       },
     };
   }
@@ -110,4 +167,40 @@ class LocalCollection {
   }
 }
 
-module.exports = { collection: collection };
+var localTransactionQueue = Promise.resolve();
+
+function runTransaction(callback) {
+  if (!config.localMode) {
+    if (!db) return Promise.reject(initError || new Error('CloudBase database is unavailable'));
+    return db.runTransaction(function (transaction) {
+      return callback({ collection: function (name) { return wrapNativeCollection(transaction.collection(name)); } });
+    });
+  }
+
+  var execute = async function () {
+    var snapshot = JSON.parse(JSON.stringify(_cache));
+    try {
+      return await callback({ collection: collection });
+    } catch (error) {
+      var touchedNames = Object.keys(_cache);
+      _cache = snapshot;
+      Object.keys(snapshot).forEach(function (name) { writeCollection(name, snapshot[name]); });
+      touchedNames.forEach(function (name) {
+        if (!Object.prototype.hasOwnProperty.call(snapshot, name)) writeCollection(name, []);
+      });
+      throw error;
+    }
+  };
+  var result = localTransactionQueue.then(execute, execute);
+  localTransactionQueue = result.catch(function () {});
+  return result;
+}
+
+module.exports = {
+  collection: collection,
+  runTransaction: runTransaction,
+  isLocalMode: function () { return config.localMode; },
+  assertReady: function () {
+    if (!config.localMode && !db) throw initError || new Error('CloudBase database is unavailable');
+  },
+};

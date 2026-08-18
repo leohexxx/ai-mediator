@@ -34,12 +34,20 @@ var config = {
     ocrSpaceKey: process.env.OCR_SPACE_API_KEY || '',
     tencentSecretId: process.env.TENCENT_OCR_SECRET_ID || '',
     tencentSecretKey: process.env.TENCENT_OCR_SECRET_KEY || '',
+    maxConcurrent: parseInt(process.env.OCR_MAX_CONCURRENT || '4', 10),
   },
 
   // 视频
   video: {
     maxFrames: parseInt(process.env.VIDEO_MAX_FRAMES || '30', 10),
     fps: parseFloat(process.env.VIDEO_FPS || '0.5'),
+  },
+
+  analysisJobs: {
+    pollIntervalMs: parseInt(process.env.ANALYSIS_JOB_POLL_MS || '5000', 10),
+    leaseMs: parseInt(process.env.ANALYSIS_JOB_LEASE_MS || '600000', 10),
+    maxAttempts: parseInt(process.env.ANALYSIS_JOB_MAX_ATTEMPTS || '3', 10),
+    maxConcurrent: parseInt(process.env.ANALYSIS_JOB_MAX_CONCURRENT || '2', 10),
   },
 
   // 本地模式

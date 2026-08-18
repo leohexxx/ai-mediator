@@ -160,12 +160,12 @@ cloudfunctions/
 │   ├── package.json
 │   └── common/
 └── scripts/
-    └── build-cf.js            # 构建脚本：复制 common/ → 各云函数目录
+    └── build-cf.cjs           # 构建脚本：复制 common/ → 各云函数目录
 ```
 
 **共享方式**：
 - `common/` 目录存放所有复用代码
-- 构建脚本 `scripts/build-cf.js` 在部署前执行，将 `common/` 内容复制到每个云函数的 `common/` 子目录
+- 构建脚本 `scripts/build-cf.cjs` 在部署前执行，将 `common/` 内容复制到每个云函数的 `common/` 子目录
 - 云函数内通过 `const { parseWeChatChatLog } = require('./common/parser')` 引用
 - TypeScript 源文件（`.ts`）在复制时编译为 `.js`（或直接使用 `.js` 格式）
 
@@ -354,7 +354,7 @@ cloudfunctions/
 │   └── package.json
 │
 └── scripts/
-    └── build-cf.js                 # 构建脚本：TypeScript 编译 + common/ 复制
+    └── build-cf.cjs                # 构建脚本：TypeScript 编译 + common/ 复制
 ```
 
 ---
@@ -682,7 +682,7 @@ cloudfunctions/login/config.json            # 创建：超时 3s
 cloudfunctions/login/package.json           # 创建：wx-server-sdk 依赖
 
 # 构建脚本
-cloudfunctions/scripts/build-cf.js          # 创建：编译 .ts → .js + 复制 common/ 到各云函数
+cloudfunctions/scripts/build-cf.cjs         # 创建：编译 .ts → .js + 复制 common/ 到各云函数
 
 # 工具函数
 miniprogram/utils/auth.js                   # 创建：登录态管理、getUserProfile
@@ -700,7 +700,7 @@ miniprogram/types/index.js                  # 创建：JSDoc 类型注释（与 
 2. 开通云开发环境，创建 5 个数据库集合
 3. 将 Web 版 TypeScript 源文件转换为云函数兼容的 CommonJS 格式
 4. `llm.js` 中将 `process.env.LLM_API_KEY` 改为云函数环境变量读取方式
-5. 编写 `build-cf.js` 构建脚本
+5. 编写 `build-cf.cjs` 构建脚本
 6. 验证 `login` 云函数可正常获取 openid
 
 ---
@@ -931,7 +931,7 @@ graph TD
 
 ### 6.1 云函数间共享代码方式
 
-**方式：构建脚本 `scripts/build-cf.js`**
+**方式：构建脚本 `scripts/build-cf.cjs`**
 
 ```javascript
 // 伪代码示意
@@ -953,7 +953,7 @@ for (const dir of cfDirs) {
 ```
 
 **规则**：
-- 每次部署前执行 `node cloudfunctions/scripts/build-cf.js`
+- 每次部署前执行 `node cloudfunctions/scripts/build-cf.cjs`
 - `common/` 中的文件不应有云函数特定的依赖（如 `wx-server-sdk` 的数据库操作）
 - 云函数通过 `require('./common/parser')` 引用共享代码
 - TypeScript 源文件（`.ts`）在 Web 版仓库维护，构建时输出 `.js` 到 `common/`

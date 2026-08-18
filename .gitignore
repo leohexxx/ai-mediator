@@ -14,6 +14,7 @@ nul
 project.private.config.json
 miniprogram/project.private.config.json
 ai-mediator-backend/cloudrun/data/
+ai-mediator-backend/data/
 ai-mediator-backend/cloudrun/uploads/
 docs/superpowers/plans/2026-07-10-ai-mediator-plan.md
 1/

@@ -7,6 +7,8 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 /**
  * 生成6位数字邀请码
@@ -62,7 +64,7 @@ exports.main = async function (event, context) {
     }
 
     // 初始状态：单人模式直接等待上传，双人模式等待对方加入
-    var initialStatus = mode === 'single' ? 'waiting_submission' : 'waiting_party_b';
+    var initialStatus = mode === 'single' ? STATUS.WAITING_SUBMISSION : STATUS.WAITING_PARTY_B;
 
     // 创建案例文档
     var caseData = {
@@ -95,15 +97,21 @@ exports.main = async function (event, context) {
 
     // 双人模式: 创建邀请记录
     if (mode === 'dual' && inviteCode) {
-      await db.collection('invitations').add({
-        data: {
-          caseId: caseResult._id,
-          inviteCode: inviteCode,
-          used: false,
-          usedBy: null,
-          createdAt: now,
-        },
-      });
+      try {
+        await db.collection('invitations').add({
+          data: {
+            caseId: caseResult._id,
+            inviteCode: inviteCode,
+            used: false,
+            usedBy: null,
+            createdAt: now,
+          },
+        });
+      } catch (inviteError) {
+        // 避免留下没有邀请码、永远无法加入的双人案件。
+        await db.collection('cases').doc(caseResult._id).remove().catch(function () {});
+        throw inviteError;
+      }
     }
 
     return {

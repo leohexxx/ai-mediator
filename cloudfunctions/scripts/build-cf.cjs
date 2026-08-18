@@ -9,6 +9,16 @@ var path = require('path');
 var commonDir = path.join(__dirname, '..', 'common');
 var cfRoot = path.join(__dirname, '..');
 
+function discoverFunctionDirs(rootDir) {
+  return fs.readdirSync(rootDir, { withFileTypes: true })
+    .filter(function (entry) {
+      if (!entry.isDirectory() || entry.name === 'common' || entry.name === 'scripts') return false;
+      return fs.existsSync(path.join(rootDir, entry.name, 'index.js'));
+    })
+    .map(function (entry) { return entry.name; })
+    .sort();
+}
+
 function copyRecursive(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   var entries = fs.readdirSync(src, { withFileTypes: true });
@@ -24,19 +34,30 @@ function copyRecursive(src, dest) {
   }
 }
 
-console.log('Building cloud functions...');
-console.log('Common source: ' + commonDir + '\n');
+function buildAll(commonSource, rootDir) {
+  var dirs = discoverFunctionDirs(rootDir);
+  console.log('Building cloud functions...');
+  console.log('Common source: ' + commonSource);
+  console.log('Functions: ' + dirs.join(', ') + '\n');
 
-var dirs = fs.readdirSync(cfRoot, { withFileTypes: true })
-  .filter(function (d) { return d.isDirectory(); })
-  .filter(function (d) { return fs.existsSync(path.join(cfRoot, d.name, 'index.js')); });
+  for (var j = 0; j < dirs.length; j++) {
+    var dirName = dirs[j];
+    var targetDir = path.join(rootDir, dirName, 'common');
+    console.log('Processing: ' + dirName);
+    if (fs.existsSync(targetDir)) fs.rmSync(targetDir, { recursive: true, force: true });
+    copyRecursive(commonSource, targetDir);
+    console.log('  done');
+  }
 
-for (var j = 0; j < dirs.length; j++) {
-  var dirName = dirs[j].name;
-  var targetDir = path.join(cfRoot, dirName, 'common');
-  console.log('Processing: ' + dirName);
-  if (fs.existsSync(targetDir)) fs.rmSync(targetDir, { recursive: true, force: true });
-  copyRecursive(commonDir, targetDir);
-  console.log('  done');
+  console.log('\nBuild complete! ' + dirs.length + ' cloud functions synced.');
+  return dirs;
 }
-console.log('\nBuild complete! ' + dirs.length + ' cloud functions synced.');
+
+if (require.main === module) {
+  buildAll(commonDir, cfRoot);
+}
+
+module.exports = {
+  discoverFunctionDirs: discoverFunctionDirs,
+  buildAll: buildAll,
+};

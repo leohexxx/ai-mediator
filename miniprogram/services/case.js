@@ -43,14 +43,18 @@ function joinCase(params) {
  * @param {string} caseId
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
-function getCaseDetail(caseId) {
-  return cloudUtil.callFunction('getCaseDetail', { caseId: caseId });
+function getCaseDetail(caseId, options) {
+  options = options || {};
+  return cloudUtil.callFunction('getCaseDetail', {
+    caseId: caseId,
+    summaryOnly: options.summaryOnly === true,
+  });
 }
 
 /**
  * 获取用户案例列表（分页）
  * @param {Object} [params]
- * @param {number} [params.page=1]
+ * @param {string} [params.cursor] - 上一页返回的 nextCursor
  * @param {number} [params.pageSize=10]
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
@@ -59,6 +63,7 @@ function getCaseList(params) {
   return cloudUtil.callFunction('getCaseList', {
     page: params.page || 1,
     pageSize: params.pageSize || 10,
+    cursor: params.cursor || '',
   });
 }
 

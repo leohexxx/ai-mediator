@@ -23,23 +23,39 @@ function sendMessage(params) {
 /**
  * 监听流式消息
  * @param {string} sessionId - 会话 ID
- * @param {function(Object): void} onUpdate - 更新回调，参数为 chunks 数组
+ * @param {function(string): void} onUpdate - 更新回调，参数为增量累计后的全文
  * @param {function(): void} onDone - 完成回调
  * @returns {{close: function(): void}}
  */
 function watchMessages(sessionId, onUpdate, onDone) {
   var db = cloudUtil.getDatabase();
+  var openid = (getApp().globalData && getApp().globalData.openid) || wx.getStorageSync('openid');
+  var renderedCount = 0;
+  var accumulatedText = '';
+
+  function appendChunks(chunks) {
+    chunks = chunks || [];
+    if (chunks.length < renderedCount) {
+      renderedCount = 0;
+      accumulatedText = '';
+    }
+    for (var i = renderedCount; i < chunks.length; i++) {
+      accumulatedText += chunks[i].text || '';
+    }
+    renderedCount = chunks.length;
+    return accumulatedText;
+  }
 
   try {
     var watcher = db.collection('messages')
-      .where({ _id: sessionId })
+      .where({ _id: sessionId, userId: openid })
       .watch({
         onChange: function (snapshot) {
           if (snapshot.docs && snapshot.docs.length > 0) {
             var doc = snapshot.docs[0];
 
             if (onUpdate) {
-              onUpdate(doc.chunks || []);
+              onUpdate(appendChunks(doc.chunks));
             }
 
             if (doc.status === 'done') {
@@ -73,14 +89,14 @@ function watchMessages(sessionId, onUpdate, onDone) {
       if (!polling) return;
 
       db.collection('messages')
-        .where({ _id: sessionId })
+        .where({ _id: sessionId, userId: openid })
         .get({
           success: function (res) {
             if (res.data && res.data.length > 0) {
               var doc = res.data[0];
 
               if (onUpdate) {
-                onUpdate(doc.chunks || []);
+                onUpdate(appendChunks(doc.chunks));
               }
 
               if (doc.status === 'done') {

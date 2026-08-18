@@ -3,9 +3,9 @@
 //
 // 流水线设计（解决云函数容器回收问题）：
 //   1. 客户端预生成 sessionId
-//   2. 客户端在 DB 中创建 session 文档
-//   3. 客户端 watch session 文档（实时监听流）
-//   4. 客户端调用云函数（传 sessionId）
+//   2. 客户端 watch session 查询（只读）
+//   3. 客户端调用云函数（传 sessionId）
+//   4. 云函数校验权限并创建 session 文档
 //   5. 云函数 await LLM 调用（不 setTimeout，不走 fire-and-forget）
 //   6. LLM 流式写入 DB → watch 实时推送到 UI
 // ═══════════════════════════════════════════════
@@ -79,28 +79,11 @@ Component({
       // 预生成 sessionId
       var tempSessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
 
-      // 在 DB 中创建 session 文档
-      var db = wx.cloud.database();
-      db.collection('messages').add({
-        data: {
-          _id: tempSessionId,
-          caseId: that.data.caseId,
-          chunks: [],
-          status: 'streaming',
-          fullText: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        success: function () {
-          // 开始 watch session
-          that.data.sessionId = tempSessionId;
-          that._msgWatcher = chatService.watchMessages(
+      // 先监听查询；文档由云函数在完成权限校验后创建。
+      that.setData({ sessionId: tempSessionId });
+      that._msgWatcher = chatService.watchMessages(
             tempSessionId,
-            function (chunks) {
-              var fullText = '';
-              for (var i = 0; i < chunks.length; i++) {
-                fullText += chunks[i].text;
-              }
+            function (fullText) {
               var msgs = that.data.messages;
               var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
               if (lastMsg && lastMsg.role === 'assistant' && lastMsg.streaming !== false) {
@@ -144,26 +127,20 @@ Component({
             }
           );
 
-          // 调用云函数
-          chatService.sendMessage({
-            caseId: that.data.caseId,
-            message: text,
-            sessionId: tempSessionId,
-          }).then(function (res) {
-            if (res.code === 0) {
-              that.setData({ sessionId: tempSessionId });
-            } else {
-              console.warn('追问云函数返回异常:', res.message);
-            }
-          }).catch(function (err) {
-            console.warn('追问云函数调用异常:', err);
-          });
-        },
-        fail: function (err) {
-          console.error('创建会话失败:', err);
+      chatService.sendMessage({
+        caseId: that.data.caseId,
+        message: text,
+        sessionId: tempSessionId,
+      }).then(function (res) {
+        if (res.code !== 0) throw new Error(res.message || '追问失败');
+      }).catch(function (err) {
+          console.warn('追问云函数调用异常:', err);
+          if (that._msgWatcher) {
+            that._msgWatcher.close();
+            that._msgWatcher = null;
+          }
           that.setData({ streaming: false, streamingText: '' });
-          wx.showToast({ title: '创建会话失败，请重试', icon: 'none' });
-        },
+          wx.showToast({ title: '追问失败，请重试', icon: 'none' });
       });
     },
 

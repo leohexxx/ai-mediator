@@ -81,6 +81,13 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
+function statusType(status) {
+  if (status === 'single_completed' || status === 'completed' || status === 'dual_b_submitted') return 'success';
+  if (status === 'analyzing') return 'analyzing';
+  if (status === 'expired') return 'expired';
+  return 'pending';
+}
+
 /**
  * 关系类型文案映射
  * @param {string} relationship
@@ -127,6 +134,7 @@ module.exports = {
   formatDateTime: formatDateTime,
   truncate: truncate,
   statusLabel: statusLabel,
+  statusType: statusType,
   relationshipLabel: relationshipLabel,
   privacyLabel: privacyLabel,
   generateId: generateId,

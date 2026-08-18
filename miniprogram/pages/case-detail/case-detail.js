@@ -4,7 +4,6 @@
 
 var caseService = require('../../services/case');
 var formatUtil = require('../../utils/format');
-var watchUtil = require('../../utils/watch');
 
 Page({
   data: {
@@ -158,45 +157,63 @@ Page({
    */
   startWatch: function () {
     var that = this;
-    this._watcher = watchUtil.watchDocument('cases', this.data.caseId, function (doc) {
-      if (doc) {
-        var oldStatus = that.data.caseData ? that.data.caseData.status : '';
-        that.setData({
-          caseData: doc,
-          statusLabel: formatUtil.statusLabel(doc.status),
-          otherPartyLabel: that.getOtherPartyLabel(doc, that.data.role),
-        });
+    var active = true;
+    var timer = null;
+    function poll() {
+      if (!active) return;
+      caseService.getCaseDetail(that.data.caseId, { summaryOnly: true }).then(function (res) {
+        var doc = res.code === 0 && res.data && res.data.caseData;
+        if (doc) {
+          var oldCase = that.data.caseData;
+          var oldStatus = oldCase ? oldCase.status : '';
+          var oldPartyBOpenid = oldCase && oldCase.party_b ? oldCase.party_b.openid : null;
+          var oldPartyBSubmitted = !!(oldCase && oldCase.party_b && oldCase.party_b.submitted);
+          that.setData({
+            caseData: doc,
+            statusLabel: formatUtil.statusLabel(doc.status),
+            otherPartyLabel: that.getOtherPartyLabel(doc, that.data.role),
+          });
 
-        // 状态变更提示
-        if (doc.status !== oldStatus) {
-          if (doc.status === 'completed') {
-            wx.showToast({ title: '分析完成！', icon: 'success' });
-            that.loadDetail(); // 重新加载以获取分析结果
-          } else if (doc.status === 'analyzing' && oldStatus === 'waiting_submission') {
-            wx.showToast({ title: '双方已提交，开始分析', icon: 'none' });
-          } else if (doc.status === 'dual_a_submitted') {
-            wx.showToast({ title: '甲方分析完成，等待补充', icon: 'none' });
-            that.loadDetail();
-          } else if (doc.status === 'dual_b_submitted') {
-            wx.showToast({ title: '双方辩论分析完成！', icon: 'success' });
-            that.loadDetail();
+          // 状态变更提示
+          if (doc.status !== oldStatus) {
+            if (doc.status === 'completed') {
+              wx.showToast({ title: '分析完成！', icon: 'success' });
+              that.loadDetail(); // 重新加载以获取分析结果
+            } else if (doc.status === 'analyzing' && oldStatus === 'waiting_submission') {
+              wx.showToast({ title: '双方已提交，开始分析', icon: 'none' });
+            } else if (doc.status === 'dual_a_submitted') {
+              wx.showToast({ title: '甲方分析完成，等待补充', icon: 'none' });
+              that.loadDetail();
+            } else if (doc.status === 'dual_b_submitted') {
+              wx.showToast({ title: '双方辩论分析完成！', icon: 'success' });
+              that.loadDetail();
+            }
+          }
+
+          // 对方加入/提交提示
+          if (that.data.role === 'party_a') {
+            if (!oldPartyBOpenid && doc.party_b.openid) {
+              wx.showToast({ title: '乙方已加入！', icon: 'success' });
+              that.setData({ showInvitePanel: false });
+            }
+            if (!oldPartyBSubmitted && doc.party_b.submitted) {
+              wx.showToast({ title: '乙方已提交证据', icon: 'none' });
+            }
           }
         }
-
-        // 对方加入/提交提示
-        if (that.data.role === 'party_a') {
-          var oldPartyBOpenid = that.data.caseData ? that.data.caseData.party_b.openid : null;
-          if (!oldPartyBOpenid && doc.party_b.openid) {
-            wx.showToast({ title: '乙方已加入！', icon: 'success' });
-            that.setData({ showInvitePanel: false });
-          }
-          var oldPartyBSubmitted = that.data.caseData ? that.data.caseData.party_b.submitted : false;
-          if (!oldPartyBSubmitted && doc.party_b.submitted) {
-            wx.showToast({ title: '乙方已提交证据', icon: 'none' });
-          }
-        }
-      }
-    });
+      }).catch(function (err) {
+        console.warn('案例状态轮询失败:', err);
+      }).then(function () {
+        if (active) timer = setTimeout(poll, 2000);
+      });
+    }
+    poll();
+    this._watcher = {
+      close: function () {
+        active = false;
+        if (timer) clearTimeout(timer);
+      },
+    };
   },
 
   /**
