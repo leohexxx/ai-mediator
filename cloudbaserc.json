@@ -51,6 +51,12 @@
       "handler": "index.main"
     },
     {
+      "name": "getAnalysis",
+      "timeout": 10,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    },
+    {
       "name": "getCaseList",
       "timeout": 15,
       "runtime": "Nodejs20.19",

@@ -61,16 +61,9 @@ function getAnalysis(analysisId) {
       .then(function (result) { return result.data; });
   }
 
-  return new Promise(function (resolve, reject) {
-    var db = cloudUtil.getDatabase();
-    db.collection('analyses').doc(analysisId).get({
-      success: function (res) {
-        resolve(res.data);
-      },
-      fail: function (err) {
-        reject(err);
-      },
-    });
+  return cloudUtil.callFunction('getAnalysis', { analysisId: analysisId }).then(function (result) {
+    if (result.code !== 0) throw new Error(result.message || '获取分析失败');
+    return result.data;
   });
 }
 
@@ -85,73 +78,24 @@ function watchAnalysisProgress(analysisId, onProgress) {
     return watchCloudRunAnalysisProgress(analysisId, onProgress);
   }
 
-  var db = cloudUtil.getDatabase();
-
-  try {
-    var watcher = db.collection('analyses')
-      .where({ _id: analysisId })
-      .field({ progress: true })
-      .watch({
-        onChange: function (snapshot) {
-          if (snapshot.docs && snapshot.docs.length > 0) {
-            var progress = snapshot.docs[0].progress;
-            if (progress && onProgress) {
-              onProgress(progress);
-            }
-
-            if (progress && progress.step === 'done') {
-              if (watcher && watcher.close) {
-                watcher.close();
-              }
-            }
-          }
-        },
-        onError: function (err) {
-          console.error('watch analysis progress error:', err);
-        },
-      });
-
-    return {
-      close: function () {
-        if (watcher && watcher.close) {
-          watcher.close();
-        }
-      },
-    };
-  } catch (err) {
-    // 降级为轮询
-    console.warn('watch API 不可用，使用轮询方案');
-    var polling = true;
-
-    var timer = setInterval(function () {
-      if (!polling) return;
-
-      db.collection('analyses')
-        .where({ _id: analysisId })
-        .field({ progress: true })
-        .get({
-          success: function (res) {
-            if (res.data && res.data.length > 0) {
-              var progress = res.data[0].progress;
-              if (progress && onProgress) {
-                onProgress(progress);
-              }
-
-              if (progress && progress.step === 'done') {
-                polling = false;
-              }
-            }
-          },
-        });
-    }, 1000);
-
-    return {
-      close: function () {
-        polling = false;
-        clearInterval(timer);
-      },
-    };
+  var active = true;
+  var timer = null;
+  function poll() {
+    if (!active) return;
+    getAnalysis(analysisId).then(function (analysis) {
+      if (!active) return;
+      var progress = analysis && analysis.progress;
+      if (progress && onProgress) onProgress(progress);
+      if (!progress || (progress.step !== 'done' && progress.step !== 'error')) {
+        timer = setTimeout(poll, 1500);
+      }
+    }).catch(function (err) {
+      console.error('analysis progress query failed:', err);
+      if (active) timer = setTimeout(poll, 2000);
+    });
   }
+  poll();
+  return { close: function () { active = false; if (timer) clearTimeout(timer); } };
 }
 
 function watchCloudRunAnalysisProgress(analysisId, onProgress) {

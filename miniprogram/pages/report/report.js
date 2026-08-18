@@ -148,16 +148,13 @@ Page({
       }
       // _analysisId 还没设上（loadReport 未完成），先查 case 数据获取
       if (!that._analysisId) {
-        var db = wx.cloud.database();
-        db.collection('cases').doc(that.data.caseId).field({ analysisId: true, status: true }).get({
-          success: function (res) {
-            if (res.data && res.data.analysisId) {
-              that._analysisId = res.data.analysisId;
-              that.watchProgress(res.data.analysisId);
+        caseService.getCaseDetail(that.data.caseId).then(function (res) {
+            var caseData = res.code === 0 && res.data && res.data.caseData;
+            if (caseData && caseData.analysisId) {
+              that._analysisId = caseData.analysisId;
+              that.watchProgress(caseData.analysisId);
             }
-          },
-          fail: function () {},
-        });
+        }).catch(function () {});
         return;
       }
       // 分析已完成，停止轮询
@@ -166,11 +163,8 @@ Page({
         that._pollTimer = null;
         return;
       }
-      // 通过 DB 直接查询分析进度
-      var db = wx.cloud.database();
-      db.collection('analyses').doc(that._analysisId).field({ progress: true }).get({
-        success: function (res) {
-          var progress = res.data && res.data.progress;
+      analysisService.getAnalysis(that._analysisId).then(function (analysis) {
+          var progress = analysis && analysis.progress;
           if (progress) {
             that.setData({ progress: progress, progressStuck: false });
             if (progress.step === 'done' || progress.step === 'error') {
@@ -179,9 +173,7 @@ Page({
               that.loadReport();
             }
           }
-        },
-        fail: function () {},
-      });
+      }).catch(function () {});
     }, 3000);
   },
 

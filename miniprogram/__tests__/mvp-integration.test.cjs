@@ -195,10 +195,13 @@ test('services: analysis 接口', function () {
 // 测试 5: 工具函数
 // ═══════════════════════════════════════════════
 
-test('utils: watch 集合封装存在', function () {
-  var watchUtil = require(path.join(MP_DIR, 'utils', 'watch'));
-  assert(typeof watchUtil.watchCollection === 'function', 'watchCollection 应为函数');
-  assert(typeof watchUtil.watchDocument === 'function', 'watchDocument 应为函数');
+test('services: 案件与分析读取必须经过服务端鉴权', function () {
+  var analysisSource = fs.readFileSync(path.join(MP_DIR, 'services', 'analysis.js'), 'utf8');
+  var reportSource = fs.readFileSync(path.join(MP_DIR, 'pages', 'report', 'report.js'), 'utf8');
+  var detailSource = fs.readFileSync(path.join(MP_DIR, 'pages', 'case-detail', 'case-detail.js'), 'utf8');
+  assert(analysisSource.indexOf("collection('analyses')") === -1, 'analysis 服务不应直读 analyses');
+  assert(reportSource.indexOf('wx.cloud.database') === -1, '报告页不应直读数据库');
+  assert(detailSource.indexOf('wx.cloud.database') === -1, '案例页不应直读数据库');
 });
 
 test('utils: cloud 云函数调用封装', function () {
@@ -220,6 +223,7 @@ test('云函数目录结构', function () {
     'uploadEvidence',
     'analyzeCase',
     'getCaseDetail',
+    'getAnalysis',
     'getCaseList',
     'shareCard',
   ];
