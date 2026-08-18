@@ -34,6 +34,7 @@ var config = {
     ocrSpaceKey: process.env.OCR_SPACE_API_KEY || '',
     tencentSecretId: process.env.TENCENT_OCR_SECRET_ID || '',
     tencentSecretKey: process.env.TENCENT_OCR_SECRET_KEY || '',
+    maxConcurrent: parseInt(process.env.OCR_MAX_CONCURRENT || '4', 10),
   },
 
   // 视频
