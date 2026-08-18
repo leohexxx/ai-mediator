@@ -1,5 +1,5 @@
-// CloudRun 渐进迁移配置。
-// v0.2.0 起关键写入统一通过小程序私有 CloudRun 服务。
+// V2 生产配置：证据、分析、OCR 与追问必须通过小程序私有 CloudRun 服务。
+// 不自动降级到旧云函数；需要回滚时发布旧代码版本并同步恢复数据库规则。
 module.exports = {
   enabled: true,
   env: 'cloudbase-d4g5p82875fe1a5ce',

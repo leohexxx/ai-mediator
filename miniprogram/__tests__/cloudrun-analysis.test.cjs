@@ -1,4 +1,5 @@
 var assert = require('assert');
+var fs = require('fs');
 var path = require('path');
 
 var config = require('../config/cloudrun');
@@ -37,6 +38,14 @@ var evidence = require('../services/evidence');
 var chat = require('../services/chat');
 
 async function run() {
+  var analysisSource = fs.readFileSync(path.join(__dirname, '../services/analysis.js'), 'utf8');
+  var evidenceSource = fs.readFileSync(path.join(__dirname, '../services/evidence.js'), 'utf8');
+  assert.strictEqual(analysisSource.includes("callFunction('analyzeCase'"), false, 'V2 analysis must not fall back to legacy cloud function');
+  assert.strictEqual(analysisSource.includes("callFunction('getAnalysis'"), false, 'V2 reads must stay on authenticated CloudRun');
+  assert.strictEqual(evidenceSource.includes("callFunction('ocrImage'"), false, 'V2 OCR must not use legacy OCR function');
+  assert.strictEqual(evidenceSource.includes("callFunction('ocrBatch'"), false, 'V2 batch OCR must not use legacy OCR function');
+  assert.strictEqual(evidenceSource.includes('compressText'), false, 'V2 must preserve original evidence instead of client-side compression');
+
   var started = await analysis.analyzeCase('case-1', true, true, { evidenceRevision: 2, idempotencyKey: 'start-1' });
   assert.strictEqual(started.data.analysisId, 'a-1');
   assert.strictEqual(calls[0].config.env, 'test-env');
@@ -60,6 +69,14 @@ async function run() {
   var reply = await chat.sendMessage({ caseId: 'case-1', analysisId: 'a-1', message: '继续问', jobId: 'j-1' });
   assert.strictEqual(reply.data.reply, 'reply');
   assert.strictEqual(calls[4].path, '/api/chat/messages');
+
+  var originalCallContainer = global.wx.cloud.callContainer;
+  delete global.wx.cloud.callContainer;
+  await assert.rejects(
+    analysis.analyzeCase('case-1', false, false, { idempotencyKey: 'no-fallback' }),
+    /CloudRun未启用或配置不完整/
+  );
+  global.wx.cloud.callContainer = originalCallContainer;
   console.log('cloudrun analysis transport: passed');
 }
 

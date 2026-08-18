@@ -243,76 +243,21 @@ Page({
   },
 
   /**
-   * 处理 OCR 文字超限：压缩提取关键信息 + 确认弹窗
+   * 长文本保留原文；V2 由 CloudRun 按证据版本生成并缓存摘要。
    */
   _handleOversizedText: function (text, fileIds, count) {
     var that = this;
-
-    // 先提示超限
     wx.showModal({
       title: '文字内容较多',
-      content: '识别出约 ' + text.length + ' 字，建议提取关键信息可缩短分析时间（不影响分析质量）。是否帮您提取？',
-      confirmText: '提取关键信息',
-      cancelText: '保留原文',
-      success: function (res) {
-        if (res.confirm) {
-          wx.showLoading({ title: '正在提取关键信息...', mask: true });
-
-          evidenceService.compressText(text).then(function (result) {
-            wx.hideLoading();
-
-            if (result.code === 0 && result.data && result.data.compressedText) {
-              var compressed = result.data.compressedText;
-              var previewLen = Math.min(compressed.length, 300);
-              var preview = compressed.substring(0, previewLen) + (compressed.length > 300 ? '...' : '');
-
-              wx.showModal({
-                title: '已提取关键信息',
-                content: '原文 ' + result.data.originalLength + ' 字 → ' + result.data.compressedLength + ' 字\n\n' + preview,
-                confirmText: '使用压缩版',
-                cancelText: '保留原文',
-                success: function (res2) {
-                  that.setData({
-                    ocrProcessing: false,
-                    chatText: res2.confirm ? compressed : text,
-                    uploadedFileIds: fileIds,
-                    selectedImageCount: count,
-                  });
-                  wx.showToast({
-                    title: res2.confirm ? '已使用压缩版' : '已保留原文',
-                    icon: 'success',
-                  });
-                },
-              });
-            } else {
-              // 压缩失败，退回原文
-              that.setData({
-                ocrProcessing: false,
-                chatText: text,
-                uploadedFileIds: fileIds,
-                selectedImageCount: count,
-              });
-              wx.showToast({ title: '提取失败，已保留原文', icon: 'none' });
-            }
-          }).catch(function () {
-            wx.hideLoading();
-            that.setData({
-              ocrProcessing: false,
-              chatText: text,
-              uploadedFileIds: fileIds,
-              selectedImageCount: count,
-            });
-            wx.showToast({ title: '提取失败，已保留原文', icon: 'none' });
-          });
-        } else {
-          // 用户选择保留原文
-          that.setData({
-            ocrProcessing: false,
-            chatText: text,
-            uploadedFileIds: fileIds,
-            selectedImageCount: count,
-          });
-        }
+      content: '识别出约 ' + text.length + ' 字。V2 会保留全部原文，并由服务端自动生成增量摘要以缩短分析时间。',
+      showCancel: false,
+      success: function () {
+        that.setData({
+          ocrProcessing: false,
+          chatText: text,
+          uploadedFileIds: fileIds,
+          selectedImageCount: count,
+        });
       },
     });
   },
@@ -525,7 +470,7 @@ Page({
 
       wx.showLoading({ title: '识别中 ' + (startIdx + 1) + '-' + endIdx + '/' + frameBase64List.length, mask: true });
 
-      evidenceService.ocrBatch(batchFrames).then(function (res) {
+      evidenceService.ocrBatch(batchFrames, that.data.caseId).then(function (res) {
         if (res.code === 0 && res.data) {
           allResults.successCount += (res.data.successCount || 0);
           if (res.data.combinedText) {
@@ -760,7 +705,7 @@ Page({
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
-   * @param {boolean} [force=false] - 仅供旧云函数回滚链路标记重新分析
+   * @param {boolean} [force=false] - 兼容旧调用签名，V2 不允许绕过分析锁
    */
   _startAnalysis: function (force) {
     var that = this;

@@ -146,105 +146,6 @@ function uploadVideoToCloud(filePath, caseId) {
 }
 
 /**
- * OCR 识别本地图片（前端转 base64 后传给云函数）
- * @param {string} filePath - 本地文件路径
- * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
- */
-function ocrImage(filePath) {
-  return new Promise(function (resolve, reject) {
-    // 通过 canvas 缩放到 ≤1600px，JPEG quality 0.6
-    // compressImage 作为首选方案（会降级到 canvas）
-    // toDataURL 直接拿 base64，不绕文件读写
-    var MAX = 1600;
-    wx.getImageInfo({
-      src: filePath,
-      success: function (info) {
-        var w = info.width;
-        var h = info.height;
-        if (w <= MAX && h <= MAX) {
-          // 小图：直接读文件发
-          wx.getFileSystemManager().readFile({
-            filePath: filePath,
-            encoding: 'base64',
-            success: function (res) {
-              cloudUtil.callFunction('ocrImage', {
-                base64: res.data,
-                mimeType: 'image/jpeg',
-              }).then(resolve).catch(reject);
-            },
-            fail: reject,
-          });
-          return;
-        }
-        // 大图：canvas 缩放（带超时兜底）
-        var scale = MAX / Math.max(w, h);
-        var cw = Math.floor(w * scale);
-        var ch = Math.floor(h * scale);
-        var canvas = wx.createOffscreenCanvas({ type: '2d', width: cw, height: ch });
-        var ctx = canvas.getContext('2d');
-        var img = canvas.createImage();
-
-        // canvas 路径的兜底函数：直接 readFile 取 base64
-        function fallbackReadFile() {
-          wx.getFileSystemManager().readFile({
-            filePath: filePath,
-            encoding: 'base64',
-            success: function (res) {
-              cloudUtil.callFunction('ocrImage', {
-                base64: res.data,
-                mimeType: 'image/jpeg',
-              }).then(resolve).catch(reject);
-            },
-            fail: reject,
-          });
-        }
-
-        // 5 秒超时：onload 未触发则降级到 readFile
-        var timeoutId = setTimeout(function () {
-          console.warn('[ocrImage] canvas onload 超时，降级到 readFile');
-          fallbackReadFile();
-        }, 5000);
-
-        img.onload = function () {
-          clearTimeout(timeoutId);
-          ctx.drawImage(img, 0, 0, cw, ch);
-          var b64 = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
-          if (b64) {
-            cloudUtil.callFunction('ocrImage', {
-              base64: b64,
-              mimeType: 'image/jpeg',
-            }).then(resolve).catch(reject);
-          } else {
-            // toDataURL 返回空（部分机型问题），降级
-            console.warn('[ocrImage] toDataURL 返回空，降级到 readFile');
-            fallbackReadFile();
-          }
-        };
-        img.onerror = function () {
-          clearTimeout(timeoutId);
-          console.warn('[ocrImage] 图片加载失败，降级到 readFile');
-          fallbackReadFile();
-        };
-        img.src = filePath;
-      },
-      fail: function () { reject(new Error('读取图片信息失败')); },
-    });
-  });
-}
-
-/**
- * OCR 识别 base64 图片（直接传 base64，不读文件。用于视频帧等场景）
- * @param {string} base64 - 图片 base64 编码（不含 data:image 前缀）
- * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
- */
-function ocrImageBase64(base64) {
-  return cloudUtil.callFunction('ocrImage', {
-    base64: base64,
-    mimeType: 'image/jpeg',
-  });
-}
-
-/**
  * 批量上传图片并做 OCR 识别
  * @param {string[]} tempFilePaths - 本地文件路径列表
  * @param {string} caseId - 案例 ID
@@ -300,21 +201,24 @@ function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
  * @param {Array<{base64: string, timeIndex: number}>} frames - 帧列表
  * @returns {Promise<{code: number, data: {combinedText: string, results: Array}|null, message: string}>}
  */
-function ocrBatch(frames) {
-  return cloudUtil.callFunction('ocrBatch', {
-    frames: frames,
-    mimeType: 'image/jpeg',
-  });
-}
-
-/**
- * 压缩文本（超过1万字时提取关键信息）
- * @param {string} text - 原文
- * @returns {Promise<{code: number, data: {compressedText: string, originalLength: number, compressedLength: number}|null, message: string}>}
- */
-function compressText(text) {
-  return cloudUtil.callFunction('compressText', {
-    text: text,
+function ocrBatch(frames, caseId) {
+  return cloudRun.call('/api/upload/ocr-batch', 'POST', {
+    caseId: caseId,
+    images: frames.map(function (frame, index) {
+      return { base64: frame.base64, index: index, timeIndex: frame.timeIndex };
+    }),
+  }).then(function (result) {
+    var data = result.data || {};
+    return {
+      code: 0,
+      data: {
+        successCount: data.acceptedCount || 0,
+        totalFrames: frames.length,
+        combinedText: data.text || '',
+        images: data.images || [],
+      },
+      message: result.message || 'ok',
+    };
   });
 }
 
@@ -325,9 +229,6 @@ module.exports = {
   getClipboardText: getClipboardText,
   uploadImageToCloud: uploadImageToCloud,
   uploadVideoToCloud: uploadVideoToCloud,
-  ocrImage: ocrImage,
-  ocrImageBase64: ocrImageBase64,
   ocrBatch: ocrBatch,
   uploadImagesAndOCR: uploadImagesAndOCR,
-  compressText: compressText,
 };
