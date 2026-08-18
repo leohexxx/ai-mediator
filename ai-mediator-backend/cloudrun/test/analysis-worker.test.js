@@ -161,3 +161,28 @@ test('worker bounds concurrent analysis execution per instance', async function 
     await db.collection('cases').doc(ids[k].caseId).remove();
   }
 });
+
+test('worker acknowledges cancellation without retrying and unlocks the case', async function () {
+  var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
+  var caseId = 'cancel-case-' + suffix;
+  var analysisId = 'cancel-analysis-' + suffix;
+  await db.collection('cases').doc(caseId).set({ data: {
+    analysisId: analysisId, activeAnalysisId: analysisId, analysisLock: true,
+    lockedEvidenceRevision: 1, status: 'cancel_requested',
+    party_a: { openid: 'a' }, party_b: { openid: 'b' },
+  } });
+  await db.collection('analyses').doc(analysisId).set({ data: {
+    caseId: caseId, status: 'cancel_requested', lockedEvidenceRevision: 1,
+    job: { attempts: 1, leaseOwner: 'cancel-worker', leaseUntil: new Date(Date.now() + 10000).toISOString() },
+  } });
+  var worker = createWorker({ db: db, pipeline: {}, workerId: 'cancel-worker' });
+  await worker.acknowledgeCanceled({ _id: analysisId });
+  var analysis = await db.collection('analyses').doc(analysisId).get();
+  var caseResult = await db.collection('cases').doc(caseId).get();
+  assert.equal(analysis.data.status, 'canceled');
+  assert.equal(caseResult.data.status, 'dual_collecting');
+  assert.equal(caseResult.data.analysisLock, false);
+  assert.equal(caseResult.data.activeAnalysisId, null);
+  await db.collection('analyses').doc(analysisId).remove();
+  await db.collection('cases').doc(caseId).remove();
+});

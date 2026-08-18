@@ -10,6 +10,7 @@ var healthRoute = require('./routes/health');
 var analyzeRoute = require('./routes/analyze');
 var uploadRoute = require('./routes/upload');
 var chatRoute = require('./routes/chat');
+var evidenceRoute = require('./routes/evidence');
 var database = require('./services/db');
 var analysisWorker = require('./services/analysisWorker').createWorker();
 
@@ -26,6 +27,7 @@ app.use(auth.authMiddleware);
 app.use('/api/analyze', analyzeRoute);
 app.use('/api/upload', uploadRoute);
 app.use('/api/chat', chatRoute);
+app.use('/api/evidence', evidenceRoute);
 app.use(errorHandler);
 
 var server = app.listen(config.port, function () {

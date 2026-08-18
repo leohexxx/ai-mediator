@@ -6,6 +6,7 @@ function errorHandler(err, req, res, next) {
   var status = err.status || 500;
   res.status(status).json({
     code: -1,
+    errorCode: err.code || 'INTERNAL_ERROR',
     data: null,
     message: err.message || '服务器内部错误',
   });

@@ -23,19 +23,36 @@ function updateProgress(analysisId, step, message, progress) {
   });
 }
 
-async function latestEvidence(caseId, party) {
-  var result = await db.collection('evidence')
-    .where({ caseId: caseId, party: party })
-    .orderBy('createdAt', 'desc')
-    .limit(1)
-    .get();
-  return result.data && result.data[0];
+function cancellationError() {
+  var error = new Error('分析已被用户打断');
+  error.code = 'ANALYSIS_CANCELED';
+  return error;
+}
+
+async function assertNotCanceled(analysisId, leaseOwner) {
+  var result = await db.collection('analyses').doc(analysisId).get();
+  var analysis = result.data;
+  if (!analysis || analysis.status === 'cancel_requested' || analysis.status === 'canceled') {
+    throw cancellationError();
+  }
+  if (leaseOwner && (!analysis.job || analysis.job.leaseOwner !== leaseOwner)) {
+    throw cancellationError();
+  }
+  return analysis;
+}
+
+async function evidenceForRevision(caseId, revision) {
+  var result = await db.collection('evidence_batches').where({ caseId: caseId }).get();
+  var batches = (result.data || []).filter(function (item) {
+    return (Number(item.revision) || 1) <= revision && item.status !== 'deleted';
+  });
+  if (batches.length) return batches;
+  var legacy = await db.collection('evidence').where({ caseId: caseId }).get();
+  return legacy.data || [];
 }
 
 function finalCaseStatus(caseData, analysis) {
-  if (analysis.job && analysis.job.isDebate) return 'dual_b_submitted';
-  if (analysis.mode === 'single') return caseData.mode === 'dual' ? 'dual_a_submitted' : 'single_completed';
-  return 'completed';
+  return analysis.mode === 'dual' || (caseData.party_b && caseData.party_b.openid) ? 'completed' : 'single_completed';
 }
 
 async function complete(analysisId, result, leaseOwner) {
@@ -54,6 +71,12 @@ async function complete(analysisId, result, leaseOwner) {
     var caseData = caseResult.data;
     if (!caseData) throw new Error('案例不存在');
 
+    if (analysis.status === 'cancel_requested' || analysis.status === 'canceled' ||
+        caseData.activeAnalysisId !== analysisId || caseData.analysisLock !== true ||
+        Number(caseData.lockedEvidenceRevision) !== Number(analysis.lockedEvidenceRevision)) {
+      throw cancellationError();
+    }
+
     await analysisRef.update({ data: {
       coreConclusion: result.coreConclusion || {},
       evidenceWeights: result.evidenceWeights || [],
@@ -66,12 +89,19 @@ async function complete(analysisId, result, leaseOwner) {
       'job.leaseOwner': null,
       'job.leaseUntil': null,
       completedAt: now,
+      'timings.completedAt': now,
       updatedAt: now,
     } });
 
     // 新分析已取代旧分析时，不允许旧任务覆盖案件状态。
-    if (caseData.analysisId === analysisId) {
-      await caseRef.update({ data: { status: finalCaseStatus(caseData, analysis), updatedAt: now } });
+    if (caseData.analysisId === analysisId && caseData.activeAnalysisId === analysisId) {
+      await caseRef.update({ data: {
+        status: finalCaseStatus(caseData, analysis),
+        analysisLock: false,
+        activeAnalysisId: null,
+        lockedEvidenceRevision: null,
+        updatedAt: now,
+      } });
     }
   });
 }
@@ -86,14 +116,16 @@ async function run(analysisId, options) {
   var caseData = caseResult.data;
   if (!caseData) throw new Error('案例不存在');
 
+  var startedAtMs = Date.now();
+  analysis = await assertNotCanceled(analysisId, options.leaseOwner);
+
   await updateProgress(analysisId, 'formatting', '正在格式化聊天记录...', 10);
-  var evidenceA = await latestEvidence(analysis.caseId, 'party_a');
-  if (!evidenceA || !evidenceA.parsedMessages || evidenceA.parsedMessages.length === 0) {
-    throw new Error('甲方尚未提交有效证据');
-  }
-  var allMessages = evidenceA.parsedMessages.slice();
-  var evidenceB = analysis.mode === 'dual' ? await latestEvidence(analysis.caseId, 'party_b') : null;
-  if (evidenceB && evidenceB.parsedMessages) allMessages = allMessages.concat(evidenceB.parsedMessages);
+  var batches = await evidenceForRevision(analysis.caseId, Number(analysis.lockedEvidenceRevision) || 1);
+  var allMessages = [];
+  batches.forEach(function (batch) {
+    if (batch.parsedMessages) allMessages = allMessages.concat(batch.parsedMessages);
+  });
+  if (!allMessages.length) throw new Error('尚未提交有效证据');
   allMessages.sort(function (a, b) { return (a.timestamp || '').localeCompare(b.timestamp || ''); });
 
   var hasPartyB = caseData.party_b && caseData.party_b.openid;
@@ -113,23 +145,32 @@ async function run(analysisId, options) {
     );
   }
 
+  await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'analyzing', '正在分析性格与综合判断...', 40);
   var model = analysis.deep ? config.llm.deepModel : config.llm.model;
   var analysisText = await llm.chatCompletion(ANALYSIS_SYSTEM_PROMPT, [{
     role: 'user',
     content: ANALYSIS_USER_TEMPLATE.replace('{{caseContext}}', caseContext).replace('{{chatText}}', chatText),
-  }], 8192, model);
+  }], analysis.deep ? 8192 : 4096, model);
 
+  await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'parsing', '正在提取证据与情绪...', 70);
   var jsonMatch = analysisText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('LLM 返回格式异常，未找到 JSON');
   var result = JSON.parse(jsonMatch[0]);
-  if (analysis.mode === 'single' && result.coreConclusion) {
+  if (analysis.singlePartyEvidence && result.coreConclusion) {
     result.coreConclusion.confidence = Math.max(30, (result.coreConclusion.confidence || 75) - 15);
-    result.coreConclusion.confidenceReasons = ['(单人视角，已自动调低 15%)']
+    result.coreConclusion.confidenceReasons = ['(当前仅一方提交证据，置信度已自动调低 15%)']
       .concat(result.coreConclusion.confidenceReasons || []);
+    result.coreConclusion.isSinglePartyEvidence = true;
   }
 
+  await db.collection('analyses').doc(analysisId).update({ data: {
+    'timings.modelAndParseMs': Date.now() - startedAtMs,
+    model: model,
+    updatedAt: new Date().toISOString(),
+  } });
+  await assertNotCanceled(analysisId, options.leaseOwner);
   await updateProgress(analysisId, 'finalizing', '正在制定调解策略...', 90);
   await complete(analysisId, result, options.leaseOwner);
   console.log('[Analyze] complete: ' + analysisId);

@@ -102,6 +102,36 @@ function createWorker(options) {
     });
   }
 
+  async function acknowledgeCanceled(job) {
+    var now = new Date().toISOString();
+    await db.runTransaction(async function (transaction) {
+      var analysisRef = transaction.collection('analyses').doc(job._id);
+      var latestResult = await analysisRef.get();
+      var latest = latestResult.data;
+      if (!latest || (latest.status !== 'cancel_requested' && latest.status !== 'running')) return;
+      await analysisRef.update({ data: {
+        status: 'canceled',
+        progress: { step: 'canceled', message: '分析已打断，可以继续补充证据', progress: 0 },
+        canceledAt: now,
+        'job.leaseOwner': null,
+        'job.leaseUntil': null,
+        updatedAt: now,
+      } });
+      var caseRef = transaction.collection('cases').doc(latest.caseId);
+      var caseResult = await caseRef.get();
+      var caseData = caseResult.data;
+      if (caseData && caseData.activeAnalysisId === latest._id) {
+        await caseRef.update({ data: {
+          status: caseData.party_b && caseData.party_b.openid ? 'dual_collecting' : 'single_submitted',
+          analysisLock: false,
+          activeAnalysisId: null,
+          lockedEvidenceRevision: null,
+          updatedAt: now,
+        } });
+      }
+    });
+  }
+
   async function execute(candidate) {
     var job = await claim(candidate);
     if (!job || running[job._id]) return;
@@ -110,7 +140,8 @@ function createWorker(options) {
       await pipeline.run(job._id, { leaseOwner: workerId });
     } catch (error) {
       console.error('[AnalysisWorker] job failed ' + job._id + ':', error.message);
-      await fail(job, error);
+      if (error && error.code === 'ANALYSIS_CANCELED') await acknowledgeCanceled(job);
+      else await fail(job, error);
     } finally {
       delete running[job._id];
     }
@@ -145,7 +176,7 @@ function createWorker(options) {
     timer = null;
   }
 
-  return { start: start, stop: stop, kick: kick, claim: claim };
+  return { start: start, stop: stop, kick: kick, claim: claim, acknowledgeCanceled: acknowledgeCanceled };
 }
 
 module.exports = { createWorker: createWorker };
