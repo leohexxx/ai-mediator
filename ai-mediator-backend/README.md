@@ -5,7 +5,7 @@
 ```
 ai-mediator-backend/
 ├── cloudrun/                    # CloudRun 后端服务
-│   ├── server.js                # Express 入口 + WebSocket
+│   ├── server.js                # Express 入口
 │   ├── config.js                # 配置（环境变量）
 │   ├── Dockerfile               # 容器构建
 │   ├── docker-compose.yml       # 本地开发
@@ -114,7 +114,7 @@ docker build -t ai-mediator-backend .
 ## 技术栈
 
 - **运行时**: Node.js 20 + Express
-- **实时通信**: WebSocket (ws 库)
+- **进度读取**: 持久化状态 + 受权 HTTP 轮询
 - **数据库**: CloudBase NoSQL（@cloudbase/node-sdk）+ 本地 JSON 文件降级
 - **LLM**: DeepSeek API（多 key 轮询 + 故障切换）
 - **OCR**: OCR.space / 腾讯OCR

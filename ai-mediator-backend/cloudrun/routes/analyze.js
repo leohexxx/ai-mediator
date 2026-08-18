@@ -28,6 +28,12 @@ var ANALYSIS_USER_TEMPLATE = '## 案件背景\n{{caseContext}}\n\n## 聊天记�
   '  "advice": { "toA":[], "toB":[], "toBoth":[] }\n' +
   '}';
 
+function updateProgress(analysisId, status, step, message, progress) {
+  var data = { progress: { step: step, message: message, progress: progress } };
+  if (status) data.status = status;
+  return db.collection('analyses').doc(analysisId).update({ data: data });
+}
+
 /**
  * POST /api/analyze/start
  * 启动分析。创建记录后异步执行完整流水线，通过 WebSocket 推送进度。
@@ -68,7 +74,6 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
       },
     });
     var analysisId = analysisRes._id;
-    var pushProgress = req.app.get('pushProgress');
 
     // 3. 返回 analysisId，流水线在后台运行
     res.status(202).json({ code: 0, data: { analysisId: analysisId, status: 'queued' } });
@@ -76,13 +81,12 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
     // ════ 异步分析流水线 ════
     async function runPipeline() {
       try {
-        await db.collection('analyses').doc(analysisId).update({ data: { status: 'running' } });
-        pushProgress(analysisId, 'progress', { step: '格式化聊天记录', progress: 10 });
+        await updateProgress(analysisId, 'running', 'formatting', '正在格式化聊天记录...', 10);
 
         // 长文本先摘要
         var chatText = formatted;
         if (formatted.length > 8000) {
-          pushProgress(analysisId, 'progress', { step: '正在压缩长文本...', progress: 20 });
+          await updateProgress(analysisId, null, 'compressing', '正在压缩长文本...', 20);
           chatText = await llm.chatCompletion(
             '请压缩以下聊天记录，保留关键对话原文（说话人+时间戳），压缩为 1/3 长度。输出纯净文本。',
             [{ role: 'user', content: formatted }], 2048
@@ -90,14 +94,14 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
         }
 
         // 完整分析（一次 LLM 调用，不分阶段）
-        pushProgress(analysisId, 'progress', { step: '正在分析性格与综合判断...', progress: 40 });
+        await updateProgress(analysisId, null, 'analyzing', '正在分析性格与综合判断...', 40);
         var model = deep ? config.llm.deepModel : config.llm.model;
         var analysisText = await llm.chatCompletion(ANALYSIS_SYSTEM_PROMPT, [
           { role: 'user', content: ANALYSIS_USER_TEMPLATE.replace('{{caseContext}}', caseContext).replace('{{chatText}}', chatText) },
         ], 8192, model);
 
         // 解析 JSON
-        pushProgress(analysisId, 'progress', { step: '正在提取证据与情绪...', progress: 70 });
+        await updateProgress(analysisId, null, 'parsing', '正在提取证据与情绪...', 70);
         var jsonMatch = analysisText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error('LLM 返回格式异常，未找到 JSON');
         var result = JSON.parse(jsonMatch[0]);
@@ -110,7 +114,7 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
         }
 
         // 写数据库
-        pushProgress(analysisId, 'progress', { step: '正在制定调解策略...', progress: 90 });
+        await updateProgress(analysisId, null, 'finalizing', '正在制定调解策略...', 90);
         await db.collection('analyses').doc(analysisId).update({
           data: {
             coreConclusion: result.coreConclusion || {},
@@ -124,7 +128,6 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
           },
         });
 
-        pushProgress(analysisId, 'done', { analysisId: analysisId, result: result });
         console.log('[Analyze] complete: ' + analysisId);
 
       } catch (pipelineErr) {
@@ -135,7 +138,6 @@ router.post('/start', caseAccess.requireCaseAccess, async function (req, res, ne
             progress: { step: 'error', message: '分析失败，请稍后重试', progress: 0 },
           },
         }).catch(function () {});
-        pushProgress(analysisId, 'error', { message: pipelineErr.message });
       }
     }
 
