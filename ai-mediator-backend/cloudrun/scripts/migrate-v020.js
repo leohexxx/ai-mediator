@@ -25,6 +25,13 @@ function migratedStatus(caseData, hasEvidence) {
   return hasEvidence ? 'single_submitted' : caseData.status;
 }
 
+// The database adapter normalizes a missing document to `{ data: null }`.
+// Require a projected `_id` so an empty SDK response is never mistaken for an
+// already-migrated legacy batch.
+function documentExists(result) {
+  return !!(result && result.data && result.data._id);
+}
+
 async function run(apply) {
   db.assertReady();
   var evidence = await fetchAll('evidence');
@@ -40,7 +47,7 @@ async function run(apply) {
     var legacy = evidence[i];
     var batchId = 'legacy_' + legacy._id;
     var existing = await db.collection('evidence_batches').doc(batchId).get();
-    if (existing.data) continue;
+    if (documentExists(existing)) continue;
     batchWrites++;
     if (apply) {
       await db.collection('evidence_batches').doc(batchId).set({ data: {
@@ -93,4 +100,8 @@ if (apply && process.env.MIGRATION_CONFIRM !== 'v0.2.0') {
   console.error('Refusing to write: set MIGRATION_CONFIRM=v0.2.0 together with --apply');
   process.exit(2);
 }
-run(apply).catch(function (error) { console.error(error); process.exit(1); });
+if (require.main === module) {
+  run(apply).catch(function (error) { console.error(error); process.exit(1); });
+}
+
+module.exports = { documentExists: documentExists, migratedStatus: migratedStatus, run: run };

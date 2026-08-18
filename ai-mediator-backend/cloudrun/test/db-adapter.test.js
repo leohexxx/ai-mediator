@@ -8,6 +8,16 @@ var testStoreDir = path.join(require('node:os').tmpdir(), 'ai-mediator-db-test-'
 process.env.LOCAL_STORE_DIR = testStoreDir;
 var db = require('../services/db');
 
+test('native single-document reads are normalized from arrays to object or null', function () {
+  assert.deepEqual(db.normalizeDocumentResult({ data: [{ _id: 'one', value: 1 }] }).data, {
+    _id: 'one', value: 1,
+  });
+  assert.equal(db.normalizeDocumentResult({ data: [] }).data, null);
+  assert.deepEqual(db.normalizeDocumentResult({ data: { _id: 'already-normal' } }).data, {
+    _id: 'already-normal',
+  });
+});
+
 test.after(function () { fs.rmSync(testStoreDir, { recursive: true, force: true }); });
 
 test('local adapter uses the same { data } write contract as CloudBase facade', async function () {

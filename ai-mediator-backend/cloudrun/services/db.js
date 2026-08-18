@@ -82,10 +82,19 @@ function assignFields(target, fields) {
   return target;
 }
 
+// @cloudbase/node-sdk returns document reads as `{ data: [document] }`, while
+// the local adapter and the rest of the service use `{ data: document|null }`.
+// Normalize this boundary once so authorization and transaction code do not
+// accidentally read properties from the array object.
+function normalizeDocumentResult(result) {
+  if (!result || !Array.isArray(result.data)) return result;
+  return Object.assign({}, result, { data: result.data[0] || null });
+}
+
 // 将 node-sdk 的裸 data 参数适配成项目统一使用的云函数风格 { data }。
 function wrapNativeDocument(ref) {
   return {
-    get: function () { return ref.get(); },
+    get: function () { return ref.get().then(normalizeDocumentResult); },
     field: function (projection) { return wrapNativeDocument(ref.field(projection)); },
     update: function (options) { return ref.update(options.data); },
     set: function (options) { return ref.set(options.data); },
@@ -219,4 +228,5 @@ module.exports = {
     if (!app || typeof app.callFunction !== 'function') return Promise.reject(new Error('CloudBase function client is unavailable'));
     return app.callFunction({ name: name, data: data || {} });
   },
+  normalizeDocumentResult: normalizeDocumentResult,
 };
