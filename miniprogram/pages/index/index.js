@@ -12,6 +12,7 @@ Page({
     loading: true,
     hasMore: true,
     page: 1,
+    nextCursor: '',
     pageSize: 10,
     isEmpty: false,
     refreshing: false,
@@ -83,6 +84,7 @@ Page({
           caseList: list,
           loading: false,
           hasMore: res.data.hasMore || false,
+          nextCursor: res.data.nextCursor || '',
           isEmpty: list.length === 0,
           refreshing: false,
         });
@@ -105,7 +107,11 @@ Page({
     var nextPage = this.data.page + 1;
     this.setData({ loading: true });
 
-    caseService.getCaseList({ page: nextPage, pageSize: this.data.pageSize }).then(function (res) {
+    caseService.getCaseList({
+      page: nextPage,
+      pageSize: this.data.pageSize,
+      cursor: this.data.nextCursor,
+    }).then(function (res) {
       if (res.code === 0 && res.data) {
         var newList = (res.data.list || []).map(function (item) {
           return that.formatCaseItem(item);
@@ -115,6 +121,7 @@ Page({
           page: nextPage,
           loading: false,
           hasMore: res.data.hasMore || false,
+          nextCursor: res.data.nextCursor || '',
         });
       } else {
         that.setData({ loading: false });
@@ -126,30 +133,10 @@ Page({
 
   formatCaseItem: function (item) {
     item.formattedTime = formatUtil.formatTime(item.updatedAt || item.createdAt);
-    item.statusLabel = this.getStatusLabel(item.status);
-    item.statusType = this.getStatusType(item.status);
+    item.statusLabel = formatUtil.statusLabel(item.status);
+    item.statusType = formatUtil.statusType(item.status);
     item.isSingleMode = item.mode === 'single' || (!item.party_b || !item.party_b.openid);
     return item;
-  },
-
-  getStatusLabel: function (status) {
-    var map = {
-      'single_submitted': '已上传，待分析',
-      'waiting_party_b': '等待对方加入',
-      'waiting_submission': '等待上传',
-      'analyzing': '分析中...',
-      'single_completed': '分析完成',
-      'completed': '分析完成',
-      'expired': '已过期',
-    };
-    return map[status] || status || '未知';
-  },
-
-  getStatusType: function (status) {
-    if (status === 'single_completed' || status === 'completed') return 'success';
-    if (status === 'analyzing') return 'analyzing';
-    if (status === 'expired') return 'expired';
-    return 'pending';
   },
 
   /**
