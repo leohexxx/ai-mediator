@@ -1,102 +1,57 @@
-# ⚖️ AI 调解员
+# 啷个对 V3
 
-上传微信聊天截图/录屏，AI 分析人物关系、判断对错、给出中肯建议。
+微信小程序中的聊天证据整理与沟通分析工具。V3 在原 AppID 和原 CloudBase 环境上升级，不创建新小程序。
 
-## 功能
+产品不把 AI 包装成事实裁判。系统先整理可核对事实、证据质量和信息缺口，再使用大模型处理歧义、上下文和沟通建议。
 
-- 📸 **截图上传** — 支持微信聊天截图拖拽/粘贴上传，自动 OCR 提取文字
-- 🎬 **录屏识别** — 上传录屏自动提取关键帧并进行 OCR 识别
-- 👥 **人物识别** — 自动识别对话中的各方人物及其关系
-- ⚖️ **仲裁分析** — AI 客观分析谁对谁错，给出评分和理由
-- 💬 **交互式追问** — 分析后可继续向 AI 追问细节
-- 📎 **证据补充** — 支持追加证据触发重新分析
+## V3 核心能力
 
-## 技术栈
+- 单人模式和双人协作模式，任意有自己证据的一方均可启动分析。
+- 案件级分析锁、证据版本快照、任意参与方打断和幂等并发控制。
+- 每次选择最多 9 张截图，可连续追加至每案 100 张。
+- 腾讯高精度 OCR、长图切片、完全/近似重复过滤、低置信度人工校对。
+- 后端规则引擎直接计算消息归属、数量、时间覆盖、金额、日期、承诺、证据质量和安全信号。
+- 手机号、账号、邮箱及链接在进入模型前自动脱敏。
+- 证据不足或紧急安全风险由规则引擎直接响应，可不调用 DeepSeek。
+- 内置版本化调解知识库，以标签检索相关沟通和安全指引。
+- DeepSeek 仅处理复杂语义；快速/深度模型分级、有限重试、深度模型降级、报告缓存和 JSON/证据引用校验。
+- 报告展示共识、争议、缺失证据和下一步，不以前端输赢评分作为核心表达。
 
-| 层 | 技术 |
-|---|---|
-| 前端 | React 18 + TypeScript + Vite + Tailwind CSS |
-| OCR | Tesseract.js (客户端) |
-| 后端 | Node.js + Express + TypeScript |
-| AI | DeepSeek API / OpenAI API / Anthropic API（三选一） |
-| 存储 | IndexedDB (浏览器端) + 内存 Map (服务端) |
+## 目录
 
-## 快速开始
+```text
+miniprogram/                    原微信小程序前端
+ai-mediator-backend/cloudrun/   私有 CloudRun 后端
+cloudfunctions/                 邀请、案例读取等兼容云函数
+database-rules/                 客户端数据库安全规则
+docs/v0.3.0-architecture.md     V3 架构与决策边界
+docs/v0.3.0-release-runbook.md  V3 发布和回滚步骤
+```
 
-### 1. 安装依赖
+## 本地验证
 
 ```bash
-# 前端
 npm install
-
-# 后端
-cd server
-npm install
+npm install --prefix ai-mediator-backend/cloudrun
+npm run test:all
+npm run build
 ```
 
-### 2. 配置环境变量
+CloudRun 本地模式使用临时 JSON 数据库。生产环境必须通过环境变量注入：
 
-```bash
-cd server
-cp .env.example .env
-# 编辑 .env 填入你的 LLM_API_KEY
-```
+- `CLOUDBASE_ENV_ID`
+- `CLOUDBASE_APIKEY`
+- `LLM_API_KEYS`
+- `LLM_PROVIDER`
+- `LLM_MODEL`
+- `DEEP_LLM_MODEL`
+- 腾讯 OCR 凭据和通知内部令牌
 
-支持三个 LLM 提供商（在 `.env` 中设置 `LLM_PROVIDER`）：
+不得把任何真实凭据提交到 Git。
 
-| 提供商 | LLM_PROVIDER | LLM_MODEL（默认） | 获取 API Key |
-|--------|-------------|-------------------|-------------|
-| DeepSeek | `deepseek` | `deepseek-chat` | https://platform.deepseek.com |
-| OpenAI | `openai` | `gpt-4o` | https://platform.openai.com |
-| Anthropic | `anthropic` | `claude-sonnet-4-20250514` | https://console.anthropic.com |
+## 发布边界
 
-### 3. 启动开发服务器
-
-```bash
-# 终端 1: 启动后端 (端口 3001)
-cd server
-npm run dev
-
-# 终端 2: 启动前端 (端口 3000)
-npm run dev
-```
-
-打开 http://localhost:3000
-
-## 使用流程
-
-1. 点击「新建调解案例」
-2. 输入双方姓名和关系类型
-3. 上传聊天截图或录屏（支持双方分别上传）
-4. 点击「开始分析」
-5. 查看分析报告（摘要、人物画像、时间线、仲裁结果、建议）
-6. 在聊天框中追问细节
-7. 可补充证据触发重新分析
-
-## 阶段规划
-
-- ✅ **Phase 1 — MVP** (当前): Web 应用，截图上传 + OCR + AI 分析 + 交互式追问
-- 🔜 **Phase 2 — 增强**: 录屏帧提取优化、语音消息 STT、PWA 离线支持
-- 🔜 **Phase 3 — 原生**: Capacitor iOS/Android 打包，上架应用商店
-
-## 项目结构
-
-```
-app/
-├── src/
-│   ├── components/     # UI 组件
-│   ├── pages/          # 页面
-│   ├── hooks/          # 自定义 hooks
-│   ├── services/       # API 客户端
-│   ├── utils/          # 工具函数 (OCR, 存储)
-│   └── types/          # TypeScript 类型定义
-├── server/
-│   └── src/
-│       ├── routes/     # API 路由
-│       ├── services/   # 聊天解析, LLM 服务
-│       └── types.ts    # 服务端类型定义
-└── docs/
-    └── superpowers/
-        ├── specs/      # 设计规格文档
-        └── plans/      # 实现计划
-```
+- 小程序继续使用 `project.config.json` 中的原 AppID。
+- CloudRun 保持 `MINIAPP` 私有访问，不开启不必要的公网入口。
+- 正式发布前应用 `database-rules/server-only.json`，并使用双账号回归邀请、补证、并发分析、打断、追问和报告。
+- 隐私政策必须与真实供应商、保存期限和删除能力保持一致；当前版本不宣称已经具备一键删除全部云端数据的能力。
