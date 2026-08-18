@@ -1,23 +1,24 @@
 {
   "name": "ai-mediator-backend",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "CloudRun backend for AI Mediator mini program",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
     "dev:docker": "docker compose up --build",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "migrate:v0.2.0:dry-run": "node scripts/migrate-v020.js"
   },
   "dependencies": {
-    "express": "^4.21.0",
-    "cors": "^2.8.5",
-    "multer": "^1.4.5-lts.1",
-    "fluent-ffmpeg": "^2.1.3",
-    "sharp": "^0.33.5",
     "@cloudbase/node-sdk": "^3.10.4",
-    "uuid": "^10.0.0",
-    "dotenv": "^16.4.5"
-  },
-  "devDependencies": {}
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5",
+    "tencentcloud-sdk-nodejs-ocr": "^4.1.295",
+    "uuid": "^10.0.0"
+  }
 }

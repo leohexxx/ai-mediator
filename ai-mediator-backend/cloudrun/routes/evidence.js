@@ -23,6 +23,7 @@ router.post('/batches', async function (req, res, next) {
       parsedMessages: parsedMessages,
       fileIds: body.fileIds || [],
       sourceHashes: body.sourceHashes || [],
+      perceptualHashes: body.perceptualHashes || [],
       ocrBlocks: body.ocrBlocks || [],
       note: body.note || '',
       idempotencyKey: body.idempotencyKey || '',

@@ -1,5 +1,7 @@
 var uuid = require('uuid');
+var crypto = require('crypto');
 var defaultDb = require('./db');
+var config = require('../config');
 
 var LOCKED_STATUSES = ['analyzing', 'cancel_requested'];
 var ACTIVE_ANALYSIS_STATUSES = ['queued', 'running', 'cancel_requested'];
@@ -41,10 +43,21 @@ function contributorsFor(items, maxRevision) {
   return Object.keys(found).sort();
 }
 
+function buildEvidenceSummary(rawText) {
+  var text = String(rawText || '').trim();
+  if (text.length <= 6000) return text;
+  var sliceLength = 1400;
+  var starts = [0, Math.floor(text.length / 3), Math.floor(text.length * 2 / 3), Math.max(0, text.length - sliceLength)];
+  return starts.map(function (start, index) {
+    return '[摘要片段' + (index + 1) + ']\n' + text.slice(start, start + sliceLength);
+  }).join('\n\n');
+}
+
 function createWorkflow(options) {
   options = options || {};
   var db = options.db || defaultDb;
   var makeId = options.makeId || uuid.v4;
+  var rateLimitEnabled = options.rateLimitEnabled != null ? options.rateLimitEnabled : !config.localMode;
 
   async function appendEvidence(input) {
     var now = new Date().toISOString();
@@ -68,6 +81,14 @@ function createWorkflow(options) {
         }
       }
 
+      var existingEvidence = await queryAllEvidence(transaction, input.caseId);
+      var existingImageCount = existingEvidence.reduce(function (sum, item) {
+        return sum + ((item.fileIds && item.fileIds.length) || 0);
+      }, 0);
+      if (existingImageCount + (input.fileIds || []).length > config.ocr.maxImagesPerCase) {
+        throw httpError(400, 'CASE_IMAGE_LIMIT', '每个案例最多上传' + config.ocr.maxImagesPerCase + '张图片');
+      }
+
       var revision = (Number(caseData.evidenceRevision) || 0) + 1;
       var batch = {
         _id: batchId,
@@ -75,9 +96,11 @@ function createWorkflow(options) {
         party: role,
         revision: revision,
         rawText: input.rawText,
+        analysisInputSummary: buildEvidenceSummary(input.rawText),
         parsedMessages: input.parsedMessages || [],
         fileIds: input.fileIds || [],
         sourceHashes: input.sourceHashes || [],
+        perceptualHashes: input.perceptualHashes || [],
         ocrBlocks: input.ocrBlocks || [],
         note: input.note || '',
         status: 'ready',
@@ -86,7 +109,9 @@ function createWorkflow(options) {
         createdAt: now,
         updatedAt: now,
       };
-      await transaction.collection('evidence_batches').doc(batchId).set({ data: batch });
+      var batchData = Object.assign({}, batch);
+      delete batchData._id;
+      await transaction.collection('evidence_batches').doc(batchId).set({ data: batchData });
 
       var hasPartyB = !!(caseData.party_b && caseData.party_b.openid);
       var nextStatus = hasPartyB ? 'dual_collecting' : 'single_submitted';
@@ -128,6 +153,23 @@ function createWorkflow(options) {
         throw httpError(409, 'ANALYSIS_IN_PROGRESS', '对方或你已启动分析，请等待完成或先打断');
       }
 
+      var rateLimitRef = null;
+      var rateLimit = {};
+      var withinWindow = false;
+      var startCount = 0;
+      if (rateLimitEnabled) {
+        var rateLimitId = crypto.createHash('sha256').update(String(input.openid)).digest('hex');
+        rateLimitRef = transaction.collection('analysis_rate_limits').doc(rateLimitId);
+        var rateLimitResult = await rateLimitRef.get();
+        rateLimit = rateLimitResult.data || {};
+        var windowStartedAt = rateLimit.windowStartedAt ? new Date(rateLimit.windowStartedAt).getTime() : 0;
+        withinWindow = Date.now() - windowStartedAt < 60000;
+        startCount = withinWindow ? (Number(rateLimit.startCount) || 0) : 0;
+        if (startCount >= config.analysisJobs.perUserStartsPerMinute) {
+          throw httpError(429, 'ANALYSIS_RATE_LIMITED', '启动分析过于频繁，请稍后再试');
+        }
+      }
+
       var evidence = await queryAllEvidence(transaction, input.caseId);
       var revision = Number(caseData.evidenceRevision) || (evidence.length ? 1 : 0);
       if (input.evidenceRevision != null && Number(input.evidenceRevision) !== revision) {
@@ -167,7 +209,16 @@ function createWorkflow(options) {
         createdAt: now,
         updatedAt: now,
       };
-      await transaction.collection('analyses').doc(analysisId).set({ data: analysis });
+      var analysisData = Object.assign({}, analysis);
+      delete analysisData._id;
+      await transaction.collection('analyses').doc(analysisId).set({ data: analysisData });
+      if (rateLimitRef) {
+        await rateLimitRef.set({ data: {
+          windowStartedAt: withinWindow ? rateLimit.windowStartedAt : now,
+          startCount: startCount + 1,
+          updatedAt: now,
+        } });
+      }
       await caseRef.update({ data: {
         status: 'analyzing',
         analysisId: analysisId,
@@ -260,7 +311,8 @@ function createWorkflow(options) {
 
 module.exports = {
   createWorkflow: createWorkflow,
-  participantRole: participantRole,
+    participantRole: participantRole,
+    buildEvidenceSummary: buildEvidenceSummary,
   isLocked: isLocked,
   contributorsFor: contributorsFor,
   httpError: httpError,

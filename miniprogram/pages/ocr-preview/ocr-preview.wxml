@@ -6,7 +6,7 @@
   </view>
 
   <view class="message-list">
-    <view wx:for="{{parsedMessages}}" wx:key="index" class="msg-item">
+    <view wx:for="{{parsedMessages}}" wx:key="index" class="msg-item {{item.lowConfidence ? 'low-confidence' : ''}}">
       <view class="msg-header">
         <input
           class="speaker-input"
@@ -17,6 +17,7 @@
         />
         <text class="msg-type text-muted" wx:if="{{item.type !== 'text'}}">[{{item.type}}]</text>
         <text class="msg-time text-muted" wx:if="{{item.timestamp}}">{{item.timestamp}}</text>
+        <text class="confidence-warning" wx:if="{{item.lowConfidence}}">请校对 {{item.confidence}}%</text>
         <view class="msg-delete" data-index="{{index}}" bindtap="onDeleteMessage">×</view>
       </view>
       <textarea

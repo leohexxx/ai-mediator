@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════
 
 var cloudUtil = require('../utils/cloud');
+var cloudRun = require('../utils/cloudrun');
 
 /**
  * 上传聊天证据
@@ -15,12 +16,15 @@ var cloudUtil = require('../utils/cloud');
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
 function uploadEvidence(params) {
-  return cloudUtil.callFunction('uploadEvidence', {
+  return cloudRun.call('/api/evidence/batches', 'POST', {
     caseId: params.caseId,
     rawText: params.rawText,
     note: params.note || '',
     fileIds: params.fileIds || [],
-    supplement: params.supplement === true,
+    sourceHashes: params.sourceHashes || [],
+    perceptualHashes: params.perceptualHashes || [],
+    ocrBlocks: params.ocrBlocks || [],
+    idempotencyKey: params.idempotencyKey || cloudRun.idempotencyKey('evidence_' + params.caseId),
   });
 }
 
@@ -247,49 +251,48 @@ function ocrImageBase64(base64) {
  * @param {function(number, number): void} [onProgress] - 进度回调 (current, total)
  * @returns {Promise<{text: string, fileIds: string[]}>}
  */
-function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
+function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
+  var fs = wx.getFileSystemManager();
   var totalCount = tempFilePaths.length;
-  var textResults = [];
-  var fileIds = [];
-
-  function uploadOne(index) {
-    if (index >= totalCount) {
-      return {
-        text: textResults.join('\n\n--- 截图 ' + (index) + ' 结束 ---\n\n'),
-        fileIds: fileIds,
-      };
-    }
-
-    if (onProgress) onProgress(index + 1, totalCount);
-
-    var filePath = tempFilePaths[index];
-
-    // 先 OCR（用本地路径），同时上传云存储保存聊天内容
-    // OCR 是核心功能，上传是附属功能——上传失败不应影响 OCR 结果
-    var ocrPromise = ocrImage(filePath);
-    var uploadPromise = uploadImageToCloud(filePath, caseId).catch(function (e) {
-      console.warn('云存储上传失败（不影响 OCR）:', e && (e.errMsg || e.message));
-      return null;
+  var readTasks = tempFilePaths.map(function (filePath, index) {
+    return new Promise(function (resolve, reject) {
+      fs.readFile({ filePath: filePath, encoding: 'base64', success: function (res) {
+        if (onProgress) onProgress(index + 1, totalCount);
+        resolve({ base64: res.data, index: index });
+      }, fail: reject });
     });
-
-    return Promise.all([ocrPromise.catch(function (e) {
-      return { code: -1, data: null, message: e.message || 'OCR 失败' };
-    }), uploadPromise]).then(function (results) {
-      var ocrResult = results[0];
-      var fileID = results[1];
-
-      if (fileID) fileIds.push(fileID);
-
-      if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
-        textResults.push(ocrResult.data.text);
-      } else {
-        textResults.push('[截图' + (index + 1) + ' OCR 未识别到文字: ' + (ocrResult.message || '') + ']');
-      }
-      return uploadOne(index + 1);
-    });
-  }
-
-  return uploadOne(0);
+  });
+  var uploadTasks = tempFilePaths.map(function (filePath) {
+    return uploadImageToCloud(filePath, caseId).catch(function () { return null; });
+  });
+  return Promise.all([Promise.all(readTasks), Promise.all(uploadTasks)]).then(function (prepared) {
+    return cloudRun.call('/api/upload/ocr-batch', 'POST', {
+      caseId: caseId, images: prepared[0],
+      knownExactHashes: knownHashes && knownHashes.exact || [],
+      knownPerceptualHashes: knownHashes && knownHashes.perceptual || [],
+    })
+      .then(function (result) {
+        var data = result.data || {};
+        var images = data.images || [];
+        var blocks = [];
+        var hashes = [];
+        var perceptualHashes = [];
+        var acceptedFileIds = [];
+        images.forEach(function (image) {
+          if (!image.duplicate && !image.error) {
+            hashes.push(image.exactHash);
+            perceptualHashes.push(image.perceptualHash);
+            if (prepared[1][image.index]) acceptedFileIds.push(prepared[1][image.index]);
+            blocks = blocks.concat(image.blocks || []);
+          }
+        });
+        return {
+          text: data.text || '', fileIds: acceptedFileIds, images: images,
+          ocrBlocks: blocks, sourceHashes: hashes, perceptualHashes: perceptualHashes,
+          acceptedCount: data.acceptedCount || 0, duplicateCount: data.duplicateCount || 0,
+        };
+      });
+  });
 }
 
 /**

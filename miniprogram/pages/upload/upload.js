@@ -5,6 +5,7 @@
 var evidenceService = require('../../services/evidence');
 var analysisService = require('../../services/analysis');
 var caseService = require('../../services/case');
+var storage = require('../../utils/storage');
 
 Page({
   data: {
@@ -23,6 +24,13 @@ Page({
     ocrProgress: { current: 0, total: 0 },
     ocrProcessing: false,
     uploadedFileIds: [],
+    sourceHashes: [],
+    perceptualHashes: [],
+    ocrBlocks: [],
+    ocrConfirmed: false,
+    evidenceRevision: null,
+    pendingEvidenceKey: '',
+    pendingAnalysisKey: '',
     // 累计图片（支持分批追加）
     allTempFilePaths: [],
     // 视频
@@ -39,13 +47,41 @@ Page({
   },
 
   onLoad: function (options) {
+    var caseId = options.caseId || '';
+    var draft = storage.getJSON('evidence_draft_' + caseId, null);
     this.setData({
-      caseId: options.caseId || '',
+      caseId: caseId,
       role: options.role || 'party_a',
       mode: options.mode || 'single',
       supplement: options.supplement === '1',
-      showGuide: true,
+      chatText: draft && draft.chatText || '',
+      selectedImageCount: draft && draft.selectedImageCount || 0,
+      uploadedFileIds: draft && draft.uploadedFileIds || [],
+      sourceHashes: draft && draft.sourceHashes || [],
+      perceptualHashes: draft && draft.perceptualHashes || [],
+      ocrBlocks: draft && draft.ocrBlocks || [],
+      ocrConfirmed: draft && draft.ocrConfirmed === true,
+      pendingEvidenceKey: draft && draft.pendingEvidenceKey || '',
+      uploadMode: draft && draft.chatText ? 'album' : '',
+      showGuide: !(draft && draft.chatText),
     });
+  },
+
+  _saveDraft: function () {
+    storage.setJSON('evidence_draft_' + this.data.caseId, {
+      chatText: this.data.chatText,
+      selectedImageCount: this.data.selectedImageCount,
+      uploadedFileIds: this.data.uploadedFileIds || [],
+      sourceHashes: this.data.sourceHashes || [],
+      perceptualHashes: this.data.perceptualHashes || [],
+      ocrBlocks: this.data.ocrBlocks || [],
+      ocrConfirmed: this.data.ocrConfirmed === true,
+      pendingEvidenceKey: this.data.pendingEvidenceKey || '',
+    });
+  },
+
+  _clearDraft: function () {
+    storage.remove('evidence_draft_' + this.data.caseId);
   },
 
   onChooseMessageFile: function () {
@@ -66,6 +102,10 @@ Page({
 
   onChooseMedia: function () {
     var that = this;
+    if (that.data.selectedImageCount >= 100) {
+      wx.showToast({ title: '每个案例最多100张截图', icon: 'none' });
+      return;
+    }
 
     // ═══ 新增：首次进入提示字数限制 ═══
     if (!that.data._shownTextLimitTip) {
@@ -78,7 +118,7 @@ Page({
     }
     // ═══════════════════════════════════
 
-    evidenceService.chooseMedia(9).then(function (result) {
+    evidenceService.chooseMedia(Math.min(9, 100 - that.data.selectedImageCount)).then(function (result) {
       var imageCount = result.tempFilePaths.length;
 
       // 累加所有图片路径
@@ -99,8 +139,12 @@ Page({
    */
   onContinueChooseMedia: function () {
     var that = this;
+    if (that.data.selectedImageCount >= 100) {
+      wx.showToast({ title: '每个案例最多100张截图', icon: 'none' });
+      return;
+    }
 
-    evidenceService.chooseMedia(9).then(function (result) {
+    evidenceService.chooseMedia(Math.min(9, 100 - that.data.selectedImageCount)).then(function (result) {
       var imageCount = result.tempFilePaths.length;
 
       // 累加图片路径
@@ -147,7 +191,8 @@ Page({
           title: '识别中 ' + current + '/' + total + '...',
           mask: true,
         });
-      }
+      },
+      { exact: that.data.sourceHashes || [], perceptual: that.data.perceptualHashes || [] }
     ).then(function (ocrResult) {
       wx.hideLoading();
 
@@ -157,15 +202,14 @@ Page({
       var combinedText = oldText
         ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText
         : extractedText;
-      var totalCount = existingCount + imageCount;
+      var acceptedCount = ocrResult.acceptedCount != null ? ocrResult.acceptedCount : imageCount;
+      var totalCount = existingCount + acceptedCount;
       var allFileIds = (that.data.uploadedFileIds || []).concat(ocrResult.fileIds || []);
+      var allHashes = (that.data.sourceHashes || []).concat(ocrResult.sourceHashes || []);
+      var allPerceptualHashes = (that.data.perceptualHashes || []).concat(ocrResult.perceptualHashes || []);
+      var allBlocks = (that.data.ocrBlocks || []).concat(ocrResult.ocrBlocks || []);
 
-      // ═══ 新增：检查文字是否超过 10000 字 ═══
-      if (combinedText.length > 10000) {
-        that._handleOversizedText(combinedText, allFileIds, totalCount);
-        return;
-      }
-      // ═══════════════════════════════════════════
+      // 原文始终保留；长文本摘要由CloudRun按证据版本缓存处理。
 
       that.setData({
         ocrProcessing: false,
@@ -173,10 +217,16 @@ Page({
         chatText: combinedText,
         selectedImageCount: totalCount,
         uploadedFileIds: allFileIds,
+        sourceHashes: allHashes,
+        perceptualHashes: allPerceptualHashes,
+        ocrBlocks: allBlocks,
+        ocrConfirmed: false,
       });
+      that._saveDraft();
 
       if (extractedText.trim()) {
-        wx.showToast({ title: '识别成功，共 ' + totalCount + ' 张', icon: 'success' });
+        var duplicateTip = ocrResult.duplicateCount ? '，跳过重复' + ocrResult.duplicateCount + '张' : '';
+        wx.showToast({ title: '已识别' + totalCount + '张' + duplicateTip, icon: 'none' });
       } else {
         wx.showToast({ title: '该批未识别到文字', icon: 'none' });
       }
@@ -560,6 +610,11 @@ Page({
 
   onTextInput: function (e) {
     this.setData({ chatText: e.detail.value });
+    this._saveDraft();
+  },
+
+  onOpenOcrPreview: function () {
+    wx.navigateTo({ url: '/pages/ocr-preview/ocr-preview?caseId=' + this.data.caseId });
   },
 
   onNoteInput: function (e) {
@@ -575,8 +630,17 @@ Page({
       wx.showToast({ title: '请先上传或输入聊天记录', icon: 'none' });
       return;
     }
+    if (this.data.ocrBlocks && this.data.ocrBlocks.length && !this.data.ocrConfirmed) {
+      wx.showToast({ title: '请先校对并确认OCR结果', icon: 'none' });
+      this.onOpenOcrPreview();
+      return;
+    }
 
     this.setData({ submitting: true });
+    if (!this.data.pendingEvidenceKey) {
+      this.setData({ pendingEvidenceKey: 'evidence_' + this.data.caseId + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10) });
+      this._saveDraft();
+    }
     wx.showLoading({ title: '发送中...', mask: true });
 
     evidenceService.uploadEvidence({
@@ -584,15 +648,20 @@ Page({
       rawText: this.data.chatText,
       note: this.data.note,
       fileIds: this.data.uploadedFileIds || [],
-      supplement: this.data.supplement,
+      sourceHashes: this.data.sourceHashes || [],
+      perceptualHashes: this.data.perceptualHashes || [],
+      ocrBlocks: this.data.ocrBlocks || [],
+      idempotencyKey: this.data.pendingEvidenceKey,
     }).then(function (res) {
       wx.hideLoading();
 
       if (res.code === 0 && res.data) {
+        that.setData({ evidenceRevision: res.data.revision });
+        that._clearDraft();
         wx.showToast({ title: '已发送！', icon: 'success' });
 
         if (that.data.supplement) {
-          // 补充内容模式：跳过性格弹窗，直接开始分析（force=true）
+          // 补充内容模式：跳过性格弹窗，基于新证据版本开始分析
           that._startAnalysis(true);
         } else {
           // 普通模式：弹出性格信息弹窗
@@ -604,10 +673,10 @@ Page({
         that.setData({ submitting: false });
         wx.showToast({ title: res.message || '发送失败', icon: 'none' });
       }
-    }).catch(function () {
+    }).catch(function (error) {
       wx.hideLoading();
       that.setData({ submitting: false });
-      wx.showToast({ title: '发送失败，请重试', icon: 'none' });
+      wx.showToast({ title: error && error.errorCode === 'EVIDENCE_LOCKED' ? '请先打断当前分析' : '发送失败，请重试', icon: 'none' });
     });
   },
 
@@ -691,17 +760,26 @@ Page({
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
-   * @param {boolean} [force=false] - 强制重新分析（补充内容时使用）
+   * @param {boolean} [force=false] - 仅供旧云函数回滚链路标记重新分析
    */
   _startAnalysis: function (force) {
     var that = this;
     var deep = this.data.deepMode;
     this.setData({ showPersonalityModal: false });
 
+    if (!this.data.pendingAnalysisKey) {
+      this.setData({
+        pendingAnalysisKey: 'analysis_' + this.data.caseId + '_' + this.data.role + '_r' + (this.data.evidenceRevision || 'latest'),
+      });
+    }
+
     wx.showLoading({ title: '正在启动分析...', mask: true });
 
     // 等待 analyzeCase 返回（拿到 analysisId 后再跳转，避免报告页找不到分析记录）
-    analysisService.analyzeCase(this.data.caseId, force === true, deep).then(function (analysisRes) {
+    analysisService.analyzeCase(this.data.caseId, force === true, deep, {
+      evidenceRevision: this.data.evidenceRevision,
+      idempotencyKey: this.data.pendingAnalysisKey,
+    }).then(function (analysisRes) {
       wx.hideLoading();
 
       var analysisId = '';
@@ -730,14 +808,17 @@ Page({
     }).catch(function (err) {
       wx.hideLoading();
       console.warn('分析启动调用异常:', err);
-
-      // 降级：即使调用失败也跳转报告页（让轮询兜底）
-      var fallbackUrl = '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1';
-      if (that.data.supplement) {
-        wx.navigateBack();
-      } else {
-        wx.redirectTo({ url: fallbackUrl });
+      that.setData({ submitting: false });
+      if (err && err.errorCode === 'ANALYSIS_IN_PROGRESS') {
+        wx.showToast({ title: '对方已启动分析', icon: 'none' });
+        wx.redirectTo({ url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1' });
+        return;
       }
+      if (err && err.errorCode === 'EVIDENCE_REVISION_CHANGED') {
+        wx.showToast({ title: '证据版本已变化，请重新进入', icon: 'none' });
+        return;
+      }
+      wx.showToast({ title: (err && err.message) || '启动分析失败，请重试', icon: 'none' });
     });
   },
 });

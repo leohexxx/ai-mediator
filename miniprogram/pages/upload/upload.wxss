@@ -275,3 +275,10 @@
   color: var(--color-brand);
   background: transparent;
 }
+.btn-ocr-preview {
+  margin-bottom: 16rpx;
+  color: #b45309;
+  background: #fffbeb;
+  border: 1rpx solid #f59e0b;
+  font-size: 26rpx;
+}

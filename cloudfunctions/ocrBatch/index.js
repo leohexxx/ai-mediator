@@ -3,12 +3,11 @@
  * 职责: 接收多帧 base64 图片 → 并行 OCR → 返回合并文本
  *
  * 设计目的: 视频抽帧后，将 8-12 帧合并为一次云函数调用，大幅减少冷启动次数。
- * 每帧先尝试腾讯云 OCR，失败则降级 OCR.space。
+ * 每帧仅使用腾讯云 OCR，聊天截图不得发送到第三方 OCR 服务。
  * 帧间通过 Promise.all 并发控制（MAX_CONCURRENT=4）加速。
  */
 
 var cloud = require('wx-server-sdk');
-var https = require('https');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -31,64 +30,7 @@ function ocrViaTencentCloud(base64Image) {
 }
 
 /**
- * OCR.space 免费 API（降级方案）
- */
-function ocrViaOcrSpace(base64Image, mimeType) {
-  var API_KEY = process.env.OCR_SPACE_API_KEY;
-  if (!API_KEY) throw new Error('OCR_SPACE_API_KEY 未配置');
-  var ext = (mimeType || 'image/jpeg').split('/')[1] || 'jpg';
-  var payload =
-    'isOverlayRequired=false' +
-    '&base64Image=' + encodeURIComponent('data:' + (mimeType || 'image/jpeg') + ';base64,' + base64Image) +
-    '&OCREngine=2' +
-    '&filetype=' + ext.toUpperCase() +
-    '&language=chs';
-
-  return new Promise(function (resolve, reject) {
-    var options = {
-      hostname: 'api.ocr.space',
-      port: 443,
-      path: '/parse/image',
-      method: 'POST',
-      headers: {
-        'apikey': API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(payload, 'utf8'),
-      },
-      timeout: 30000,
-    };
-
-    var req = https.request(options, function (res) {
-      var chunks = [];
-      res.on('data', function (chunk) { chunks.push(chunk); });
-      res.on('end', function () {
-        var responseText = Buffer.concat(chunks).toString('utf8');
-        try {
-          var data = JSON.parse(responseText);
-          if (data.ParsedResults && data.ParsedResults.length > 0) {
-            var text = data.ParsedResults[0].ParsedText || '';
-            if (text.trim()) resolve(text);
-            else reject(new Error('OCR 未识别到文字'));
-          } else if (data.ErrorMessage) {
-            reject(new Error('OCR 错误: ' + data.ErrorMessage));
-          } else {
-            reject(new Error('OCR 返回为空'));
-          }
-        } catch (e) {
-          reject(new Error('解析 OCR 返回失败: ' + e.message));
-        }
-      });
-    });
-
-    req.on('error', function (err) { reject(err); });
-    req.on('timeout', function () { req.destroy(); reject(new Error('OCR 请求超时')); });
-    req.write(payload);
-    req.end();
-  });
-}
-
-/**
- * 单帧 OCR（先腾讯云，降级 OCR.space）
+ * 单帧 OCR（仅腾讯云）
  */
 async function ocrSingleFrame(base64Image, mimeType, timeIndex) {
   var cleaned = base64Image;
@@ -103,12 +45,7 @@ async function ocrSingleFrame(base64Image, mimeType, timeIndex) {
     text = await ocrViaTencentCloud(cleaned);
     method = 'tencent_cloud';
   } catch (tencentErr) {
-    try {
-      text = await ocrViaOcrSpace(cleaned, mimeType);
-      method = 'ocrspace';
-    } catch (ocrSpaceErr) {
-      return { timeIndex: timeIndex, text: '', method: 'failed', error: ocrSpaceErr.message };
-    }
+    return { timeIndex: timeIndex, text: '', method: 'failed', error: tencentErr.message };
   }
 
   return { timeIndex: timeIndex, text: text, method: method, error: null };

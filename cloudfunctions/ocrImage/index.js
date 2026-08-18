@@ -1,14 +1,13 @@
 /**
  * OCR 识别云函数 (v2)
- * 职责: 接收 base64 图片 → 优先腾讯云 OCR → 降级 OCR.space → 返回文字
+ * 职责: 接收 base64 图片 → 腾讯云 OCR → 返回文字
  *
  * 腾讯云 OCR（通过 wx-server-sdk cloud.openapi）:
  *   更精准的中文识别，需要 CloudBase 环境开通 OCR 能力
- *   如果未开通会自动降级到 OCR.space
+ *   如果未开通则明确失败，聊天截图不得发送到第三方 OCR 服务
  */
 
 var cloud = require('wx-server-sdk');
-var https = require('https');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -29,66 +28,6 @@ function ocrViaTencentCloud(base64Image) {
       }
     }
     throw new Error('腾讯云 OCR 返回为空');
-  });
-}
-
-/**
- * OCR.space 免费 API（降级方案）
- */
-function ocrViaOcrSpace(base64Image, mimeType) {
-  var API_KEY = process.env.OCR_SPACE_API_KEY;
-  if (!API_KEY) throw new Error('OCR_SPACE_API_KEY 未配置');
-  var ext = (mimeType || 'image/jpeg').split('/')[1] || 'jpg';
-  var payload =
-    'isOverlayRequired=false' +
-    '&base64Image=' + encodeURIComponent('data:' + (mimeType || 'image/jpeg') + ';base64,' + base64Image) +
-    '&OCREngine=2' +
-    '&filetype=' + ext.toUpperCase() +
-    '&language=chs';
-
-  return new Promise(function (resolve, reject) {
-    var options = {
-      hostname: 'api.ocr.space',
-      port: 443,
-      path: '/parse/image',
-      method: 'POST',
-      headers: {
-        'apikey': API_KEY,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(payload, 'utf8'),
-      },
-      timeout: 30000,
-    };
-
-    var req = https.request(options, function (res) {
-      var chunks = [];
-      res.on('data', function (chunk) { chunks.push(chunk); });
-      res.on('end', function () {
-        var responseText = Buffer.concat(chunks).toString('utf8');
-        try {
-          var data = JSON.parse(responseText);
-          if (data.ParsedResults && data.ParsedResults.length > 0) {
-            var text = data.ParsedResults[0].ParsedText || '';
-            if (text.trim()) {
-              resolve(text);
-            } else {
-              reject(new Error('OCR 未识别到文字'));
-            }
-          } else if (data.ErrorMessage) {
-            reject(new Error('OCR 错误: ' + data.ErrorMessage));
-          } else {
-            reject(new Error('OCR 返回为空'));
-          }
-        } catch (e) {
-          reject(new Error('解析 OCR 返回失败: ' + e.message));
-        }
-      });
-    });
-
-    req.on('error', function (err) { reject(err); });
-    req.on('timeout', function () { req.destroy(); reject(new Error('OCR 请求超时')); });
-    req.write(payload);
-    req.end();
   });
 }
 
@@ -115,7 +54,7 @@ exports.main = async function (event, context) {
         if (isPermError) {
           selfTestResult.tencentCloud = 'permission_denied';
           selfTestResult.error = e.message;
-          selfTestResult.note = '腾讯云 OCR 权限未生效，将降级 OCR.space';
+          selfTestResult.note = '腾讯云 OCR 权限未生效，识别请求将失败';
           console.error('[自检] 权限错误:', e.message);
         } else {
           selfTestResult.tencentCloud = 'accessible';
@@ -154,22 +93,14 @@ exports.main = async function (event, context) {
     var text = '';
     var method = '';
 
-    // 优先: 腾讯云 OCR（更精准的中文识别）
+    // 仅腾讯云 OCR（生产环境禁止把聊天截图发送到第三方）
     try {
       text = await ocrViaTencentCloud(base64Image);
       method = 'tencent_cloud';
       console.log('腾讯云 OCR 成功, 文字长度:', text.length);
     } catch (tencentErr) {
-      console.warn('腾讯云 OCR 失败, 降级 OCR.space:', tencentErr.message);
-      // 降级: OCR.space
-      try {
-        text = await ocrViaOcrSpace(base64Image, mimeType);
-        method = 'ocrspace';
-        console.log('OCR.space 成功, 文字长度:', text.length);
-      } catch (ocrSpaceErr) {
-        console.error('OCR.space 也失败:', ocrSpaceErr.message);
-        return { code: -1, data: null, message: 'OCR 识别失败: ' + ocrSpaceErr.message };
-      }
+      console.error('腾讯云 OCR 失败:', tencentErr.message);
+      return { code: -1, data: null, message: 'OCR 识别失败: ' + tencentErr.message };
     }
 
     return {

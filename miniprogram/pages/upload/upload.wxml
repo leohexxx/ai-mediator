@@ -82,6 +82,9 @@
 
   <!-- 文本输入区 -->
   <view class="text-input-area" wx:if="{{uploadMode}}">
+    <button wx:if="{{ocrBlocks.length > 0}}" class="btn-ocr-preview" bindtap="onOpenOcrPreview">
+      {{ocrConfirmed ? '✓ OCR已校对' : '校对OCR结果'}}（{{ocrBlocks.length}}段）
+    </button>
     <textarea
       class="text-input"
       placeholder="请在此粘贴聊天记录文本..."

@@ -13,8 +13,49 @@ var videoService = require('../services/video');
 var parser = require('../utils/chatFormatter');
 var auth = require('../middleware/auth');
 var caseAccess = require('../services/caseAccess');
+var db = require('../services/db');
+var metrics = require('../services/metrics');
 
 router.use(auth.requireAuth);
+
+router.post('/ocr-batch', caseAccess.requireCaseAccess, async function (req, res, next) {
+  try {
+    var images = (req.body && req.body.images) || [];
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ code: -1, errorCode: 'IMAGES_REQUIRED', data: null, message: '未提供图片' });
+    }
+    if (images.length > config.ocr.maxImagesPerBatch) {
+      return res.status(400).json({ code: -1, errorCode: 'IMAGE_BATCH_LIMIT', data: null, message: '每批最多上传' + config.ocr.maxImagesPerBatch + '张图片' });
+    }
+    var previous = await db.collection('evidence_batches').where({ caseId: req.body.caseId }).get();
+    var knownExactHashes = [];
+    var knownPerceptualHashes = [];
+    (previous.data || []).forEach(function (batch) {
+      knownExactHashes = knownExactHashes.concat(batch.sourceHashes || []);
+      knownPerceptualHashes = knownPerceptualHashes.concat(batch.perceptualHashes || []);
+    });
+    knownExactHashes = knownExactHashes.concat(req.body.knownExactHashes || []);
+    knownPerceptualHashes = knownPerceptualHashes.concat(req.body.knownPerceptualHashes || []);
+    var detailed = await ocrService.batchOcrDetailed(images.map(function (item) { return item.base64 || ''; }), {
+      knownExactHashes: knownExactHashes,
+      knownPerceptualHashes: knownPerceptualHashes,
+    });
+    var accepted = detailed.filter(function (item) { return !item.duplicate && !item.error; });
+    metrics.increment('ocr_images_completed', accepted.length);
+    metrics.increment('ocr_images_duplicate', detailed.filter(function (item) { return item.duplicate; }).length);
+    metrics.increment('ocr_images_failed', detailed.filter(function (item) { return !!item.error; }).length);
+    var mergedText = accepted.map(function (item, index) {
+      return item.text + '\n\n--- 截图 ' + (index + 1) + ' 结束 ---';
+    }).join('\n\n');
+    res.json({ code: 0, data: {
+      text: mergedText,
+      images: detailed,
+      acceptedCount: accepted.length,
+      duplicateCount: detailed.filter(function (item) { return item.duplicate; }).length,
+      failedCount: detailed.filter(function (item) { return !!item.error; }).length,
+    }, message: 'ok' });
+  } catch (error) { next(error); }
+});
 
 // multer 配本地临时存储
 var upload = multer({
@@ -46,7 +87,8 @@ router.post('/ocr-images', upload.array('images', 20), caseAccess.requireCaseAcc
     var base64List = (await Promise.all(base64Promises)).filter(Boolean);
 
     // 并行 OCR
-    var texts = await ocrService.batchOcr(base64List);
+    var detailed = await ocrService.batchOcrDetailed(base64List);
+    var texts = detailed.map(function (item) { return item.duplicate ? '' : item.text; });
 
     // 合并
     var mergedText = texts.map(function (t, i) {
@@ -56,7 +98,7 @@ router.post('/ocr-images', upload.array('images', 20), caseAccess.requireCaseAcc
     var messages = parser.parseWeChatChatLog(mergedText);
     res.json({
       code: 0,
-      data: { text: mergedText, messageCount: messages.length, imageCount: files.length },
+      data: { text: mergedText, messageCount: messages.length, imageCount: files.length, images: detailed },
     });
   } catch (err) { next(err); }
 });

@@ -9,6 +9,7 @@ var config = {
   // CloudBase 环境
   cloudbase: {
     envId: process.env.CLOUDBASE_ENV_ID || '',
+    apiKey: process.env.CLOUDBASE_APIKEY || '',
     secretId: process.env.CLOUDBASE_SECRET_ID || '',
     secretKey: process.env.CLOUDBASE_SECRET_KEY || '',
   },
@@ -30,11 +31,17 @@ var config = {
 
   // OCR
   ocr: {
-    provider: process.env.OCR_PROVIDER || 'ocrspace',
-    ocrSpaceKey: process.env.OCR_SPACE_API_KEY || '',
+    provider: process.env.OCR_PROVIDER || 'tencent',
     tencentSecretId: process.env.TENCENT_OCR_SECRET_ID || '',
     tencentSecretKey: process.env.TENCENT_OCR_SECRET_KEY || '',
+    region: process.env.TENCENT_OCR_REGION || 'ap-guangzhou',
     maxConcurrent: parseInt(process.env.OCR_MAX_CONCURRENT || '4', 10),
+    maxImagesPerBatch: parseInt(process.env.OCR_MAX_IMAGES_PER_BATCH || '9', 10),
+    maxImagesPerCase: parseInt(process.env.OCR_MAX_IMAGES_PER_CASE || '100', 10),
+    maxImageBytes: parseInt(process.env.OCR_MAX_IMAGE_BYTES || String(10 * 1024 * 1024), 10),
+    tileHeight: parseInt(process.env.OCR_TILE_HEIGHT || '1800', 10),
+    tileOverlap: parseInt(process.env.OCR_TILE_OVERLAP || '120', 10),
+    lowConfidenceThreshold: parseFloat(process.env.OCR_LOW_CONFIDENCE || '88'),
   },
 
   // 视频
@@ -48,7 +55,12 @@ var config = {
     leaseMs: parseInt(process.env.ANALYSIS_JOB_LEASE_MS || '600000', 10),
     maxAttempts: parseInt(process.env.ANALYSIS_JOB_MAX_ATTEMPTS || '3', 10),
     maxConcurrent: parseInt(process.env.ANALYSIS_JOB_MAX_CONCURRENT || '2', 10),
+    perUserStartsPerMinute: parseInt(process.env.ANALYSIS_USER_STARTS_PER_MINUTE || '5', 10),
   },
+
+  miniprogramState: ['developer', 'trial', 'formal'].indexOf(process.env.MINIPROGRAM_STATE) !== -1
+    ? process.env.MINIPROGRAM_STATE : 'developer',
+  notificationInternalToken: process.env.NOTIFICATION_INTERNAL_TOKEN || '',
 
   // 本地模式
   localMode: process.env.LOCAL_MODE === 'true',
