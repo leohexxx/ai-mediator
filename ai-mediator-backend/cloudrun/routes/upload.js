@@ -15,17 +15,26 @@ var auth = require('../middleware/auth');
 var caseAccess = require('../services/caseAccess');
 var db = require('../services/db');
 var metrics = require('../services/metrics');
+var evidenceStorage = require('../services/evidenceStorage');
 
 router.use(auth.requireAuth);
 
 router.post('/ocr-batch', caseAccess.requireCaseAccess, async function (req, res, next) {
   try {
-    var images = (req.body && req.body.images) || [];
-    if (!Array.isArray(images) || images.length === 0) {
+    var body = req.body || {};
+    var fileIds = body.fileIds || [];
+    var images = body.images || [];
+    if ((!Array.isArray(fileIds) || fileIds.length === 0) && (!Array.isArray(images) || images.length === 0)) {
       return res.status(400).json({ code: -1, errorCode: 'IMAGES_REQUIRED', data: null, message: '未提供图片' });
     }
-    if (images.length > config.ocr.maxImagesPerBatch) {
+    var imageCount = fileIds.length || images.length;
+    if (imageCount > config.ocr.maxImagesPerBatch) {
       return res.status(400).json({ code: -1, errorCode: 'IMAGE_BATCH_LIMIT', data: null, message: '每批最多上传' + config.ocr.maxImagesPerBatch + '张图片' });
+    }
+    // V3.7 起，小程序只传 fileID，避免 Base64 图片穿过 callContainer 请求限制。
+    // 保留 images 兜底以兼容尚未更新的小程序包，发布新包后可移除。
+    if (Array.isArray(fileIds) && fileIds.length) {
+      images = await evidenceStorage.loadCaseEvidenceImages(fileIds, body.caseId);
     }
     var previous = await db.collection('evidence_batches').where({ caseId: req.body.caseId }).get();
     var knownExactHashes = [];
@@ -34,8 +43,8 @@ router.post('/ocr-batch', caseAccess.requireCaseAccess, async function (req, res
       knownExactHashes = knownExactHashes.concat(batch.sourceHashes || []);
       knownPerceptualHashes = knownPerceptualHashes.concat(batch.perceptualHashes || []);
     });
-    knownExactHashes = knownExactHashes.concat(req.body.knownExactHashes || []);
-    knownPerceptualHashes = knownPerceptualHashes.concat(req.body.knownPerceptualHashes || []);
+    knownExactHashes = knownExactHashes.concat(body.knownExactHashes || []);
+    knownPerceptualHashes = knownPerceptualHashes.concat(body.knownPerceptualHashes || []);
     var detailed = await ocrService.batchOcrDetailed(images.map(function (item) { return item.base64 || ''; }), {
       knownExactHashes: knownExactHashes,
       knownPerceptualHashes: knownPerceptualHashes,

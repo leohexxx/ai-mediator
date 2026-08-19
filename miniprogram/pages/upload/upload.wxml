@@ -32,6 +32,7 @@
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
         已识别 {{selectedImageCount}} 张截图
       </view>
+      <view class="upload-error" wx:if="{{uploadMode === 'album' && ocrError}}">{{ocrError}}</view>
     </view>
 
     <!-- 继续添加（图片超过9张时出现） -->

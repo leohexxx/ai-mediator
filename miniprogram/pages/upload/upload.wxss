@@ -17,6 +17,7 @@
 .upload-title { color: var(--color-text-primary); font-size: 30rpx; font-weight: 650; }
 .upload-desc { max-width: 560rpx; margin-top: 6rpx; color: var(--color-text-muted); font-size: 22rpx; line-height: 1.55; }
 .upload-file-name { margin-top: 14rpx; font-size: 22rpx; font-weight: 600; }
+.upload-error { margin-top: 13rpx; color: var(--color-error); font-size: 20rpx; line-height: 1.55; word-break: break-all; }
 .add-more-row { padding: 2rpx 0 8rpx; }
 .btn-add-more { display: flex; align-items: center; justify-content: center; min-height: 76rpx; color: var(--color-brand-light); background: rgba(169,79,96,.08); border: 1rpx dashed rgba(201,120,136,.45); border-radius: var(--radius-md); font-size: 23rpx; }
 .btn-add-more:active { background: rgba(169,79,96,.16); }

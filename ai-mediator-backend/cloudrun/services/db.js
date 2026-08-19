@@ -228,5 +228,13 @@ module.exports = {
     if (!app || typeof app.callFunction !== 'function') return Promise.reject(new Error('CloudBase function client is unavailable'));
     return app.callFunction({ name: name, data: data || {} });
   },
+  downloadFile: function (fileID) {
+    if (config.localMode) return Promise.reject(new Error('Cloud storage download is unavailable in local mode'));
+    if (!app || typeof app.downloadFile !== 'function') return Promise.reject(new Error('CloudBase storage client is unavailable'));
+    return app.downloadFile({ fileID: fileID }).then(function (result) {
+      if (!result || !result.fileContent) throw new Error('CloudBase storage returned an empty file');
+      return Buffer.isBuffer(result.fileContent) ? result.fileContent : Buffer.from(result.fileContent);
+    });
+  },
   normalizeDocumentResult: normalizeDocumentResult,
 };

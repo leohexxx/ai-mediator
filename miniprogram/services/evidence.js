@@ -153,22 +153,18 @@ function uploadVideoToCloud(filePath, caseId) {
  * @returns {Promise<{text: string, fileIds: string[]}>}
  */
 function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
-  var fs = wx.getFileSystemManager();
   var totalCount = tempFilePaths.length;
-  var readTasks = tempFilePaths.map(function (filePath, index) {
-    return new Promise(function (resolve, reject) {
-      fs.readFile({ filePath: filePath, encoding: 'base64', success: function (res) {
-        if (onProgress) onProgress(index + 1, totalCount);
-        resolve({ base64: res.data, index: index });
-      }, fail: reject });
+  var completedCount = 0;
+  var uploadTasks = tempFilePaths.map(function (filePath) {
+    return uploadImageToCloud(filePath, caseId).then(function (fileId) {
+      completedCount++;
+      if (onProgress) onProgress(completedCount, totalCount);
+      return fileId;
     });
   });
-  var uploadTasks = tempFilePaths.map(function (filePath) {
-    return uploadImageToCloud(filePath, caseId).catch(function () { return null; });
-  });
-  return Promise.all([Promise.all(readTasks), Promise.all(uploadTasks)]).then(function (prepared) {
+  return Promise.all(uploadTasks).then(function (fileIds) {
     return cloudRun.call('/api/upload/ocr-batch', 'POST', {
-      caseId: caseId, images: prepared[0],
+      caseId: caseId, fileIds: fileIds,
       knownExactHashes: knownHashes && knownHashes.exact || [],
       knownPerceptualHashes: knownHashes && knownHashes.perceptual || [],
     })
@@ -183,7 +179,7 @@ function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
           if (!image.duplicate && !image.error) {
             hashes.push(image.exactHash);
             perceptualHashes.push(image.perceptualHash);
-            if (prepared[1][image.index]) acceptedFileIds.push(prepared[1][image.index]);
+            if (fileIds[image.index]) acceptedFileIds.push(fileIds[image.index]);
             blocks = blocks.concat(image.blocks || []);
           }
         });

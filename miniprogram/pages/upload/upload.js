@@ -28,6 +28,7 @@ Page({
     perceptualHashes: [],
     ocrBlocks: [],
     ocrConfirmed: false,
+    ocrError: '',
     evidenceRevision: null,
     pendingEvidenceKey: '',
     pendingAnalysisKey: '',
@@ -208,6 +209,7 @@ Page({
       showGuide: false,
       ocrProcessing: true,
       ocrProgress: { current: 0, total: imageCount },
+      ocrError: '',
     });
 
     wx.showLoading({ title: '上传并识别中...', mask: true });
@@ -247,6 +249,7 @@ Page({
       that.setData({
         ocrProcessing: false,
         ocrProgress: { current: imageCount, total: imageCount },
+        ocrError: '',
         chatText: combinedText,
         selectedImageCount: totalCount,
         uploadedFileIds: allFileIds,
@@ -265,13 +268,21 @@ Page({
       }
     }).catch(function (err) {
       wx.hideLoading();
-      console.error('OCR 失败:', err);
+      var errorCode = (err && err.errorCode) || 'OCR_REQUEST_FAILED';
+      var errorMessage = (err && (err.message || err.errMsg)) || '请求未到达识别服务';
+      var errorSummary = errorCode + '：' + String(errorMessage).slice(0, 80);
+      console.error('OCR 失败:', { errorCode: errorCode, message: errorMessage, statusCode: err && err.statusCode });
 
       that.setData({
         ocrProcessing: false,
-        chatText: that.data.chatText || '[截图处理失败: ' + (err.message || '请重试') + '。您可以改用"直接粘贴文本"方式上传。]',
+        ocrError: errorSummary,
+        chatText: that.data.chatText || '[截图处理失败: ' + errorMessage + '。您可以改用"直接粘贴文本"方式上传。]',
       });
-      wx.showToast({ title: '识别失败，请重试', icon: 'none' });
+      wx.showModal({
+        title: '图片识别失败',
+        content: errorSummary + '\n可重新选择本批图片，或改用粘贴文本。',
+        showCancel: false,
+      });
     });
   },
 
