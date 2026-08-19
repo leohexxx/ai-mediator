@@ -303,11 +303,12 @@ function buildBatchSummary(parsedMessages, party, revision) {
   ].join('\n').slice(0, 8000);
 }
 
-function evidenceFingerprint(caseId, revision, batches, mode, model) {
+function evidenceFingerprint(caseId, revision, batches, mode, model, supplementalContext) {
   var stable = (batches || []).map(function (batch) {
     return [batch._id || '', Number(batch.revision) || 1, (batch.sourceHashes || []).join(','), String(batch.rawText || '').length].join(':');
   }).join('|');
-  return crypto.createHash('sha256').update([PROMPT_VERSION, caseId, revision, mode, model, stable].join('|')).digest('hex');
+  var context = supplementalContext ? JSON.stringify(supplementalContext) : '';
+  return crypto.createHash('sha256').update([PROMPT_VERSION, caseId, revision, mode, model, stable, context].join('|')).digest('hex');
 }
 
 module.exports = {

@@ -49,3 +49,17 @@ test('证据不足时规则引擎直接完成报告且不调用LLM', async funct
   await db.collection('evidence_batches').doc(batchId).remove();
   await db.collection('cases').doc(caseId).remove();
 });
+
+test('MBTI 与星座只作为可选沟通偏好，且会进入缓存区分', function () {
+  var preferences = pipeline.communicationPreferences({
+    party_a: { personality: { mbti: 'INFJ', zodiac: 'cancer', element: '水象', injected: 'ignore' } },
+    party_b: { personality: { mbti: 'INVALID', zodiac: 'unknown' } },
+  });
+  assert.deepEqual(preferences.partyA, { mbti: 'INFJ', zodiac: 'cancer', element: '水象' });
+  assert.equal(preferences.partyB, null);
+  assert.match(preferences.usage, /不.*事实.*责任.*置信度/);
+  var intelligence = require('../services/evidenceIntelligence');
+  var base = intelligence.evidenceFingerprint('case-1', 1, [], 'quick', 'flash', { partyA: null, partyB: null });
+  var withPreference = intelligence.evidenceFingerprint('case-1', 1, [], 'quick', 'flash', preferences);
+  assert.notEqual(base, withPreference);
+});

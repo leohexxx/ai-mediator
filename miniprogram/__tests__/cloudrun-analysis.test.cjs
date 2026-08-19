@@ -41,6 +41,9 @@ async function run() {
   var analysisSource = fs.readFileSync(path.join(__dirname, '../services/analysis.js'), 'utf8');
   var evidenceSource = fs.readFileSync(path.join(__dirname, '../services/evidence.js'), 'utf8');
   var uploadPageSource = fs.readFileSync(path.join(__dirname, '../pages/upload/upload.js'), 'utf8');
+  var uploadMarkup = fs.readFileSync(path.join(__dirname, '../pages/upload/upload.wxml'), 'utf8');
+  var reportPageSource = fs.readFileSync(path.join(__dirname, '../pages/report/report.js'), 'utf8');
+  var reportPageMarkup = fs.readFileSync(path.join(__dirname, '../pages/report/report.wxml'), 'utf8');
   var homeMarkup = fs.readFileSync(path.join(__dirname, '../pages/index/index.wxml'), 'utf8');
   var reportMarkup = fs.readFileSync(path.join(__dirname, '../components/core-verdict/core-verdict.wxml'), 'utf8');
   var progressMarkup = fs.readFileSync(path.join(__dirname, '../components/analysis-progress/analysis-progress.wxml'), 'utf8');
@@ -56,6 +59,11 @@ async function run() {
   assert.strictEqual(reportMarkup.includes('更有理'), false, 'V3 report must not lead with winner language');
   assert.ok(reportMarkup.includes('还缺什么'), 'V3 report must expose missing evidence');
   assert.ok(progressMarkup.includes('不展示模型内部思考'), 'Progress UI must distinguish task state from model reasoning');
+  assert.ok(uploadMarkup.includes('personality-picker'), 'Upload flow must retain optional MBTI and zodiac input');
+  assert.ok(reportPageMarkup.includes('沟通偏好参考'), 'Report must display optional communication preferences');
+  assert.ok(reportPageMarkup.includes('不用于判断事实、责任或证据充分度'), 'Preference UI must state its evidence boundary');
+  assert.ok(uploadPageSource.includes('updatePersonality'), 'Preferences must save before analysis starts');
+  assert.ok(reportPageSource.includes('updatePersonality'), 'Preferences must be editable from the report');
 
   var started = await analysis.analyzeCase('case-1', true, true, { evidenceRevision: 2, idempotencyKey: 'start-1' });
   assert.strictEqual(started.data.analysisId, 'a-1');

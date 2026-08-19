@@ -97,7 +97,8 @@
   <view class="analysis-mode-modal">
     <view class="modal-kicker">EVIDENCE SAVED</view>
     <view class="modal-title">第 {{evidenceRevision || 1}} 版证据已保存</view>
-    <view class="modal-subtitle">性格类型和星座不参与事实归属判断。请选择本轮分析深度。</view>
+    <view class="modal-subtitle">可选填写 MBTI 与星座，帮助调整沟通建议的表达方式；它们不参与事实归属、责任或置信度判断。</view>
+    <personality-picker id="personalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="{{personalityLabelA}}" party-b-label="{{personalityLabelB}}" hint-text="可选：补充双方的沟通偏好参考" />
     <view class="mode-comparison">
       <view class="analysis-option">
         <view class="option-name">快速分析</view>

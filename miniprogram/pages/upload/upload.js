@@ -4,6 +4,7 @@
 
 var evidenceService = require('../../services/evidence');
 var analysisService = require('../../services/analysis');
+var caseService = require('../../services/case');
 var storage = require('../../utils/storage');
 
 Page({
@@ -38,6 +39,12 @@ Page({
 
     // 证据保存后的分析方式面板（沿用字段名以兼容旧状态）
     showPersonalityModal: false,
+    personalityA: null,
+    personalityB: null,
+    canEditPersonalityA: true,
+    canEditPersonalityB: true,
+    personalityLabelA: '发起方的沟通偏好',
+    personalityLabelB: '受邀方的沟通偏好',
     // 深度模式（Pro 模型，更深入但更慢）
     deepMode: false,
     // 视频帧 OCR 的离屏 canvas 缓存
@@ -62,6 +69,31 @@ Page({
       pendingEvidenceKey: draft && draft.pendingEvidenceKey || '',
       uploadMode: draft && draft.chatText ? 'album' : '',
       showGuide: !(draft && draft.chatText),
+      canEditPersonalityA: options.mode === 'single' || (options.role || 'party_a') === 'party_a',
+      canEditPersonalityB: options.mode === 'single' || (options.role || 'party_a') === 'party_b',
+    });
+    this._loadPersonality();
+  },
+
+  /** 资料只作为沟通偏好参考，读取后回填到分析前的可选面板。 */
+  _loadPersonality: function () {
+    var that = this;
+    if (!this.data.caseId) return;
+    caseService.getCaseDetail(this.data.caseId, { summaryOnly: true }).then(function (res) {
+      var caseData = res && res.data && res.data.caseData;
+      if (!caseData) return;
+      var isSingle = caseData.mode === 'single';
+      var currentRole = res.data.role || that.data.role;
+      that.setData({
+        mode: caseData.mode || that.data.mode,
+        role: currentRole,
+        personalityA: caseData.party_a && caseData.party_a.personality || null,
+        personalityB: caseData.party_b && caseData.party_b.personality || null,
+        canEditPersonalityA: isSingle || currentRole === 'party_a',
+        canEditPersonalityB: isSingle || currentRole === 'party_b',
+      });
+    }).catch(function () {
+      // 不阻断证据上传；性格资料始终是可选项。
     });
   },
 
@@ -626,13 +658,11 @@ Page({
 
   // ===== 分析方式面板 =====
 
-  /**
-   * 深度分析：不使用性格类型判断事实，只切换模型深度
-   */
+  /** 深度分析；人格资料仅用于调整建议的表达方式。 */
   onPersonalityConfirm: function () {
     var that = this;
     this.setData({ deepMode: true });
-    that._requestSubscribe(function () { that._startAnalysis(false); });
+    that._requestSubscribe(function () { that._savePersonalityThenStart(); });
   },
 
   /**
@@ -641,7 +671,31 @@ Page({
   onPersonalitySkip: function () {
     var that = this;
     this.setData({ deepMode: false });
-    that._requestSubscribe(function () { that._startAnalysis(false); });
+    that._requestSubscribe(function () { that._savePersonalityThenStart(); });
+  },
+
+  _savePersonalityThenStart: function () {
+    var that = this;
+    var picker = this.selectComponent('#personalityPicker');
+    var profiles = picker ? picker.getData() : null;
+    if (!profiles || !(profiles.personalityA || profiles.personalityB)) {
+      that._startAnalysis(false);
+      return;
+    }
+    caseService.updatePersonality(this.data.caseId, profiles.personalityA, profiles.personalityB)
+      .then(function (res) {
+        var data = res && res.data || {};
+        that.setData({
+          personalityA: data.personalityA || profiles.personalityA || null,
+          personalityB: data.personalityB || profiles.personalityB || null,
+        });
+      })
+      .catch(function () {
+        wx.showToast({ title: '沟通偏好未保存，将按默认方式分析', icon: 'none' });
+      })
+      .then(function () {
+        that._startAnalysis(false);
+      });
   },
 
   /**

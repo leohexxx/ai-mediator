@@ -7,7 +7,7 @@
   margin-bottom: 24rpx;
   padding: 16rpx 20rpx;
   border-radius: 12rpx;
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-success-bg);
   font-size: 24rpx;
   color: var(--color-brand);
   text-align: center;
@@ -57,5 +57,5 @@
 
 .picker-value.selected {
   color: var(--color-text-primary);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--color-success-bg);
 }

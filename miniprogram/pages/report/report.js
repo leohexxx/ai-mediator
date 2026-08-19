@@ -24,6 +24,16 @@ Page({
     shareCardData: null,
     shareLoading: false,
 
+    // 可选沟通偏好资料；不参与事实、责任或置信度判断。
+    showPersonalityEditor: false,
+    personalitySaving: false,
+    personalityA: null,
+    personalityB: null,
+    personalityTextA: '',
+    personalityTextB: '',
+    canEditPersonalityA: true,
+    canEditPersonalityB: true,
+
     canceling: false,
     /** 是否为补充内容后的重新分析 */
     isReanalysis: false,
@@ -194,11 +204,21 @@ Page({
       if (res.code === 0 && res.data) {
         var caseData = res.data.caseData;
         var analysis = res.data.analysis;
+        var currentRole = res.data.role || '';
+        var isSingle = caseData && caseData.mode === 'single';
+        var personalityA = caseData && caseData.party_a && caseData.party_a.personality || null;
+        var personalityB = caseData && caseData.party_b && caseData.party_b.personality || null;
 
         that.setData({
           caseData: caseData,
-          role: res.data.role,
+          role: currentRole,
           loading: false,
+          personalityA: personalityA,
+          personalityB: personalityB,
+          personalityTextA: that._formatPersonalityDisplay(personalityA),
+          personalityTextB: that._formatPersonalityDisplay(personalityB),
+          canEditPersonalityA: isSingle || currentRole === 'party_a',
+          canEditPersonalityB: isSingle || currentRole === 'party_b',
         });
 
         if (analysis && analysis.restricted) {
@@ -458,6 +478,72 @@ Page({
       }
       return that._waitForCancellation(analysisId, attempt + 1);
     });
+  },
+
+  // ===== 沟通偏好（MBTI / 星座） =====
+
+  onEditPersonality: function () {
+    if (this._isAnalyzing()) {
+      wx.showToast({ title: '请等待当前分析结束后再修改沟通偏好', icon: 'none' });
+      return;
+    }
+    this.setData({ showPersonalityEditor: true });
+  },
+
+  onClosePersonalityEditor: function () {
+    if (!this.data.personalitySaving) this.setData({ showPersonalityEditor: false });
+  },
+
+  onSavePersonality: function () {
+    var that = this;
+    var picker = this.selectComponent('#reportPersonalityPicker');
+    var profiles = picker ? picker.getData() : null;
+    if (!profiles || !(profiles.personalityA || profiles.personalityB)) {
+      wx.showToast({ title: '请至少填写一项沟通偏好', icon: 'none' });
+      return;
+    }
+    this.setData({ personalitySaving: true });
+    wx.showLoading({ title: '正在保存偏好...', mask: true });
+    caseService.updatePersonality(this.data.caseId, profiles.personalityA, profiles.personalityB)
+      .then(function (res) {
+        if (!res || res.code !== 0) throw new Error(res && res.message || '保存失败');
+        var updated = res.data || {};
+        var caseData = Object.assign({}, that.data.caseData || {});
+        caseData.party_a = Object.assign({}, caseData.party_a || {}, { personality: updated.personalityA || null });
+        caseData.party_b = Object.assign({}, caseData.party_b || {}, { personality: updated.personalityB || null });
+        that.setData({
+          caseData: caseData,
+          personalityA: updated.personalityA || null,
+          personalityB: updated.personalityB || null,
+          personalityTextA: that._formatPersonalityDisplay(updated.personalityA),
+          personalityTextB: that._formatPersonalityDisplay(updated.personalityB),
+          showPersonalityEditor: false,
+        });
+        var deep = that.data.analysis && that.data.analysis.deep === true;
+        return analysisService.analyzeCase(that.data.caseId, true, deep);
+      })
+      .then(function (result) {
+        wx.hideLoading();
+        that.setData({ personalitySaving: false });
+        if (!result || result.code !== 0) throw new Error(result && result.message || '重新分析启动失败');
+        wx.showToast({ title: '偏好已保存，正在更新建议', icon: 'success' });
+        that.loadReport();
+      })
+      .catch(function (error) {
+        wx.hideLoading();
+        that.setData({ personalitySaving: false });
+        wx.showToast({ title: error && error.message || '保存失败，请重试', icon: 'none' });
+      });
+  },
+
+  _formatPersonalityDisplay: function (profile) {
+    if (!profile) return '';
+    var personalityUtil = require('../../utils/personality');
+    var parts = [];
+    if (profile.mbti) parts.push(profile.mbti);
+    if (profile.zodiac) parts.push(personalityUtil.getZodiacLabel(profile.zodiac) || profile.zodiac);
+    if (profile.element) parts.push(profile.element);
+    return parts.join(' · ');
   },
 
 });

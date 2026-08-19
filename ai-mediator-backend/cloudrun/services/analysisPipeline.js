@@ -6,12 +6,25 @@ var evidenceIntelligence = require('./evidenceIntelligence');
 var knowledgeBase = require('./knowledgeBase');
 var analysisContract = require('./analysisContract');
 
+var VALID_MBTI = {
+  INTJ: true, INTP: true, ENTJ: true, ENTP: true,
+  INFJ: true, INFP: true, ENFJ: true, ENFP: true,
+  ISTJ: true, ISFJ: true, ESTJ: true, ESFJ: true,
+  ISTP: true, ISFP: true, ESTP: true, ESFP: true,
+};
+var VALID_ZODIAC = {
+  aries: true, taurus: true, gemini: true, cancer: true, leo: true, virgo: true,
+  libra: true, scorpio: true, sagittarius: true, capricorn: true, aquarius: true, pisces: true,
+};
+var VALID_ELEMENT = { '火象': true, '土象': true, '风象': true, '水象': true };
+
 var ANALYSIS_SYSTEM_PROMPT = [
   '你是中立的沟通争议分析助手，不是裁判、律师或心理诊断者。',
   '后端已经完成身份归属、消息统计、明确事实提取、证据质量和安全信号检测；不得推翻这些确定性数据。',
   '只依据带 sourceMessageId 的证据片段分析，不得编造未提供的对话、动机、关系或事实。',
   '先区分可核对事实、双方解释和未知信息，再给出共识、争议、缺失证据和可执行下一步。',
   '不要用 MBTI、星座、情绪强弱或表达方式判断事实真伪和责任。',
+  '如收到当事人自愿填写的沟通偏好资料，只可据此微调建议的措辞、节奏和沟通渠道；不得将其当作人格诊断或事实依据。',
   '出现安全信号时优先提示现实安全和专业支持，不作医学、法律或违法定性。',
   '仅输出一个合法 JSON 对象，不要输出 Markdown。',
 ].join('\n');
@@ -198,6 +211,23 @@ function queuedAtMilliseconds(analysis) {
   return isFinite(parsed) ? parsed : Date.now();
 }
 
+function normalizePersonality(profile) {
+  if (!profile || typeof profile !== 'object') return null;
+  var normalized = {};
+  if (VALID_MBTI[profile.mbti]) normalized.mbti = profile.mbti;
+  if (VALID_ZODIAC[profile.zodiac]) normalized.zodiac = profile.zodiac;
+  if (VALID_ELEMENT[profile.element]) normalized.element = profile.element;
+  return Object.keys(normalized).length ? normalized : null;
+}
+
+function communicationPreferences(caseData) {
+  return {
+    partyA: normalizePersonality(caseData && caseData.party_a && caseData.party_a.personality),
+    partyB: normalizePersonality(caseData && caseData.party_b && caseData.party_b.personality),
+    usage: '可选沟通偏好参考；只可调整建议表达，不得用于事实、责任或置信度判断。',
+  };
+}
+
 async function storeTimings(analysisId, analysis, timings) {
   await db.collection('analyses').doc(analysisId).update({ data: {
     'timings.queueMs': Math.max(0, timings.startedAt - queuedAtMilliseconds(analysis)),
@@ -249,7 +279,8 @@ async function run(analysisId, options) {
   var intelligence = evidenceIntelligence.analyzeEvidence(batches, parties, analysis.evidenceContributors || [], analysis.deep === true);
   if (!intelligence.features.messageCount) throw new Error('尚未提交有效证据');
   var model = analysis.deep ? config.llm.deepModel : config.llm.model;
-  var cacheKey = evidenceIntelligence.evidenceFingerprint(analysis.caseId, analysis.lockedEvidenceRevision, batches, analysis.deep ? 'deep' : 'quick', model);
+  var preferences = communicationPreferences(caseData);
+  var cacheKey = evidenceIntelligence.evidenceFingerprint(analysis.caseId, analysis.lockedEvidenceRevision, batches, analysis.deep ? 'deep' : 'quick', model, preferences);
   await db.collection('analyses').doc(analysisId).update({ data: {
     promptVersion: intelligence.promptVersion,
     cacheKey: cacheKey,
@@ -312,6 +343,7 @@ async function run(analysisId, options) {
         return evidenceIntelligence.redactSensitiveText(batch.note || '').slice(0, 600);
       }).filter(Boolean).slice(-4),
     },
+    communicationPreferences: preferences,
     features: intelligence.features,
     evidenceQuality: intelligence.quality,
     extractedFacts: intelligence.facts,
@@ -365,4 +397,6 @@ module.exports = {
   finalCaseStatus: finalCaseStatus,
   analysisTemplate: analysisTemplate,
   callModelCancelable: callModelCancelable,
+  normalizePersonality: normalizePersonality,
+  communicationPreferences: communicationPreferences,
 };

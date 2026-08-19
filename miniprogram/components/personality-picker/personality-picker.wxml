@@ -6,7 +6,7 @@
   </view>
 
   <!-- 己方 (A) -->
-  <view class="picker-section">
+  <view class="picker-section" wx:if="{{editableA}}">
     <view class="section-label">{{partyALabel || '关于你'}}</view>
 
     <view class="field-row">
@@ -38,7 +38,7 @@
   </view>
 
   <!-- 对方 (B) -->
-  <view class="picker-section">
+  <view class="picker-section" wx:if="{{editableB}}">
     <view class="section-label">{{partyBLabel || '关于对方'}}</view>
 
     <view class="field-row">

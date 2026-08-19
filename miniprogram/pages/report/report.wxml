@@ -35,6 +35,20 @@
 
     <view class="ai-disclaimer">AI 只处理复杂语义；身份归属、证据版本、消息统计和基础置信度由后端规则计算。本报告仅供沟通整理，不构成法律、心理或安全专业意见。</view>
 
+    <view class="personality-panel">
+      <view class="personality-panel-head">
+        <view>
+          <view class="panel-kicker">OPTIONAL CONTEXT</view>
+          <view class="personality-panel-title">沟通偏好参考</view>
+        </view>
+        <button class="personality-edit-btn" bindtap="onEditPersonality">{{personalityTextA || personalityTextB ? '编辑' : '补充'}} MBTI / 星座</button>
+      </view>
+      <view class="personality-panel-desc">由当事人自愿填写，只用于调整沟通建议的表达方式；不用于判断事实、责任或证据充分度。</view>
+      <view class="personality-row" wx:if="{{personalityTextA}}"><text class="personality-tag">发起方</text><text class="personality-text">{{personalityTextA}}</text></view>
+      <view class="personality-row" wx:if="{{personalityTextB}}"><text class="personality-tag">受邀方</text><text class="personality-text">{{personalityTextB}}</text></view>
+      <view class="personality-empty" wx:if="{{!personalityTextA && !personalityTextB}}">尚未填写；可随时补充后重新生成沟通建议。</view>
+    </view>
+
     <view class="knowledge-panel" wx:if="{{analysis.knowledgeReferences && analysis.knowledgeReferences.length}}">
       <view class="knowledge-title">本报告参考的沟通指引</view>
       <view class="knowledge-item" wx:for="{{analysis.knowledgeReferences}}" wx:key="id">{{item.title}} · {{item.version}}</view>
@@ -81,6 +95,25 @@
       </view>
     </view>
     <view class="share-panel-close" bindtap="onCloseShare">取消</view>
+  </view>
+</view>
+
+<view class="personality-overlay" wx:if="{{showPersonalityEditor}}" bindtap="onClosePersonalityEditor">
+  <view class="personality-modal" catchtap="">
+    <view class="modal-header">
+      <view>
+        <view class="modal-title">补充沟通偏好</view>
+        <view class="modal-desc">只用于调整建议表达，不参与证据与责任判断。</view>
+      </view>
+      <view class="modal-close" bindtap="onClosePersonalityEditor">关闭</view>
+    </view>
+    <scroll-view class="modal-scroll" scroll-y>
+      <personality-picker id="reportPersonalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="发起方的沟通偏好" party-b-label="受邀方的沟通偏好" hint-text="可选资料：MBTI 与星座仅作沟通参考" />
+    </scroll-view>
+    <view class="modal-actions">
+      <button class="btn-cancel" bindtap="onClosePersonalityEditor" disabled="{{personalitySaving}}">取消</button>
+      <button class="btn-reanalyze" bindtap="onSavePersonality" loading="{{personalitySaving}}" disabled="{{personalitySaving}}">保存并更新建议</button>
+    </view>
   </view>
 </view>
 

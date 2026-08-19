@@ -7,7 +7,8 @@
     "mediation-strategy": "/components/mediation-strategy/mediation-strategy",
     "detailed-analysis": "/components/detailed-analysis/detailed-analysis",
     "chat-panel": "/components/chat-panel/chat-panel",
-    "share-card": "/components/share-card/share-card"
+    "share-card": "/components/share-card/share-card",
+    "personality-picker": "/components/personality-picker/personality-picker"
   },
   "navigationBarTitleText": "分析报告",
   "disableScroll": false
