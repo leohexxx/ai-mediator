@@ -1,36 +1,36 @@
 <!-- 上传聊天记录页 -->
 <view class="container">
   <view class="evidence-workbench-head">
-    <image class="workbench-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
+    <view class="workbench-number">02</view>
     <view class="workbench-copy">
-      <view class="workbench-kicker">EVIDENCE DESK</view>
-      <view class="workbench-title">把聊天记录交给 AI 裁判</view>
-      <view class="workbench-desc">截图优先；可连续追加，再确认后开始评理。</view>
+      <view class="workbench-kicker">EVIDENCE / 整理台</view>
+      <view class="workbench-title">把证据理清楚</view>
+      <view class="workbench-desc">截图可分批连续追加，确认文字无误后再交给 AI。</view>
     </view>
   </view>
 
   <!-- 补充内容标识 -->
   <view class="supplement-badge" wx:if="{{supplement}}">
-    📎 补充聊天内容 — 重新看看有什么新发现
+    SUPPLEMENT / 正在补充新证据
   </view>
 
   <!-- 身份标识 -->
   <view class="role-badge" wx:if="{{!supplement}}">
-    你的身份：{{role === 'party_a' ? '发起方' : '受邀方'}}
+    ROLE / {{role === 'party_a' ? '发起方' : '受邀方'}}
   </view>
 
   <!-- 上传方式选择 -->
   <view class="upload-options">
     <!-- 方式一：从相册选择截图（最推荐） -->
     <view class="upload-card upload-card-recommend {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
-      <image class="upload-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
+      <view class="upload-index">01 / RECOMMENDED</view>
       <view class="upload-title">从相册选择截图</view>
-      <view class="upload-desc">最方便！直接选微信聊天截图，自动识别文字</view>
+      <view class="upload-desc">每次可选 9 张，识别完成后还能继续追加</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && ocrProcessing}}">
-        🔄 正在识别 {{ocrProgress.current}}/{{ocrProgress.total}}...
+        正在识别 {{ocrProgress.current}}/{{ocrProgress.total}}...
       </view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
-        ✓ 已识别 {{selectedImageCount}} 张截图
+        已识别 {{selectedImageCount}} 张截图
       </view>
     </view>
 
@@ -43,47 +43,33 @@
 
     <!-- 方式二：录屏/视频上传 -->
     <view class="upload-card {{uploadMode === 'video' ? 'active' : ''}}" bindtap="onChooseVideo">
-      <view class="upload-icon">🎬</view>
+      <view class="upload-index">02 / VIDEO</view>
       <view class="upload-title">录屏/视频上传</view>
       <view class="upload-desc">上传聊天录屏，自动识别文字</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && ocrProcessing}}">
-        🔄 正在处理视频...
+        正在处理视频...
       </view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && !ocrProcessing && selectedImageCount > 0}}">
-        ✓ 视频已上传至云端
+        视频已上传至云端
       </view>
     </view>
 
     <!-- 方式三：直接粘贴文本（方便快捷） -->
     <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
-      <image class="upload-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
+      <view class="upload-index">03 / TEXT</view>
       <view class="upload-title">直接粘贴文本</view>
       <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
     </view>
 
     <!-- 方式四：选择聊天记录文件（高级用户） -->
     <view class="upload-card {{uploadMode === 'choose_file' ? 'active' : ''}}" bindtap="onChooseMessageFile">
-      <view class="upload-icon">📱</view>
+      <view class="upload-index">04 / FILE</view>
       <view class="upload-title">从微信导出 .txt 文件</view>
       <view class="upload-desc">微信「我→设置→通用→聊天记录迁移与备份→导出聊天记录」导出 .txt 后在此选择</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">
-        ✓ {{selectedFileName}}
+        {{selectedFileName}}
       </view>
     </view>
-  </view>
-
-  <!-- 分割线 -->
-  <view class="or-divider">
-    <view class="or-line"></view>
-    <text class="or-text text-muted">或</text>
-    <view class="or-line"></view>
-  </view>
-
-  <!-- 方式三：粘贴文本 -->
-  <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
-    <image class="upload-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
-    <view class="upload-title">直接粘贴文本</view>
-    <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
   </view>
 
   <!-- 文本输入区 -->
@@ -104,7 +90,7 @@
 
   <!-- 备注 -->
   <view class="note-section">
-    <view class="note-label">📝 备注（可选）</view>
+    <view class="note-label">BACKGROUND / 备注（可选）</view>
     <view class="note-desc">你想补充什么背景信息？</view>
     <textarea
       class="note-input"

@@ -1,200 +1,119 @@
-<!-- 首页 (v4) — 啷个对 · 调皮浮夸风 -->
-<view class="container">
-
-  <!-- 顶部品牌区域 -->
+<!-- 首页 V3.6 — 克制俏皮的编辑杂志风 -->
+<view class="container home-page">
   <view class="brand-section">
-    <view class="brand-characters">
-      <image class="brand-avatar avatar-a" src="../../assets/characters/party-a.svg" mode="aspectFit" />
-      <image class="brand-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
-      <image class="brand-avatar avatar-b" src="../../assets/characters/party-b.svg" mode="aspectFit" />
-    </view>
-    <view class="brand-logo">
-      <text class="brand-text-gradient">啷个对</text>
-    </view>
-    <view class="brand-tagline">
-      <text class="tagline-text">吵架了？让 AI 来评评理</text>
-    </view>
+    <view class="brand-eyebrow">AI MEDIATION / 01</view>
+    <view class="brand-logo">啷个对</view>
+    <view class="brand-tagline">吵架了？让 AI 来评评理。</view>
   </view>
 
-  <!-- Hero CTA 主卡片 — 浮夸气泡风 -->
   <view class="hero-section">
-
-    <view class="hero-bubble-wrap">
-      <!-- 主要大气泡 -->
-      <view class="hero-bubble main-bubble">
-        <image class="bubble-avatar" src="../../assets/characters/party-a.svg" mode="aspectFit" />
-        <text class="bubble-text">你有理</text>
+    <view class="hero-stage">
+      <view class="statement statement-a">
+        <text class="statement-index">A</text>
+        <text class="statement-text">你说你有理</text>
       </view>
-
-      <!-- 对面的气泡 -->
-      <view class="hero-bubble vs-bubble">
-        <image class="bubble-avatar" src="../../assets/characters/party-b.svg" mode="aspectFit" />
-        <text class="bubble-text">我有理</text>
+      <view class="ai-seal">
+        <text class="seal-main">AI</text>
+        <text class="seal-sub">评理中</text>
       </view>
-
-      <!-- AI 裁判 -->
-      <view class="hero-judge">
-        <image class="judge-icon" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
-        <text class="judge-label">AI 裁判</text>
+      <view class="statement statement-b">
+        <text class="statement-index">B</text>
+        <text class="statement-text">TA 也这么觉得</text>
       </view>
     </view>
 
-    <!-- 模式选择器 -->
+    <view class="mode-heading">
+      <text class="mode-heading-title">选一个评理方式</text>
+      <text class="mode-heading-note">模式之后也说得明白</text>
+    </view>
+
     <view class="mode-selector">
-      <view
-        class="mode-card {{mode === 'single' ? 'mode-active' : ''}}"
-        data-mode="single"
-        catchtap="onSwitchMode"
-      >
-        <image class="mode-card-icon" src="../../assets/characters/party-a.svg" mode="aspectFit" />
+      <view class="mode-card {{mode === 'single' ? 'mode-active' : ''}}" data-mode="single" catchtap="onSwitchMode">
+        <view class="mode-number">01</view>
         <view class="mode-card-info">
           <text class="mode-card-name">单人评理</text>
           <text class="mode-card-desc">自己上传 · 提交分析</text>
         </view>
-        <view class="mode-check {{mode === 'single' ? 'check-on' : ''}}">
-          <text wx:if="{{mode === 'single'}}">✓</text>
-        </view>
+        <view class="mode-check {{mode === 'single' ? 'check-on' : ''}}">{{mode === 'single' ? '已选' : '选择'}}</view>
       </view>
 
-      <view class="mode-vs-divider">
-        <text>VS</text>
-      </view>
-
-      <view
-        class="mode-card {{mode === 'dual' ? 'mode-active' : ''}}"
-        data-mode="dual"
-        catchtap="onSwitchMode"
-      >
-        <image class="mode-card-icon" src="../../assets/characters/party-b.svg" mode="aspectFit" />
+      <view class="mode-card {{mode === 'dual' ? 'mode-active' : ''}}" data-mode="dual" catchtap="onSwitchMode">
+        <view class="mode-number">02</view>
         <view class="mode-card-info">
           <text class="mode-card-name">双人对决</text>
           <text class="mode-card-desc">邀请对方 · 一起评理</text>
         </view>
-        <view class="mode-check {{mode === 'dual' ? 'check-on' : ''}}">
-          <text wx:if="{{mode === 'dual'}}">✓</text>
-        </view>
+        <view class="mode-check {{mode === 'dual' ? 'check-on' : ''}}">{{mode === 'dual' ? '已选' : '选择'}}</view>
       </view>
     </view>
 
-    <!-- 主 CTA 按钮 -->
     <view class="hero-cta-btn {{creating ? 'cta-loading' : ''}}" catchtap="onStartAnalyze">
-      <image class="cta-btn-icon" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
-      <text class="cta-btn-text">{{creating ? '创建中...' : (mode === 'dual' ? '创建邀请链接' : '开始评理！')}}</text>
+      <text class="cta-btn-text">{{creating ? '创建中...' : (mode === 'dual' ? '创建邀请链接' : '开始评理')}}</text>
+      <text class="cta-arrow">→</text>
     </view>
 
     <view class="hero-cta-sub">
-      <text wx:if="{{mode === 'single'}}">上传聊天记录或截图 · 提交后开始分析</text>
-      <text wx:else>生成邀请码发给对方，双方各自上传聊天记录</text>
+      <text wx:if="{{mode === 'single'}}">上传聊天记录或截图，提交后开始分析</text>
+      <text wx:else>生成邀请码发给对方，双方各自提交证据</text>
     </view>
   </view>
 
-  <!-- 三点卖点 -->
   <view class="features-row">
-    <view class="feature-chip">
-      <image class="chip-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
-      <text class="chip-text">截图即分析</text>
-    </view>
-    <view class="feature-chip">
-      <view class="chip-shield">保</view>
-      <text class="chip-text">匿名参与</text>
-    </view>
-    <view class="feature-chip">
-      <image class="chip-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
-      <text class="chip-text">AI 追问</text>
-    </view>
+    <view class="feature-item"><text class="feature-mark">01</text><text>截图即分析</text></view>
+    <view class="feature-item"><text class="feature-mark">02</text><text>匿名参与</text></view>
+    <view class="feature-item"><text class="feature-mark">03</text><text>AI 追问</text></view>
   </view>
 
-  <!-- 案例区标题 -->
   <view class="section-header" wx:if="{{!isEmpty}}">
-    <view class="section-title-wrap">
-      <image class="section-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
+    <view>
+      <view class="section-kicker">RECENT CASES</view>
       <text class="section-title">我的评理记录</text>
     </view>
-    <view class="section-badge">
-      <text>{{caseList.length}}</text>
-    </view>
+    <view class="section-badge">{{caseList.length}}</view>
   </view>
 
-  <!-- 案例列表 — 重新设计卡片 -->
   <view class="case-list" wx:if="{{!isEmpty}}">
-    <view
-      class="case-card-new"
-      wx:for="{{caseList}}"
-      wx:key="_id"
-      data-id="{{item._id}}"
-      data-status="{{item.status}}"
-      bindtap="onCaseTap"
-    >
-      <!-- 左侧状态指示条 -->
+    <view class="case-card-new" wx:for="{{caseList}}" wx:key="_id" data-id="{{item._id}}" data-status="{{item.status}}" bindtap="onCaseTap">
       <view class="case-stripe stripe-{{item.statusType}}"></view>
-
       <view class="case-body">
         <view class="case-top-row">
           <view class="case-title-wrap">
-            <view class="case-emoji">{{item.isSingleMode ? '单' : '双'}}</view>
+            <view class="case-mode">{{item.isSingleMode ? 'SINGLE' : 'DUAL'}}</view>
             <text class="case-title">{{item.title || '评理现场'}}</text>
           </view>
-
-          <!-- 状态标签 -->
-          <view class="case-badge badge-{{item.statusType}}">
-            <text class="badge-dot"></text>
-            <text>{{item.statusLabel}}</text>
-          </view>
+          <view class="case-badge badge-{{item.statusType}}"><text class="badge-dot"></text><text>{{item.statusLabel}}</text></view>
         </view>
-
         <view class="case-bottom-row">
-          <text class="case-meta-text">{{item.formattedTime}}</text>
-          <text class="case-divider-dot">·</text>
-          <text class="case-meta-tag">{{item.isSingleMode ? '单人模式' : '双人对决'}}</text>
+          <text>{{item.formattedTime}}</text><text class="case-divider-dot">/</text><text>{{item.isSingleMode ? '单人模式' : '双人对决'}}</text>
         </view>
       </view>
     </view>
   </view>
 
-  <!-- 空状态 — 调皮版 -->
   <view class="empty-fun" wx:if="{{isEmpty && !loading}}">
-    <view class="empty-graphic"><image class="empty-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" /></view>
-    <text class="empty-fun-title">还没人来找我评理呢！</text>
-    <text class="empty-fun-desc">快戳上面那个红按钮试试呗~</text>
+    <view class="empty-quote">“</view>
+    <text class="empty-fun-title">还没有评理记录</text>
+    <text class="empty-fun-desc">下一场争议，交给证据说话。</text>
   </view>
 
-  <!-- 加载 -->
-  <view class="loading-more" wx:if="{{loading && caseList.length > 0}}">
-    <view class="spinner"></view>
-    <text>翻箱倒柜中...</text>
-  </view>
-
-  <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}">
-    <text>—— 到底了，没有更多啦 ——</text>
-  </view>
-
+  <view class="loading-more" wx:if="{{loading && caseList.length > 0}}"><view class="spinner"></view><text>正在整理记录...</text></view>
+  <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}"><text>END / 没有更多啦</text></view>
   <view class="safe-bottom"></view>
 </view>
 
-<!-- 隐私政策弹窗 — 沿用但优化文案 -->
 <view class="privacy-overlay" wx:if="{{showPrivacyModal}}">
   <view class="privacy-modal">
-    <view class="privacy-modal-icon">🤝</view>
-    <view class="privacy-modal-title">欢迎来到啷个对</view>
+    <view class="privacy-kicker">PRIVACY FIRST</view>
+    <view class="privacy-modal-title">先说清楚，再开始评理</view>
     <view class="privacy-modal-body">
-      <view class="privacy-modal-text">
-        我们非常重视您的个人信息安全。在使用本小程序前，请您阅读并同意以下内容：
-      </view>
-      <view class="privacy-modal-links">
-        <view class="privacy-link" bindtap="onViewPrivacy">
-          <text class="link-text">📜 《隐私政策》</text>
-        </view>
-      </view>
-      <view class="privacy-modal-text sm">
-        你的聊天记录仅用于本次 AI 分析，不会在小程序内公开展示。分析所需的脱敏内容会按隐私政策由 AI 服务处理。
-      </view>
-      <view class="privacy-modal-check">
-        <text>点击「同意并继续」即表示你已阅读并同意上述内容</text>
-      </view>
+      <view class="privacy-modal-text">我们重视你的个人信息安全。使用前，请先阅读并同意以下内容：</view>
+      <view class="privacy-modal-links"><view class="privacy-link" bindtap="onViewPrivacy"><text class="link-text">《隐私政策》 →</text></view></view>
+      <view class="privacy-modal-text sm">聊天记录仅用于本次 AI 分析，不会在小程序内公开展示。分析所需的脱敏内容会按隐私政策由 AI 服务处理。</view>
+      <view class="privacy-modal-check">点击「同意并继续」即表示你已阅读并同意上述内容</view>
     </view>
     <view class="privacy-modal-actions">
-      <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">不了，告辞</button>
-      <button class="privacy-btn agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意并继续 🎉</button>
+      <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">暂不使用</button>
+      <button class="privacy-btn agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意并继续</button>
     </view>
   </view>
 </view>

@@ -6,13 +6,13 @@
   <analysis-progress wx:if="{{progress && progress.step !== 'done' && !progressStuck}}" progress="{{progress}}" />
 
   <view class="cancel-analysis-bar" wx:if="{{progress && progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled'}}">
-    <view class="lock-copy">🔒 本轮证据已锁定，双方暂时不能继续补充。</view>
+    <view class="lock-copy">LOCKED / 本轮证据已锁定，双方暂时不能继续补充。</view>
     <button class="btn-cancel-analysis" bindtap="onCancelAndSupplement" loading="{{canceling}}" disabled="{{canceling}}">{{canceling ? '正在打断...' : '先打断，回去补充证据'}}</button>
   </view>
 
   <!-- 分析卡住时显示重试 -->
   <view class="stuck-section" wx:if="{{progressStuck}}">
-    <view class="stuck-icon">⏰</view>
+    <view class="stuck-icon">TIMEOUT</view>
     <view class="stuck-title">分析似乎卡住了</view>
     <view class="stuck-desc">可能是网络波动或服务器繁忙，请重试</view>
     <button class="btn-primary retry-btn" bindtap="onRetryAnalyze">重新分析</button>
@@ -27,18 +27,17 @@
   <!-- 报告内容（仅分析完成时展示，分析中只显示进度条，避免渲染半成品/旧缓存） -->
   <view wx:if="{{analysis && !restricted && progress && progress.step === 'done'}}">
 
-    <view class="report-battle-banner">
-      <image class="battle-character" src="../../assets/characters/party-a.svg" mode="aspectFit" />
-      <view class="battle-copy"><text>评理结果到啦</text><text class="battle-subtitle">看看这波谁更有理</text></view>
-      <image class="battle-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
-      <image class="battle-character" src="../../assets/characters/party-b.svg" mode="aspectFit" />
+    <view class="report-masthead">
+      <view class="report-kicker">AI VERDICT / REVISION {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}}</view>
+      <view class="report-title-row"><view><view class="report-title">这波怎么看</view><view class="report-subtitle">先看证据，再谈谁更有理。</view></view><view class="report-ai-seal">AI</view></view>
+      <view class="report-parties"><text>我方陈述</text><text class="report-vs">VERSUS</text><text>对方陈述</text></view>
     </view>
-    <view class="revision-note"><image class="revision-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据</view>
-    <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">👤 当前只有一方提供证据，结论仅供参考。</view>
+    <view class="revision-note">EVIDENCE / 本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据</view>
+    <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">SINGLE SIDE / 当前只有一方提供证据，结论仅供参考。</view>
 
     <!-- 补充内容标记 -->
     <view class="supplement-banner" wx:if="{{isReanalysis}}">
-      <text class="supplement-icon">📎</text>
+      <text class="supplement-icon">NEW</text>
       <text class="supplement-text">补充了新内容，结论可能不一样了</text>
     </view>
 
@@ -69,10 +68,10 @@
     </view>
 
     <view class="communication-insights" wx:if="{{analysis.perspective === 'communication'}}">
-      <view class="communication-title">✨ 沟通画像小贴士</view>
+      <view class="communication-title">COMMUNICATION / 沟通画像小贴士</view>
       <view class="communication-disclaimer">{{analysis.communicationInsights.disclaimer || '这一部分只用来给沟通方式提建议，不决定谁对谁错。'}}</view>
       <view class="communication-summary" wx:if="{{analysis.communicationInsights.summary}}">{{analysis.communicationInsights.summary}}</view>
-      <view class="communication-suggestion" wx:for="{{analysis.communicationInsights.suggestions}}" wx:key="*this">💡 {{item}}</view>
+      <view class="communication-suggestion" wx:for="{{analysis.communicationInsights.suggestions}}" wx:key="*this">{{index + 1}}. {{item}}</view>
     </view>
 
     <!-- 分享按钮 -->
@@ -83,7 +82,7 @@
 
     <!-- 补充内容入口 -->
     <view class="supplement-evidence-bar">
-      <button class="supplement-btn" bindtap="onSupplementEvidence">📎 补充聊天记录，重新看看</button>
+      <button class="supplement-btn" bindtap="onSupplementEvidence">补充聊天记录，重新看看 →</button>
     </view>
 
     <!-- ═══ 第二层：聊天记录 & 情绪 ═══ -->

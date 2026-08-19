@@ -1,123 +1,30 @@
-/* 案例详情页样式 */
-.case-header {
-  margin-bottom: 32rpx;
-}
-
-.collaboration-cast { display: flex; align-items: center; width: 190rpx; height: 64rpx; margin-bottom: 12rpx; }
-.cast-avatar { width: 64rpx; height: 64rpx; }
-.cast-referee { width: 54rpx; height: 54rpx; margin: 0 -2rpx; z-index: 2; }
-
-.case-title {
-  font-size: var(--font-2xl);
-  font-weight: var(--font-bold);
-  color: var(--color-text-primary);
-  margin-bottom: 8rpx;
-}
-
-.case-meta {
-  font-size: var(--font-sm);
-}
-
-.invite-toggle {
-  margin: 24rpx 0;
-  text-align: center;
-}
-
-.invite-toggle .btn-secondary {
-  display: block;
-}
-
-.analysis-hint {
-  text-align: center;
-  margin-top: 24rpx;
-  border: 1rpx solid rgba(192, 132, 252, .3);
-  box-shadow: var(--shadow-sm);
-}
-
-.hint-icon {
-  font-size: 56rpx;
-  margin-bottom: 12rpx;
-}
-
-.hint-text {
-  font-size: var(--font-lg);
-  font-weight: var(--font-medium);
-  color: var(--color-text-primary);
-  margin-bottom: 8rpx;
-}
-
-.hint-sub {
-  font-size: var(--font-sm);
-  color: var(--color-text-muted);
-}
-
-.analysis-complete {
-  margin-top: 24rpx;
-}
-
-.complete-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 24rpx;
-}
-
-.complete-icon {
-  font-size: 40rpx;
-  margin-right: 12rpx;
-}
-
-.complete-text {
-  font-size: var(--font-lg);
-  font-weight: var(--font-semibold);
-  color: var(--color-success);
-}
-
-.restricted-text {
-  font-size: var(--font-md);
-  color: var(--color-text-secondary);
-  text-align: center;
-  padding: 32rpx 0;
-}
-
-.report-btn {
-  display: block;
-  margin-top: 16rpx;
-}
-
-/* 加入案例提示 */
-.join-prompt {
-  padding: 40rpx 24rpx;
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.join-card {
-  text-align: center;
-  padding: 60rpx 40rpx;
-  max-width: 500rpx;
-}
-.join-icon {
-  font-size: 80rpx;
-  margin-bottom: 24rpx;
-}
-.join-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 16rpx;
-}
-.join-desc {
-  font-size: 26rpx;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  margin-bottom: 24rpx;
-}
-.join-error {
-  font-size: 24rpx;
-  color: var(--color-error, #ef4444);
-  margin-bottom: 16rpx;
-}
-.join-actions {
-  margin-top: 16rpx;
-}
+.case-header { margin: 6rpx 0 42rpx; padding-bottom: 32rpx; border-bottom: 1rpx solid var(--color-border); }
+.case-kicker { color: var(--color-accent); font-size: 18rpx; letter-spacing: 4rpx; }
+.collaboration-line { display: flex; align-items: center; max-width: 410rpx; margin: 24rpx 0 26rpx; }
+.role-seal { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: 68rpx; height: 68rpx; border: 1rpx solid var(--color-border-light); border-radius: 50%; color: var(--color-text-secondary); font-size: 19rpx; }
+.role-a { color: #F3EFE8; background: var(--color-brand-dark); border-color: var(--color-brand-dark); }
+.role-ai { width: 78rpx; height: 78rpx; color: #29252A; background: var(--color-accent); border-color: var(--color-accent); font-weight: 800; }
+.role-b { background: var(--color-card); }
+.role-line { flex: 1; height: 1rpx; background: var(--color-border-light); }
+.case-title { margin-bottom: 10rpx; color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: var(--font-2xl); font-weight: 700; line-height: 1.3; }
+.case-meta { font-size: var(--font-sm); }
+.invite-toggle { margin: 24rpx 0; }
+.invite-toggle .btn-secondary { display: flex; width: 100%; }
+.analysis-hint { margin-top: 24rpx; padding: 40rpx 32rpx; text-align: left; border-left: 4rpx solid var(--color-accent); box-shadow: var(--shadow-sm); }
+.hint-icon { margin-bottom: 16rpx; color: var(--color-accent); font-size: 17rpx; font-weight: 700; letter-spacing: 4rpx; }
+.hint-text { margin-bottom: 8rpx; color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: var(--font-lg); font-weight: 700; }
+.hint-sub { color: var(--color-text-muted); font-size: var(--font-sm); line-height: 1.65; }
+.analysis-complete { margin-top: 24rpx; }
+.complete-header { display: flex; align-items: center; margin-bottom: 24rpx; }
+.complete-icon { margin-right: 16rpx; color: var(--color-success); font-size: 17rpx; font-weight: 700; letter-spacing: 3rpx; }
+.complete-text { color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: var(--font-lg); font-weight: 700; }
+.restricted-text { padding: 30rpx 0; color: var(--color-text-secondary); font-size: var(--font-md); text-align: left; }
+.report-btn { width: 100%; margin-top: 16rpx; }
+.join-prompt { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 40rpx 28rpx; }
+.join-card { width: 100%; max-width: 560rpx; padding: 54rpx 38rpx; text-align: left; }
+.join-icon { margin-bottom: 32rpx; color: var(--color-accent); font-family: Georgia,serif; font-size: 21rpx; letter-spacing: 3rpx; }
+.join-title { margin-bottom: 16rpx; color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: 40rpx; font-weight: 700; line-height: 1.35; }
+.join-desc { margin-bottom: 24rpx; color: var(--color-text-secondary); font-size: 25rpx; line-height: 1.65; }
+.join-error { margin-bottom: 16rpx; color: var(--color-error); font-size: 23rpx; }
+.join-actions { margin-top: 24rpx; }
+.join-actions .btn-primary { width: 100%; }

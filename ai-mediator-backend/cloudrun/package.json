@@ -1,6 +1,6 @@
 {
   "name": "ai-mediator-backend",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "CloudRun backend for AI Mediator mini program",
   "main": "server.js",
   "scripts": {
