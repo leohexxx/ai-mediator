@@ -1,138 +1,153 @@
-<!-- V3 证据上传：批次追加、OCR校对、分析方式分离 -->
-<view class="container upload-page">
-  <view class="page-heading">
-    <view class="heading-kicker">EVIDENCE / {{supplement ? 'SUPPLEMENT' : 'NEW'}}</view>
-    <view class="heading-title">{{supplement ? '补充一版证据' : '添加聊天证据'}}</view>
-    <view class="heading-desc">每次最多选择 9 张，可反复追加到同一批次。图片先去重和 OCR，确认文字后才会保存为证据。</view>
+<!-- 上传聊天记录页 -->
+<view class="container">
+  <!-- 补充内容标识 -->
+  <view class="supplement-badge" wx:if="{{supplement}}">
+    📎 补充聊天内容 — 重新看看有什么新发现
   </view>
 
-  <view class="role-row">
-    <text class="role-label">当前提交方</text>
-    <text class="role-value">{{role === 'party_a' ? '发起方' : '受邀方'}}</text>
+  <!-- 身份标识 -->
+  <view class="role-badge" wx:if="{{!supplement}}">
+    你的身份：{{role === 'party_a' ? '发起方' : '受邀方'}}
   </view>
 
+  <!-- 上传方式选择 -->
   <view class="upload-options">
-    <view class="upload-card primary {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
-      <view class="upload-code">01</view>
-      <view class="upload-copy">
-        <view class="upload-title">选择聊天截图</view>
-        <view class="upload-desc">推荐使用连续截图；系统会过滤完全重复和近似重复图片。</view>
-        <view class="upload-status" wx:if="{{uploadMode === 'album' && ocrProcessing}}">正在识别 {{ocrProgress.current}} / {{ocrProgress.total}}</view>
-        <view class="upload-status" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">本批已接受 {{selectedImageCount}} 张</view>
+    <!-- 方式一：从相册选择截图（最推荐） -->
+    <view class="upload-card upload-card-recommend {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
+      <view class="upload-icon">🖼️</view>
+      <view class="upload-title">从相册选择截图</view>
+      <view class="upload-desc">最方便！直接选微信聊天截图，自动识别文字</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && ocrProcessing}}">
+        🔄 正在识别 {{ocrProgress.current}}/{{ocrProgress.total}}...
       </view>
-      <view class="upload-action">选择</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
+        ✓ 已识别 {{selectedImageCount}} 张截图
+      </view>
     </view>
 
-    <view class="batch-toolbar" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
-      <view>
-        <view class="batch-count">{{selectedImageCount}}</view>
-        <view class="batch-label">已接受图片</view>
+    <!-- 继续添加（图片超过9张时出现） -->
+    <view class="add-more-row" wx:if="{{uploadMode === 'album' && !ocrProcessing && selectedImageCount > 0}}">
+      <view class="btn-add-more" bindtap="onContinueChooseMedia">
+        + 继续添加截图（已选 {{selectedImageCount}} 张）
       </view>
-      <button class="add-more" bindtap="onContinueChooseMedia">继续添加下一批</button>
     </view>
 
+    <!-- 方式二：录屏/视频上传 -->
     <view class="upload-card {{uploadMode === 'video' ? 'active' : ''}}" bindtap="onChooseVideo">
-      <view class="upload-code">02</view>
-      <view class="upload-copy">
-        <view class="upload-title">聊天录屏</view>
-        <view class="upload-desc">适合很长的记录；系统抽取关键帧后识别，仍需人工校对。</view>
-        <view class="upload-status" wx:if="{{uploadMode === 'video' && ocrProcessing}}">正在处理视频...</view>
-        <view class="upload-status" wx:if="{{uploadMode === 'video' && !ocrProcessing && selectedImageCount > 0}}">录屏已处理</view>
+      <view class="upload-icon">🎬</view>
+      <view class="upload-title">录屏/视频上传</view>
+      <view class="upload-desc">上传聊天录屏，自动识别文字</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && ocrProcessing}}">
+        🔄 正在处理视频...
       </view>
-      <view class="upload-action">选择</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'video' && !ocrProcessing && selectedImageCount > 0}}">
+        ✓ 视频已上传至云端
+      </view>
     </view>
 
+    <!-- 方式三：直接粘贴文本（方便快捷） -->
     <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
-      <view class="upload-code">03</view>
-      <view class="upload-copy">
-        <view class="upload-title">粘贴文字</view>
-        <view class="upload-desc">适合已整理好的聊天文本，不经过 OCR。</view>
-      </view>
-      <view class="upload-action">粘贴</view>
+      <view class="upload-icon">📋</view>
+      <view class="upload-title">直接粘贴文本</view>
+      <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
     </view>
 
+    <!-- 方式四：选择聊天记录文件（高级用户） -->
     <view class="upload-card {{uploadMode === 'choose_file' ? 'active' : ''}}" bindtap="onChooseMessageFile">
-      <view class="upload-code">04</view>
-      <view class="upload-copy">
-        <view class="upload-title">选择 .txt 文件</view>
-        <view class="upload-desc">适合从合法来源导出的文本记录。</view>
-        <view class="upload-status" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">{{selectedFileName}}</view>
+      <view class="upload-icon">📱</view>
+      <view class="upload-title">从微信导出 .txt 文件</view>
+      <view class="upload-desc">微信「我→设置→通用→聊天记录迁移与备份→导出聊天记录」导出 .txt 后在此选择</view>
+      <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'choose_file' && selectedFileName}}">
+        ✓ {{selectedFileName}}
       </view>
-      <view class="upload-action">选择</view>
     </view>
   </view>
 
-  <view class="review-section" wx:if="{{uploadMode}}">
-    <view class="review-head">
-      <view>
-        <view class="section-kicker">REVIEW</view>
-        <view class="section-title">确认识别结果</view>
-      </view>
-      <button wx:if="{{ocrBlocks.length > 0}}" class="ocr-review {{ocrConfirmed ? 'confirmed' : ''}}" bindtap="onOpenOcrPreview">
-        {{ocrConfirmed ? '已校对' : '去校对'}} · {{ocrBlocks.length}} 段
-      </button>
-    </view>
-    <view class="quality-warning" wx:if="{{ocrBlocks.length > 0 && !ocrConfirmed}}">低置信度文字和说话人会影响分析；校对完成前不能提交。</view>
-    <textarea class="text-input" placeholder="识别或粘贴的聊天文本会显示在这里..." placeholder-class="input-placeholder" value="{{chatText}}" bindinput="onTextInput" auto-height maxlength="-1" />
-    <view class="text-count" wx:if="{{chatText}}">{{chatText.length}} 字 · 服务端只选取必要片段进入模型</view>
+  <!-- 分割线 -->
+  <view class="or-divider">
+    <view class="or-line"></view>
+    <text class="or-text text-muted">或</text>
+    <view class="or-line"></view>
   </view>
 
+  <!-- 方式三：粘贴文本 -->
+  <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
+    <view class="upload-icon">📋</view>
+    <view class="upload-title">直接粘贴文本</view>
+    <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
+  </view>
+
+  <!-- 文本输入区 -->
+  <view class="text-input-area" wx:if="{{uploadMode}}">
+    <textarea
+      class="text-input"
+      placeholder="请在此粘贴聊天记录文本..."
+      placeholder-class="input-placeholder"
+      value="{{chatText}}"
+      bindinput="onTextInput"
+      auto-height
+      maxlength="-1"
+    />
+    <view class="text-count text-muted" wx:if="{{chatText}}">
+      已输入 {{chatText.length}} 字
+    </view>
+  </view>
+
+  <!-- 备注 -->
   <view class="note-section">
-    <view class="section-kicker">CONTEXT</view>
-    <view class="section-title">补充背景</view>
-    <view class="note-desc">只写模型从聊天中无法知道、但确实影响理解的背景。不要在这里填写身份证、银行卡或住址。</view>
-    <textarea class="note-input" placeholder="例如：双方关系、争议目标、希望解决的具体问题" placeholder-class="input-placeholder" value="{{note}}" bindinput="onNoteInput" auto-height maxlength="1000" />
+    <view class="note-label">📝 备注（可选）</view>
+    <view class="note-desc">你想补充什么背景信息？</view>
+    <textarea
+      class="note-input"
+      placeholder="如：对话背景、双方关系说明等..."
+      placeholder-class="input-placeholder"
+      value="{{note}}"
+      bindinput="onNoteInput"
+      auto-height
+      maxlength="500"
+    />
   </view>
 
+  <!-- 开始分析按钮 -->
   <view class="submit-area" wx:if="{{chatText}}">
-    <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">
-      {{submitting ? '正在保存证据...' : '保存本批证据'}}
+    <button
+      class="btn-primary"
+      bindtap="onSubmit"
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+    >
+      {{submitting ? '处理中...' : '开始分析'}}
     </button>
-    <view class="submit-note">保存成功后再选择快速或深度分析；双人案件分析期间双方证据都会锁定。</view>
   </view>
+
   <view class="safe-bottom"></view>
 </view>
 
-<view class="analysis-mode-overlay" wx:if="{{showPersonalityModal}}">
-  <view class="analysis-mode-modal">
-    <view class="modal-kicker">EVIDENCE SAVED</view>
-    <view class="modal-title">第 {{evidenceRevision || 1}} 版证据已保存</view>
-    <view class="modal-subtitle">先决定本轮从什么角度看问题；再选择分析深度。两项选择彼此独立。</view>
+<!-- 性格信息弹窗（上传成功后显示） -->
+<view class="personality-overlay" wx:if="{{showPersonalityModal}}">
+  <view class="personality-modal">
+    <view class="modal-title">聊天记录已收到！</view>
+    <view class="modal-subtitle">补充你和对方的性格信息，让分析更精准</view>
 
-    <view class="analysis-step"><text>01</text> 选择分析视角</view>
-    <view class="perspective-options">
-      <view class="perspective-option {{analysisPerspective === 'evidence' ? 'selected' : ''}}" data-perspective="evidence" bindtap="onSelectPerspective">
-        <view class="option-name">只按证据分析</view>
-        <view class="option-desc">只依据聊天记录、OCR 校对和规则事实，整理分歧、缺失信息与下一步。</view>
-        <view class="option-meta">默认 · 不使用 MBTI / 星座</view>
+    <scroll-view class="modal-scroll" scroll-y>
+      <personality-picker
+        id="personalityPicker"
+        hint-text="填写后分析会结合性格维度（可选）"
+      />
+    </scroll-view>
+
+    <!-- 深度模式开关 -->
+    <view class="deep-mode-row" bindtap="onToggleDeepMode">
+      <view class="deep-mode-info">
+        <view class="deep-mode-title">深度模式</view>
+        <view class="deep-mode-desc">使用 Pro 模型，判断与建议更深入，但耗时约 2-3 分钟</view>
       </view>
-      <view class="perspective-option {{analysisPerspective === 'communication' ? 'selected communication' : ''}}" data-perspective="communication" bindtap="onSelectPerspective">
-        <view class="option-name">证据 + 沟通画像</view>
-        <view class="option-desc">保留相同的证据结论，额外结合自愿填写的偏好，生成沟通方式与相处建议。</view>
-        <view class="option-meta">仅影响建议表达，不判定事实或责任</view>
-      </view>
+      <switch checked="{{deepMode}}" bindchange="onToggleDeepMode" color="#FF6B35" />
     </view>
 
-    <view class="preference-wrap" wx:if="{{analysisPerspective === 'communication'}}">
-      <view class="preference-head">可选填写 MBTI / 星座</view>
-      <view class="preference-desc">资料会进入“沟通画像”部分，用于调整建议的措辞、节奏和沟通渠道。</view>
-      <personality-picker id="personalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="{{personalityLabelA}}" party-b-label="{{personalityLabelB}}" hint-text="可选：填写自己认可的沟通偏好" />
-    </view>
-
-    <view class="analysis-step"><text>02</text> 选择分析深度</view>
-    <view class="mode-comparison">
-      <view class="analysis-option">
-        <view class="option-name">快速分析</view>
-        <view class="option-desc">优先处理主要分歧与下一步，适合日常沟通。</view>
-      </view>
-      <view class="analysis-option deep-option">
-        <view class="option-name">深度分析</view>
-        <view class="option-desc">展开更多可能解释，适合长记录和多个争议点。</view>
-      </view>
-    </view>
     <view class="modal-actions">
-      <button class="btn-quick" bindtap="onPersonalitySkip">开始快速分析</button>
-      <button class="btn-deep" bindtap="onPersonalityConfirm">开始深度分析</button>
+      <button class="btn-skip" bindtap="onPersonalitySkip">跳过</button>
+      <button class="btn-confirm" bindtap="onPersonalityConfirm">确认并开始分析</button>
     </view>
   </view>
 </view>

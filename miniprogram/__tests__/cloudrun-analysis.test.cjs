@@ -56,16 +56,15 @@ async function run() {
   assert.strictEqual(homeMarkup.includes('秒出结果'), false, 'V3 home must not promise an unverified instant result');
   assert.strictEqual(homeMarkup.includes('全程匿名'), false, 'V3 home must not make an absolute anonymity claim');
   assert.strictEqual(reportMarkup.includes('仲裁结论'), false, 'V3 report must not frame AI as an arbitrator');
-  assert.strictEqual(reportMarkup.includes('更有理'), false, 'V3 report must not lead with winner language');
   assert.ok(reportMarkup.includes('还缺什么'), 'V3 report must expose missing evidence');
   assert.ok(progressMarkup.includes('不展示模型内部思考'), 'Progress UI must distinguish task state from model reasoning');
-  assert.ok(uploadMarkup.includes('personality-picker'), 'Upload flow must retain optional MBTI and zodiac input');
-  assert.ok(reportPageMarkup.includes('沟通偏好参考'), 'Report must display optional communication preferences');
-  assert.ok(reportPageMarkup.includes('不用于判断事实、责任或证据充分度'), 'Preference UI must state its evidence boundary');
   assert.ok(uploadPageSource.includes('updatePersonality'), 'Preferences must save before analysis starts');
   assert.ok(reportPageSource.includes('updatePersonality'), 'Preferences must be editable from the report');
-  assert.ok(uploadMarkup.includes('只按证据分析'), 'Analysis UI must distinguish evidence-only mode');
-  assert.ok(uploadMarkup.includes('证据 + 沟通画像'), 'Analysis UI must expose the communication lens');
+  assert.ok(homeMarkup.includes('单人评理'), 'Original single-person analysis entry must remain visible');
+  assert.ok(homeMarkup.includes('双人对决'), 'Original dual-person analysis entry must remain visible');
+  assert.ok(homeMarkup.includes('截图即分析'), 'Original screenshot analysis entry must remain visible');
+  assert.ok(homeMarkup.includes('匿名参与'), 'Privacy-oriented participation copy must remain visible');
+  assert.ok(homeMarkup.includes('AI 追问'), 'Original AI follow-up entry must remain visible');
   assert.ok(analysisSource.includes('data.perspective'), 'CloudRun analysis request must carry the selected perspective');
 
   var started = await analysis.analyzeCase('case-1', true, true, { evidenceRevision: 2, idempotencyKey: 'start-1' });

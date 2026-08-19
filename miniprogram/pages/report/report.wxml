@@ -1,134 +1,188 @@
-<!-- V3 分析报告：证据边界、分歧与行动 -->
-<view class="container report-page" wx:if="{{!loading}}">
+<!-- 分析报告页 (v3) — 性格信息 + 重新分析 -->
+
+<view class="container" wx:if="{{!loading}}">
+
+  <!-- 分析进度 -->
   <analysis-progress wx:if="{{progress && progress.step !== 'done' && !progressStuck}}" progress="{{progress}}" />
+
   <view class="cancel-analysis-bar" wx:if="{{progress && progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled'}}">
-    <view class="lock-copy">本轮证据已锁定，双方暂时不能补充或修改。</view>
-    <button class="btn-cancel-analysis" bindtap="onCancelAndSupplement" loading="{{canceling}}" disabled="{{canceling}}">
-      {{canceling ? '正在打断...' : '打断分析并返回补证'}}
-    </button>
+    <view class="lock-copy">🔒 本轮证据已锁定，双方暂时不能继续补充。</view>
+    <button class="btn-cancel-analysis" bindtap="onCancelAndSupplement" loading="{{canceling}}" disabled="{{canceling}}">{{canceling ? '正在打断...' : '先打断，回去补充证据'}}</button>
   </view>
 
+  <!-- 分析卡住时显示重试 -->
   <view class="stuck-section" wx:if="{{progressStuck}}">
-    <view class="stuck-code">WAITING</view>
-    <view class="stuck-title">长时间没有新进度</view>
-    <view class="stuck-desc">模型可能正在排队或请求超时。本轮可以安全打断，确认取消后再补充证据。</view>
-    <button class="btn-primary retry-btn" bindtap="onCancelAndSupplement">打断并返回补证</button>
+    <view class="stuck-icon">⏰</view>
+    <view class="stuck-title">分析似乎卡住了</view>
+    <view class="stuck-desc">可能是网络波动或服务器繁忙，请重试</view>
+    <button class="btn-primary retry-btn" bindtap="onRetryAnalyze">重新分析</button>
   </view>
 
+  <!-- 隐私限制 -->
   <view class="restricted-banner" wx:if="{{restricted}}">
+    <view class="restricted-icon">&#x1F512;</view>
     <view class="restricted-text">{{restrictedMessage}}</view>
   </view>
 
+  <!-- 报告内容（仅分析完成时展示，分析中只显示进度条，避免渲染半成品/旧缓存） -->
   <view wx:if="{{analysis && !restricted && progress && progress.step === 'done'}}">
-    <view class="report-meta">
-      <view>
-        <view class="meta-kicker">REPORT / REVISION</view>
-        <view class="meta-title">第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据报告</view>
-      </view>
-      <view class="meta-badge" wx:if="{{analysis.cacheHit}}">已复用同版本结果</view>
-      <view class="meta-badge" wx:elif="{{analysis.llmSkippedReason}}">规则引擎完成</view>
-      <view class="meta-badge perspective" wx:else>{{analysis.perspective === 'communication' ? '证据 + 沟通画像' : '仅按证据'}}</view>
+
+    <view class="report-battle-banner"><text class="battle-icon">⚔️</text><text>评理结果到啦，看看这波谁更有理</text><text class="battle-icon">⚖️</text></view>
+    <view class="revision-note">📌 本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据</view>
+    <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">👤 当前只有一方提供证据，结论仅供参考。</view>
+
+    <!-- 补充内容标记 -->
+    <view class="supplement-banner" wx:if="{{isReanalysis}}">
+      <text class="supplement-icon">📎</text>
+      <text class="supplement-text">补充了新内容，结论可能不一样了</text>
     </view>
-    <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">当前只有一方提供证据，报告不能代表另一方完整立场。</view>
-    <view class="revision-note" wx:if="{{isReanalysis}}">这是补证后的新版本；旧报告仍对应旧证据快照。</view>
 
     <core-verdict coreConclusion="{{analysis.coreConclusion}}" />
 
-    <view class="ai-disclaimer">AI 只处理复杂语义；身份归属、证据版本、消息统计和基础置信度由后端规则计算。本报告仅供沟通整理，不构成法律、心理或安全专业意见。</view>
+    <!-- AI 免责声明 (合规新增) -->
+    <view class="ai-disclaimer">
+      <view class="ai-disclaimer-icon">&#x2139;</view>
+      <text>本报告由 AI 自动生成，仅供参考，不构成法律或心理建议。</text>
+    </view>
 
-    <view class="personality-panel">
-      <view class="personality-panel-head">
-        <view>
-          <view class="panel-kicker">OPTIONAL CONTEXT</view>
-          <view class="personality-panel-title">沟通偏好参考</view>
-        </view>
-        <button class="personality-edit-btn" bindtap="onEditPersonality">{{personalityTextA || personalityTextB ? '编辑' : '补充'}} MBTI / 星座</button>
+    <!-- 性格信息展示 + 编辑入口 (v3 新增) -->
+    <view class="personality-display" wx:if="{{personalityA || personalityB}}">
+      <view class="personality-row" wx:if="{{personalityA}}">
+        <text class="personality-tag">关于你</text>
+        <text class="personality-text">{{personalityA.mbti || ''}} {{personalityA.zodiac || ''}} {{personalityA.element || ''}}</text>
       </view>
-      <view class="personality-panel-desc">由当事人自愿填写。只有选择“证据 + 沟通画像”时才会进入本轮建议；不用于判断事实、责任或证据充分度。</view>
-      <view class="personality-row" wx:if="{{personalityTextA}}"><text class="personality-tag">发起方</text><text class="personality-text">{{personalityTextA}}</text></view>
-      <view class="personality-row" wx:if="{{personalityTextB}}"><text class="personality-tag">受邀方</text><text class="personality-text">{{personalityTextB}}</text></view>
-      <view class="personality-empty" wx:if="{{!personalityTextA && !personalityTextB}}">尚未填写；可随时补充后重新生成沟通建议。</view>
+      <view class="personality-row" wx:if="{{personalityB}}">
+        <text class="personality-tag">关于对方</text>
+        <text class="personality-text">{{personalityB.mbti || ''}} {{personalityB.zodiac || ''}} {{personalityB.element || ''}}</text>
+      </view>
+      <view class="personality-edit-btn" bindtap="onEditPersonality">编辑性格信息</view>
+    </view>
+
+    <view class="personality-empty" wx:elif="{{analysis && analysis.coreConclusion}}">
+      <view class="personality-empty-text">补充性格信息，让分析结合 MBTI 和星座维度</view>
+      <view class="personality-add-btn" bindtap="onEditPersonality">添加性格信息</view>
     </view>
 
     <view class="communication-insights" wx:if="{{analysis.perspective === 'communication'}}">
-      <view class="communication-head"><text class="panel-kicker">COMMUNICATION LENS</text><text class="communication-mode">证据 + 沟通画像</text></view>
-      <view class="communication-title">沟通画像参考</view>
-      <view class="communication-disclaimer">{{analysis.communicationInsights.disclaimer || '本部分仅作沟通参考，不用于判断事实、责任或证据充分度。'}}</view>
+      <view class="communication-title">✨ 沟通画像小贴士</view>
+      <view class="communication-disclaimer">{{analysis.communicationInsights.disclaimer || '这一部分只用来给沟通方式提建议，不决定谁对谁错。'}}</view>
       <view class="communication-summary" wx:if="{{analysis.communicationInsights.summary}}">{{analysis.communicationInsights.summary}}</view>
-      <view class="communication-item" wx:if="{{analysis.communicationInsights.partyA}}"><text>发起方</text>{{analysis.communicationInsights.partyA}}</view>
-      <view class="communication-item" wx:if="{{analysis.communicationInsights.partyB}}"><text>受邀方</text>{{analysis.communicationInsights.partyB}}</view>
-      <view class="communication-pattern" wx:if="{{analysis.communicationInsights.interactionPattern}}">可能的互动模式：{{analysis.communicationInsights.interactionPattern}}</view>
-      <view class="communication-suggestion" wx:for="{{analysis.communicationInsights.suggestions}}" wx:key="*this">{{index + 1}}. {{item}}</view>
-      <view class="communication-empty" wx:if="{{!analysis.communicationInsights.summary && !analysis.communicationInsights.partyA && !analysis.communicationInsights.partyB}}">尚未形成画像内容；可补充双方认可的 MBTI 或星座后重新分析。</view>
+      <view class="communication-suggestion" wx:for="{{analysis.communicationInsights.suggestions}}" wx:key="*this">💡 {{item}}</view>
     </view>
 
-    <view class="knowledge-panel" wx:if="{{analysis.knowledgeReferences && analysis.knowledgeReferences.length}}">
-      <view class="knowledge-title">本报告参考的沟通指引</view>
-      <view class="knowledge-item" wx:for="{{analysis.knowledgeReferences}}" wx:key="id">{{item.title}} · {{item.version}}</view>
+    <!-- 分享按钮 -->
+    <view class="share-bar">
+      <button class="share-btn" open-type="share">分享给好友</button>
+      <button class="share-btn secondary" bindtap="onOpenShare">生成分享卡片</button>
     </view>
 
-    <view class="report-actions">
-      <button class="supplement-btn" bindtap="onSupplementEvidence">补充证据并生成新版本</button>
-      <button class="share-btn" open-type="share">分享报告入口</button>
-      <button class="share-btn secondary" bindtap="onOpenShare">生成脱敏摘要卡片</button>
+    <!-- 补充内容入口 -->
+    <view class="supplement-evidence-bar">
+      <button class="supplement-btn" bindtap="onSupplementEvidence">📎 补充聊天记录，重新看看</button>
     </view>
 
-    <view class="layer-header"><text class="layer-no">A</text><text class="layer-title">证据引用与语义线索</text></view>
+    <!-- ═══ 第二层：聊天记录 & 情绪 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">聊天记录 &amp; 情绪变化</text>
+      <view class="layer-line"></view>
+    </view>
     <evidence-weights items="{{analysis.evidenceWeights || []}}" />
     <emotion-curve curves="{{analysis.emotionCurve || []}}" />
 
-    <view class="layer-header"><text class="layer-no">B</text><text class="layer-title">沟通方案</text></view>
+    <!-- ═══ 第三层：缓和建议 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">缓和建议</text>
+      <view class="layer-line"></view>
+    </view>
     <mediation-strategy steps="{{analysis.mediationStrategy || []}}" />
 
-    <view class="layer-header"><text class="layer-no">C</text><text class="layer-title">背景理解</text></view>
+    <!-- ═══ 第四层：详细分析 ═══ -->
+    <view class="layer-header">
+      <view class="layer-line"></view>
+      <text class="layer-title">详细分析</text>
+      <view class="layer-line"></view>
+    </view>
     <detailed-analysis detailedAnalysis="{{analysis.detailedAnalysis}}" activeTab="{{activeTab}}" bind:tabchange="onTabChange" />
+
+    <!-- 追问 (暂保留，P2 启用) -->
     <chat-panel caseId="{{caseId}}" analysis="{{analysis}}" />
   </view>
 
+  <!-- 空状态 -->
   <view class="empty-state" wx:if="{{!analysis && !progress}}">
-    <view class="empty-title">暂无可用报告</view>
-    <view class="empty-desc">先保存一批有效证据，再启动分析。</view>
+    <view class="empty-icon">&#x1F4CA;</view>
+    <view class="empty-title">暂无分析数据</view>
+    <view class="empty-desc">上传聊天记录后即可开始分析</view>
     <button class="btn-primary analyze-btn" bindtap="onManualAnalyze">开始分析</button>
   </view>
+
   <view class="safe-bottom"></view>
 </view>
 
+<!-- 分享面板 (v2 新增) -->
 <view class="share-overlay" wx:if="{{showSharePanel}}" bindtap="onCloseShare">
   <view class="share-panel" catchtap="">
-    <view class="share-panel-title">选择脱敏摘要样式</view>
+    <view class="share-panel-title">选择分享卡片样式</view>
+
     <view class="share-templates">
       <view class="share-template-item" data-template="verdict" bindtap="onSelectShareTemplate">
-        <view class="template-preview verdict-preview"><view class="template-text">证据摘要</view><view class="template-label">摘要版</view></view>
+        <view class="template-preview verdict-preview">
+          <view class="template-score">65 : 35</view>
+          <view class="template-label">裁决版</view>
+        </view>
       </view>
       <view class="share-template-item" data-template="fun" bindtap="onSelectShareTemplate">
-        <view class="template-preview fun-preview"><view class="template-text">下一步</view><view class="template-label">行动版</view></view>
+        <view class="template-preview fun-preview">
+          <view class="template-text">谁更有理?</view>
+          <view class="template-label">趣味版</view>
+        </view>
       </view>
       <view class="share-template-item" data-template="suspense" bindtap="onSelectShareTemplate">
-        <view class="template-preview suspense-preview"><view class="template-text">待补证</view><view class="template-label">留白版</view></view>
+        <view class="template-preview suspense-preview">
+          <view class="template-text">???</view>
+          <view class="template-label">悬念版</view>
+        </view>
       </view>
     </view>
+
     <view class="share-panel-close" bindtap="onCloseShare">取消</view>
   </view>
 </view>
 
-<view class="personality-overlay" wx:if="{{showPersonalityEditor}}" bindtap="onClosePersonalityEditor">
-  <view class="personality-modal" catchtap="">
+<!-- 性格信息编辑器弹窗 -->
+<view class="personality-overlay" wx:if="{{showPersonalityEditor}}">
+  <view class="personality-modal">
     <view class="modal-header">
-      <view>
-        <view class="modal-title">补充沟通偏好</view>
-        <view class="modal-desc">只用于调整建议表达，不参与证据与责任判断。</view>
-      </view>
-      <view class="modal-close" bindtap="onClosePersonalityEditor">关闭</view>
+      <text class="modal-title">编辑性格信息</text>
+      <view class="modal-close" bindtap="onClosePersonalityEditor">&#x2715;</view>
     </view>
+
     <scroll-view class="modal-scroll" scroll-y>
-      <personality-picker id="reportPersonalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="发起方的沟通偏好" party-b-label="受邀方的沟通偏好" hint-text="可选资料：MBTI 与星座仅作沟通参考" />
+      <personality-picker
+        id="reportPersonalityPicker"
+        show-hint="{{false}}"
+        party-a-label="你的性格"
+        party-b-label="对方的性格"
+        personality-a="{{personalityA}}"
+        personality-b="{{personalityB}}"
+      />
     </scroll-view>
+
     <view class="modal-actions">
-      <button class="btn-cancel" bindtap="onClosePersonalityEditor" disabled="{{personalitySaving}}">取消</button>
-      <button class="btn-reanalyze" bindtap="onSavePersonality" loading="{{personalitySaving}}" disabled="{{personalitySaving}}">保存并更新建议</button>
+      <button class="btn-cancel" bindtap="onClosePersonalityEditor">取消</button>
+      <button class="btn-reanalyze" bindtap="onSavePersonality" loading="{{reanalyzing}}">
+        {{reanalyzing ? '分析中...' : '保存并重新分析'}}
+      </button>
     </view>
   </view>
 </view>
 
-<view class="loading-spinner" wx:if="{{loading}}"><text>正在加载报告...</text></view>
+<!-- 加载中 -->
+<view class="loading-spinner" wx:if="{{loading}}">
+  <text>加载报告中...</text>
+</view>
+
+<!-- 分享卡片 (Canvas 2D 绘制) -->
 <share-card id="shareCard" />

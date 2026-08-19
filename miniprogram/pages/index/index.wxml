@@ -1,97 +1,204 @@
-<!-- V3 首页：先整理证据，再分析分歧 -->
-<view class="container home-page">
+<!-- 首页 (v4) — 啷个对 · 调皮浮夸风 -->
+<view class="container">
+
+  <!-- 顶部品牌区域 -->
   <view class="brand-section">
-    <view class="brand-kicker">啷个对 · V3</view>
-    <view class="brand-title">先把事实说清楚</view>
-    <view class="brand-desc">整理聊天证据、标出信息缺口，再由 AI 帮你看见分歧和下一步。</view>
+    <view class="brand-emoji-row">
+      <text class="brand-emoji b1">😤</text>
+      <text class="brand-emoji b2">🤬</text>
+      <text class="brand-emoji b3">👄</text>
+      <text class="brand-emoji b4">😭</text>
+      <text class="brand-emoji b5">😡</text>
+    </view>
+    <view class="brand-logo">
+      <text class="brand-text-gradient">啷个对</text>
+    </view>
+    <view class="brand-tagline">
+      <text class="tagline-text">吵架了？让 AI 来评评理 🤖⚖️</text>
+    </view>
   </view>
 
-  <view class="mode-panel">
-    <view class="mode-heading">这次由谁提供证据？</view>
+  <!-- Hero CTA 主卡片 — 浮夸气泡风 -->
+  <view class="hero-section">
+
+    <view class="hero-bubble-wrap">
+      <!-- 主要大气泡 -->
+      <view class="hero-bubble main-bubble">
+        <text class="bubble-icon">⚡</text>
+        <text class="bubble-text">你有理</text>
+      </view>
+
+      <!-- 对面的气泡 -->
+      <view class="hero-bubble vs-bubble">
+        <text class="bubble-icon">🔥</text>
+        <text class="bubble-text">我有理</text>
+      </view>
+
+      <!-- AI 裁判 -->
+      <view class="hero-judge">
+        <text class="judge-icon">🤖</text>
+        <text class="judge-label">AI 裁判</text>
+      </view>
+    </view>
+
+    <!-- 模式选择器 -->
     <view class="mode-selector">
-      <view class="mode-card {{mode === 'single' ? 'mode-active' : ''}}" data-mode="single" catchtap="onSwitchMode">
-        <view class="mode-index">01</view>
-        <view class="mode-card-name">我先整理</view>
-        <view class="mode-card-desc">先用自己的记录形成初步报告，后续可以继续补证。</view>
-        <view class="mode-state">{{mode === 'single' ? '已选择' : '选择'}}</view>
+      <view
+        class="mode-card {{mode === 'single' ? 'mode-active' : ''}}"
+        data-mode="single"
+        catchtap="onSwitchMode"
+      >
+        <text class="mode-card-icon">🧑‍⚖️</text>
+        <view class="mode-card-info">
+          <text class="mode-card-name">单人评理</text>
+          <text class="mode-card-desc">自己上传 · 提交分析</text>
+        </view>
+        <view class="mode-check {{mode === 'single' ? 'check-on' : ''}}">
+          <text wx:if="{{mode === 'single'}}">✓</text>
+        </view>
       </view>
-      <view class="mode-card {{mode === 'dual' ? 'mode-active' : ''}}" data-mode="dual" catchtap="onSwitchMode">
-        <view class="mode-index">02</view>
-        <view class="mode-card-name">邀请另一方</view>
-        <view class="mode-card-desc">双方分别补充证据；分析开始后，本轮证据会同时锁定。</view>
-        <view class="mode-state">{{mode === 'dual' ? '已选择' : '选择'}}</view>
+
+      <view class="mode-vs-divider">
+        <text>VS</text>
+      </view>
+
+      <view
+        class="mode-card {{mode === 'dual' ? 'mode-active' : ''}}"
+        data-mode="dual"
+        catchtap="onSwitchMode"
+      >
+        <text class="mode-card-icon">👥</text>
+        <view class="mode-card-info">
+          <text class="mode-card-name">双人对决</text>
+          <text class="mode-card-desc">邀请对方 · 一起评理</text>
+        </view>
+        <view class="mode-check {{mode === 'dual' ? 'check-on' : ''}}">
+          <text wx:if="{{mode === 'dual'}}">✓</text>
+        </view>
       </view>
     </view>
 
-    <button class="primary-action" bindtap="onStartAnalyze" loading="{{creating}}" disabled="{{creating}}">
-      {{creating ? '正在创建...' : (mode === 'dual' ? '创建双人案例' : '开始整理证据')}}
-    </button>
-    <view class="action-note" wx:if="{{mode === 'single'}}">每次最多选择 9 张截图，可连续追加；OCR 校对后再进入分析。</view>
-    <view class="action-note" wx:else>任意一方有自己的有效证据即可分析；分析期间双方不能修改证据。</view>
-  </view>
+    <!-- 主 CTA 按钮 -->
+    <view class="hero-cta-btn {{creating ? 'cta-loading' : ''}}" catchtap="onStartAnalyze">
+      <text class="cta-btn-icon">{{creating ? '⏳' : (mode === 'dual' ? '📨' : '🚀')}}</text>
+      <text class="cta-btn-text">{{creating ? '创建中...' : (mode === 'dual' ? '创建邀请链接' : '开始评理！')}}</text>
+    </view>
 
-  <view class="process-strip">
-    <view class="process-item"><text class="process-no">A</text><text>OCR 与去重</text></view>
-    <view class="process-line"></view>
-    <view class="process-item"><text class="process-no">B</text><text>事实与缺口</text></view>
-    <view class="process-line"></view>
-    <view class="process-item"><text class="process-no">C</text><text>行动建议</text></view>
-  </view>
-
-  <view class="privacy-brief">
-    <view class="brief-mark"></view>
-    <view class="brief-content">
-      <view class="brief-title">必要信息才进入模型</view>
-      <view class="brief-text">后端先完成去重、统计、事实提取和敏感字段脱敏；仅复杂语义交给 AI。报告是辅助整理，不替代法律、心理或安全专业意见。</view>
+    <view class="hero-cta-sub">
+      <text wx:if="{{mode === 'single'}}">上传聊天记录或截图 · 提交后开始分析</text>
+      <text wx:else>生成邀请码发给对方，双方各自上传聊天记录</text>
     </view>
   </view>
 
+  <!-- 三点卖点 -->
+  <view class="features-row">
+    <view class="feature-chip">
+      <text class="chip-icon">📸</text>
+      <text class="chip-text">截图即分析</text>
+    </view>
+    <view class="feature-chip">
+      <text class="chip-icon">🤫</text>
+      <text class="chip-text">匿名参与</text>
+    </view>
+    <view class="feature-chip">
+      <text class="chip-icon">💬</text>
+      <text class="chip-text">AI 追问</text>
+    </view>
+  </view>
+
+  <!-- 案例区标题 -->
   <view class="section-header" wx:if="{{!isEmpty}}">
-    <view>
-      <view class="section-kicker">CASES</view>
-      <view class="section-title">最近案例</view>
+    <view class="section-title-wrap">
+      <text class="section-icon">📋</text>
+      <text class="section-title">我的评理记录</text>
     </view>
-    <view class="section-count">{{caseList.length}}</view>
+    <view class="section-badge">
+      <text>{{caseList.length}}</text>
+    </view>
   </view>
 
+  <!-- 案例列表 — 重新设计卡片 -->
   <view class="case-list" wx:if="{{!isEmpty}}">
-    <view class="case-card-new" wx:for="{{caseList}}" wx:key="_id" data-id="{{item._id}}" data-status="{{item.status}}" bindtap="onCaseTap">
+    <view
+      class="case-card-new"
+      wx:for="{{caseList}}"
+      wx:key="_id"
+      data-id="{{item._id}}"
+      data-status="{{item.status}}"
+      bindtap="onCaseTap"
+    >
+      <!-- 左侧状态指示条 -->
       <view class="case-stripe stripe-{{item.statusType}}"></view>
+
       <view class="case-body">
         <view class="case-top-row">
-          <view class="case-title">{{item.title || '沟通案例'}}</view>
-          <view class="case-badge badge-{{item.statusType}}"><text class="badge-dot"></text>{{item.statusLabel}}</view>
+          <view class="case-title-wrap">
+            <text class="case-emoji">{{item.isSingleMode ? '🧑‍⚖️' : '👥'}}</text>
+            <text class="case-title">{{item.title || '评理现场'}}</text>
+          </view>
+
+          <!-- 状态标签 -->
+          <view class="case-badge badge-{{item.statusType}}">
+            <text class="badge-dot"></text>
+            <text>{{item.statusLabel}}</text>
+          </view>
         </view>
+
         <view class="case-bottom-row">
-          <text>{{item.isSingleMode ? '单人整理' : '双人协作'}}</text>
-          <text class="case-separator">/</text>
-          <text>{{item.formattedTime}}</text>
+          <text class="case-meta-text">{{item.formattedTime}}</text>
+          <text class="case-divider-dot">·</text>
+          <text class="case-meta-tag">{{item.isSingleMode ? '单人模式' : '双人对决'}}</text>
         </view>
       </view>
-      <view class="case-arrow">›</view>
     </view>
   </view>
 
-  <view class="empty-state-v3" wx:if="{{isEmpty && !loading}}">
-    <view class="empty-number">00</view>
-    <view class="empty-title">还没有案例</view>
-    <view class="empty-desc">先从一组连续的聊天截图开始。</view>
+  <!-- 空状态 — 调皮版 -->
+  <view class="empty-fun" wx:if="{{isEmpty && !loading}}">
+    <view class="empty-graphic">
+      <text class="empty-big-emoji">🫣</text>
+    </view>
+    <text class="empty-fun-title">还没人来找我评理呢！</text>
+    <text class="empty-fun-desc">快戳上面那个红按钮试试呗~</text>
   </view>
 
-  <view class="loading-more" wx:if="{{loading && caseList.length > 0}}">正在加载更多案例...</view>
-  <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}">没有更多记录</view>
+  <!-- 加载 -->
+  <view class="loading-more" wx:if="{{loading && caseList.length > 0}}">
+    <view class="spinner"></view>
+    <text>翻箱倒柜中...</text>
+  </view>
+
+  <view class="no-more" wx:if="{{!hasMore && caseList.length > 0}}">
+    <text>—— 到底了，没有更多啦 ——</text>
+  </view>
+
   <view class="safe-bottom"></view>
 </view>
 
+<!-- 隐私政策弹窗 — 沿用但优化文案 -->
 <view class="privacy-overlay" wx:if="{{showPrivacyModal}}">
   <view class="privacy-modal">
-    <view class="privacy-step">使用前请确认</view>
-    <view class="privacy-modal-title">你是否有权提交这些聊天记录？</view>
-    <view class="privacy-modal-text">聊天文本会在服务端处理；必要的脱敏片段会发送给已配置的 AI 服务商。请勿上传与争议无关的身份证、银行卡、住址等敏感信息。</view>
-    <view class="privacy-link" bindtap="onViewPrivacy">查看《隐私政策》</view>
+    <view class="privacy-modal-icon">🤝</view>
+    <view class="privacy-modal-title">欢迎来到啷个对</view>
+    <view class="privacy-modal-body">
+      <view class="privacy-modal-text">
+        我们非常重视您的个人信息安全。在使用本小程序前，请您阅读并同意以下内容：
+      </view>
+      <view class="privacy-modal-links">
+        <view class="privacy-link" bindtap="onViewPrivacy">
+          <text class="link-text">📜 《隐私政策》</text>
+        </view>
+      </view>
+      <view class="privacy-modal-text sm">
+        你的聊天记录仅用于本次 AI 分析，不会在小程序内公开展示。分析所需的脱敏内容会按隐私政策由 AI 服务处理。
+      </view>
+      <view class="privacy-modal-check">
+        <text>点击「同意并继续」即表示你已阅读并同意上述内容</text>
+      </view>
+    </view>
     <view class="privacy-modal-actions">
-      <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">暂不使用</button>
-      <button class="privacy-btn agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意并继续</button>
+      <button class="privacy-btn disagree" bindtap="onDisagreePrivacy">不了，告辞</button>
+      <button class="privacy-btn agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacy">同意并继续 🎉</button>
     </view>
   </view>
 </view>

@@ -1,64 +1,277 @@
-.upload-page { padding-top: 42rpx; }
-.page-heading { padding: 0 10rpx 34rpx 22rpx; }
-.heading-kicker, .section-kicker, .modal-kicker { color: var(--color-brand); font-size: 19rpx; font-weight: 700; letter-spacing: 4rpx; }
-.heading-title { margin-top: 10rpx; color: var(--color-text-primary); font-size: 48rpx; line-height: 1.2; font-weight: 800; }
-.heading-desc { margin-top: 18rpx; color: var(--color-text-secondary); font-size: 24rpx; line-height: 1.7; }
-.role-row { display: flex; justify-content: space-between; padding: 18rpx 22rpx; margin-bottom: 24rpx; border-top: 1rpx solid var(--color-border); border-bottom: 1rpx solid var(--color-border); font-size: 22rpx; }
-.role-label { color: var(--color-text-muted); }
-.role-value { color: var(--color-text-primary); font-weight: 700; }
+/* 上传聊天记录页样式 */
+.role-badge {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  color: var(--color-brand);
+  margin-bottom: 32rpx;
+}
 
-.upload-options { display: flex; flex-direction: column; }
-.upload-card { display: flex; align-items: flex-start; gap: 18rpx; padding: 26rpx 18rpx; border-bottom: 1rpx solid var(--color-border); background: transparent; }
-.upload-card:first-child { border-top: 1rpx solid var(--color-border); }
-.upload-card:active, .upload-card.active { background: var(--color-bg-secondary); }
-.upload-card.primary { border-left: 6rpx solid var(--color-brand); }
-.upload-code { width: 48rpx; flex-shrink: 0; color: var(--color-warning); font-size: 18rpx; font-weight: 700; letter-spacing: 2rpx; }
-.upload-copy { flex: 1; min-width: 0; }
-.upload-title { color: var(--color-text-primary); font-size: 28rpx; font-weight: 700; }
-.upload-desc { margin-top: 7rpx; color: var(--color-text-muted); font-size: 21rpx; line-height: 1.55; }
-.upload-status { margin-top: 10rpx; color: var(--color-brand); font-size: 21rpx; font-weight: 700; }
-.upload-action { flex-shrink: 0; margin-top: 4rpx; padding-bottom: 3rpx; color: var(--color-brand); border-bottom: 1rpx solid var(--color-brand); font-size: 21rpx; }
-.batch-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 22rpx; background: rgba(255, 77, 106, .13); border-bottom: 1rpx solid rgba(255, 128, 148, .34); }
-.batch-count { color: var(--color-brand); font-size: 36rpx; font-weight: 800; line-height: 1; }
-.batch-label { margin-top: 5rpx; color: var(--color-text-secondary); font-size: 19rpx; }
-.add-more { margin: 0; border-radius: 0; color: #fff; background: var(--color-brand); font-size: 23rpx; }
-.add-more::after, .ocr-review::after, .btn-quick::after, .btn-deep::after { border: 0; }
+.upload-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 0;
+}
 
-.review-section, .note-section { margin-top: 42rpx; padding: 28rpx 22rpx; background: var(--color-card); border-top: 1rpx solid var(--color-border); border-bottom: 1rpx solid var(--color-border); }
-.review-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12rpx; }
-.section-title { margin-top: 6rpx; color: var(--color-text-primary); font-size: 31rpx; font-weight: 800; }
-.ocr-review { margin: 0; border-radius: 0; color: #fff; background: var(--color-warning); font-size: 21rpx; }
-.ocr-review.confirmed { background: var(--color-brand); }
-.quality-warning { margin-top: 20rpx; padding: 16rpx; color: #FFE4A4; background: var(--color-warning-bg); border-left: 5rpx solid var(--color-warning); font-size: 21rpx; line-height: 1.55; }
-.text-input { width: 100%; min-height: 300rpx; margin-top: 20rpx; padding: 22rpx; box-sizing: border-box; color: var(--color-text-primary); background: var(--color-bg); border: 1rpx solid var(--color-border); border-radius: 0; font-family: 'Microsoft YaHei', sans-serif; font-size: 23rpx; line-height: 1.75; }
-.input-placeholder { color: var(--color-text-muted); }
-.text-count { margin-top: 10rpx; text-align: right; color: var(--color-text-muted); font-size: 19rpx; }
-.note-desc { margin-top: 14rpx; color: var(--color-text-muted); font-size: 21rpx; line-height: 1.6; }
-.note-input { width: 100%; min-height: 130rpx; margin-top: 16rpx; padding: 20rpx; box-sizing: border-box; color: var(--color-text-primary); background: var(--color-bg); border: 1rpx solid var(--color-border); border-radius: 0; font-size: 23rpx; }
-.submit-area { padding: 30rpx 0 12rpx; }
-.submit-area .btn-primary { width: 100%; border-radius: 0; background: var(--color-text-primary); }
-.submit-note { margin-top: 14rpx; color: var(--color-text-muted); font-size: 20rpx; line-height: 1.55; }
+.upload-card {
+  width: 100%;
+  padding: 32rpx 24rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: var(--transition-fast);
+  margin-bottom: 0;
+  box-sizing: border-box;
+}
 
-.analysis-mode-overlay { position: fixed; inset: 0; z-index: 400; display: flex; align-items: flex-end; background: rgba(4, 2, 12, .74); }
-.analysis-mode-modal { width: 100%; padding: 38rpx 32rpx calc(28rpx + env(safe-area-inset-bottom)); box-sizing: border-box; background: var(--color-bg-secondary); border-top: 8rpx solid var(--color-brand); box-shadow: 0 -16rpx 44rpx rgba(168, 85, 247, .22); }
-.modal-title { margin-top: 10rpx; color: var(--color-text-primary); font-size: 36rpx; font-weight: 800; }
-.modal-subtitle { margin-top: 12rpx; color: var(--color-text-secondary); font-size: 22rpx; line-height: 1.65; }
-.analysis-step { margin-top: 28rpx; color: var(--color-text-primary); font-size: 23rpx; font-weight: 800; }
-.analysis-step text { display: inline-block; width: 36rpx; margin-right: 8rpx; color: var(--color-warning); font-size: 18rpx; letter-spacing: 1rpx; }
-.perspective-options { display: flex; flex-direction: column; gap: 12rpx; margin-top: 14rpx; }
-.perspective-option { padding: 22rpx 20rpx; background: var(--color-card); border: 1rpx solid var(--color-border); border-left: 5rpx solid transparent; }
-.perspective-option.selected { border-color: var(--color-brand); border-left-color: var(--color-brand); background: rgba(255, 77, 106, .14); }
-.perspective-option.selected.communication { border-color: var(--color-accent); border-left-color: var(--color-accent); background: rgba(168, 85, 247, .17); }
-.preference-wrap { margin-top: 16rpx; padding: 18rpx; background: var(--color-card); border-top: 4rpx solid var(--color-warning); }
-.preference-head { color: var(--color-text-primary); font-size: 25rpx; font-weight: 800; }
-.preference-desc { margin-top: 8rpx; color: var(--color-text-secondary); font-size: 20rpx; line-height: 1.55; }
-.mode-comparison { display: flex; gap: 14rpx; margin-top: 14rpx; }
-.analysis-option { flex: 1; min-height: 128rpx; padding: 20rpx; box-sizing: border-box; background: var(--color-card); border: 1rpx solid var(--color-border); }
-.deep-option { border-top: 4rpx solid var(--color-warning); }
-.option-name { font-size: 27rpx; font-weight: 700; }
-.option-desc { margin-top: 10rpx; color: var(--color-text-secondary); font-size: 20rpx; line-height: 1.55; }
-.option-meta { margin-top: 12rpx; color: var(--color-brand); font-size: 19rpx; font-weight: 700; }
-.modal-actions { display: flex; gap: 14rpx; margin-top: 24rpx; }
-.btn-quick, .btn-deep { flex: 1; border-radius: 0; font-size: 25rpx; }
-.btn-quick { color: var(--color-text-primary); background: transparent; border: 1rpx solid var(--color-text-primary); }
-.btn-deep { color: #fff; background: var(--color-brand); box-shadow: 0 8rpx 20rpx rgba(255, 77, 106, .3); }
+.upload-card.active {
+  border-color: var(--color-brand);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.upload-card:last-child {
+  margin-top: 16rpx;
+  flex: none;
+  width: 100%;
+}
+
+.upload-icon {
+  font-size: 48rpx;
+  margin-bottom: 12rpx;
+}
+
+.upload-title {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 6rpx;
+}
+
+.upload-desc {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.upload-file-name {
+  font-size: var(--font-sm);
+  margin-top: 8rpx;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 0;
+}
+
+.or-line {
+  flex: 1;
+  height: 1rpx;
+  background: var(--color-border);
+}
+
+.or-text {
+  padding: 0 24rpx;
+  font-size: var(--font-sm);
+}
+
+.text-input-area {
+  margin-bottom: 24rpx;
+}
+
+.text-input {
+  width: 100%;
+  min-height: 300rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  line-height: 1.8;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+
+.input-placeholder {
+  color: var(--color-text-muted);
+}
+
+.text-count {
+  text-align: right;
+  font-size: var(--font-xs);
+  margin-top: 8rpx;
+}
+
+.note-section {
+  margin-bottom: 24rpx;
+}
+
+.note-label {
+  font-size: var(--font-md);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 4rpx;
+}
+
+.note-desc {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 12rpx;
+}
+
+.note-input {
+  width: 100%;
+  min-height: 120rpx;
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  font-size: var(--font-sm);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.submit-area {
+  padding: 16rpx 0;
+}
+
+.submit-area .btn-primary {
+  width: 100%;
+}
+
+/* ===== 性格信息弹窗 ===== */
+.personality-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.personality-modal {
+  width: 90vw;
+  max-height: 80vh;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: 8rpx;
+}
+
+.modal-subtitle {
+  font-size: 24rpx;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.modal-scroll {
+  flex: 1;
+  max-height: 50vh;
+  margin-bottom: 24rpx;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.deep-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  margin: 16rpx 0;
+  background: var(--color-bg-tertiary);
+  border-radius: 20rpx;
+}
+
+.deep-mode-info {
+  flex: 1;
+  padding-right: 20rpx;
+}
+
+.deep-mode-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.deep-mode-desc {
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+  margin-top: 6rpx;
+  line-height: 1.4;
+}
+
+.btn-skip {
+  flex: 1;
+  padding: 20rpx 32rpx;
+  text-align: center;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.btn-confirm {
+  flex: 2;
+  padding: 20rpx 32rpx;
+  text-align: center;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  background: var(--color-brand);
+  color: #ffffff;
+}
+
+/* 推荐卡片（截图置顶高亮） */
+.upload-card-recommend {
+  border-color: var(--color-brand);
+  border-width: 2rpx;
+  position: relative;
+}
+.upload-card-recommend::before {
+  content: '推荐';
+  position: absolute;
+  top: -10rpx;
+  right: 20rpx;
+  background: var(--color-brand);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+}
+
+/* 继续添加按钮 */
+.add-more-row {
+  text-align: center;
+  margin-top: -8rpx;
+  margin-bottom: 8rpx;
+}
+.btn-add-more {
+  display: inline-block;
+  padding: 12rpx 32rpx;
+  border: 1rpx dashed var(--color-brand);
+  border-radius: var(--radius-full);
+  font-size: 24rpx;
+  color: var(--color-brand);
+  background: transparent;
+}

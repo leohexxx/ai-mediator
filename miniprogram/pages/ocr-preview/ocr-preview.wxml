@@ -1,12 +1,12 @@
 <!-- OCR 预览编辑页 -->
 <view class="container">
   <view class="preview-header">
-    <view class="preview-title">OCR 校对</view>
-    <view class="preview-hint text-muted">共 {{parsedMessages.length}} 条消息。低置信度内容已标出，请同时核对说话人和阅读顺序。</view>
+    <view class="preview-title">📋 聊天记录预览</view>
+    <view class="preview-hint text-muted">共 {{parsedMessages.length}} 条消息，点击说话人或内容可编辑</view>
   </view>
 
   <view class="message-list">
-    <view wx:for="{{parsedMessages}}" wx:key="index" class="msg-item {{item.lowConfidence ? 'low-confidence' : ''}}">
+    <view wx:for="{{parsedMessages}}" wx:key="index" class="msg-item">
       <view class="msg-header">
         <input
           class="speaker-input"
@@ -17,7 +17,6 @@
         />
         <text class="msg-type text-muted" wx:if="{{item.type !== 'text'}}">[{{item.type}}]</text>
         <text class="msg-time text-muted" wx:if="{{item.timestamp}}">{{item.timestamp}}</text>
-        <text class="confidence-warning" wx:if="{{item.lowConfidence}}">请校对 {{item.confidence}}%</text>
         <view class="msg-delete" data-index="{{index}}" bindtap="onDeleteMessage">×</view>
       </view>
       <textarea
@@ -32,6 +31,7 @@
 
     <!-- 空状态 -->
     <view class="empty-state" wx:if="{{parsedMessages.length === 0}}">
+      <view class="icon">📭</view>
       <view class="text">未解析到消息</view>
     </view>
   </view>

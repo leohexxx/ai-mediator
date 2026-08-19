@@ -1,15 +1,134 @@
-.analysis-progress { padding: 30rpx 26rpx; background: var(--color-card); border-top: 7rpx solid var(--color-brand); border-bottom: 1rpx solid var(--color-border); }
-.progress-kicker { color: var(--color-brand); font-size: 18rpx; font-weight: 700; letter-spacing: 4rpx; }
-.progress-message { margin-top: 10rpx; color: var(--color-text-primary); font-size: 30rpx; font-weight: 800; }
-.progress-row { display: flex; align-items: center; gap: 14rpx; margin-top: 20rpx; }
-.progress-track { flex: 1; height: 8rpx; background: var(--color-border); overflow: hidden; }
-.progress-fill { height: 100%; background: var(--color-brand); transition: width .3s ease; }
-.progress-percent { width: 68rpx; text-align: right; color: var(--color-brand); font-size: 20rpx; font-weight: 700; }
-.step-list { display: flex; justify-content: space-between; gap: 6rpx; margin-top: 26rpx; }
-.step-item { flex: 1; color: var(--color-text-muted); }
-.step-index { width: 26rpx; height: 26rpx; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); border: 1rpx solid var(--color-border); font-size: 15rpx; }
-.step-label { margin-top: 8rpx; font-size: 17rpx; line-height: 1.35; }
-.step-item.done .step-index { color: #fff; background: var(--color-brand); border-color: var(--color-brand); }
-.step-item.active { color: var(--color-text-primary); font-weight: 700; }
-.step-item.active .step-index { color: #fff; background: var(--color-warning); border-color: var(--color-warning); }
-.progress-note { margin-top: 22rpx; padding-top: 16rpx; color: var(--color-text-muted); border-top: 1rpx solid var(--color-border); font-size: 18rpx; line-height: 1.5; }
+/* 分析进度组件样式 */
+.analysis-progress {
+  margin-bottom: 24rpx;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.progress-icon {
+  font-size: 44rpx;
+  margin-right: 16rpx;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.progress-info {
+  flex: 1;
+}
+
+.progress-message {
+  font-size: var(--font-md);
+  color: var(--color-text-primary);
+  margin-bottom: 12rpx;
+}
+
+.progress-bar-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 12rpx;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-right: 12rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-brand), var(--color-party-b));
+  border-radius: var(--radius-full);
+  transition: width 0.5s ease;
+}
+
+.progress-percent {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  min-width: 56rpx;
+  text-align: right;
+}
+
+.step-list {
+  display: flex;
+  overflow-x: auto;
+  padding: 8rpx 0;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-width: 80rpx;
+  flex-shrink: 0;
+}
+
+.step-dot {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  transition: var(--transition-fast);
+}
+
+.step-item.done .step-dot {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #fff;
+}
+
+.step-item.active .step-dot {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #fff;
+  box-shadow: 0 0 16rpx rgba(99, 102, 241, 0.4);
+}
+
+.step-label {
+  font-size: 18rpx;
+  color: var(--color-text-muted);
+  margin-top: 8rpx;
+  white-space: nowrap;
+}
+
+.step-item.done .step-label,
+.step-item.active .step-label {
+  color: var(--color-text-primary);
+}
+
+.step-line {
+  position: absolute;
+  top: 22rpx;
+  left: calc(50% + 22rpx);
+  width: calc(100% - 44rpx);
+  height: 2rpx;
+  background: var(--color-border);
+  z-index: -1;
+}
+
+.step-item.done .step-line {
+  background: var(--color-success);
+}
+
+.progress-note {
+  margin: 16rpx 0 0;
+  color: var(--color-text-muted);
+  font-size: 19rpx;
+  line-height: 1.5;
+}
