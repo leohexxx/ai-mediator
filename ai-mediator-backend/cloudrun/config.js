@@ -44,6 +44,17 @@ var config = {
     lowConfidenceThreshold: parseFloat(process.env.OCR_LOW_CONFIDENCE || '88'),
   },
 
+  qwenVision: {
+    apiKey: process.env.QWEN_VISION_API_KEY || '',
+    model: process.env.QWEN_VISION_MODEL || 'qwen3.8-max',
+    baseUrl: process.env.QWEN_VISION_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    requestTimeoutMs: parseInt(process.env.QWEN_VISION_TIMEOUT_MS || '120000', 10),
+    pollIntervalMs: parseInt(process.env.OCR_JOB_POLL_MS || '2000', 10),
+    leaseMs: parseInt(process.env.OCR_JOB_LEASE_MS || '600000', 10),
+    maxAttempts: parseInt(process.env.OCR_JOB_MAX_ATTEMPTS || '2', 10),
+    maxConcurrent: parseInt(process.env.OCR_JOB_MAX_CONCURRENT || '1', 10),
+  },
+
   // 视频
   video: {
     maxFrames: parseInt(process.env.VIDEO_MAX_FRAMES || '30', 10),

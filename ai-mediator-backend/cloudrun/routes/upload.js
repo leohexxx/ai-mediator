@@ -16,8 +16,81 @@ var caseAccess = require('../services/caseAccess');
 var db = require('../services/db');
 var metrics = require('../services/metrics');
 var evidenceStorage = require('../services/evidenceStorage');
+var uuid = require('uuid');
 
 router.use(auth.requireAuth);
+
+router.post('/ocr-jobs', caseAccess.requireCaseAccess, async function (req, res, next) {
+  try {
+    var body = req.body || {};
+    var fileIds = body.fileIds || [];
+    if (!Array.isArray(fileIds) || !fileIds.length) {
+      return res.status(400).json({ code: -1, errorCode: 'FILE_IDS_REQUIRED', data: null, message: '请先上传图片后再识别' });
+    }
+    if (fileIds.length > config.ocr.maxImagesPerBatch) {
+      return res.status(400).json({ code: -1, errorCode: 'IMAGE_BATCH_LIMIT', data: null, message: '每批最多上传' + config.ocr.maxImagesPerBatch + '张图片' });
+    }
+    if (!fileIds.every(function (fileId) { return evidenceStorage.isCaseEvidenceFileId(fileId, body.caseId); })) {
+      return res.status(400).json({ code: -1, errorCode: 'INVALID_EVIDENCE_FILE', data: null, message: '图片不属于当前案例，无法识别' });
+    }
+    var idempotencyKey = String(body.idempotencyKey || '');
+    if (idempotencyKey) {
+      var existing = await db.collection('ocr_jobs').where({
+        caseId: body.caseId, requestedBy: req.openid, idempotencyKey: idempotencyKey,
+      }).limit(1).get();
+      if (existing.data && existing.data[0]) {
+        return res.json({ code: 0, data: { jobId: existing.data[0]._id, status: existing.data[0].status, duplicate: true }, message: 'ok' });
+      }
+    }
+    var previous = await db.collection('evidence_batches').where({ caseId: body.caseId }).get();
+    var exactHashes = (body.knownExactHashes || []).slice();
+    var perceptualHashes = (body.knownPerceptualHashes || []).slice();
+    (previous.data || []).forEach(function (batch) {
+      exactHashes = exactHashes.concat(batch.sourceHashes || []);
+      perceptualHashes = perceptualHashes.concat(batch.perceptualHashes || []);
+    });
+    var jobId = uuid.v4();
+    var now = new Date().toISOString();
+    await db.collection('ocr_jobs').doc(jobId).set({ data: {
+      caseId: body.caseId,
+      requestedBy: req.openid,
+      fileIds: fileIds,
+      knownExactHashes: Array.from(new Set(exactHashes.filter(Boolean))),
+      knownPerceptualHashes: Array.from(new Set(perceptualHashes.filter(Boolean))),
+      idempotencyKey: idempotencyKey,
+      status: 'queued',
+      progress: { current: 0, total: fileIds.length, message: '识别任务已进入队列' },
+      result: null,
+      job: { attempts: 0, leaseOwner: null, leaseUntil: null },
+      createdAt: now,
+      updatedAt: now,
+    } });
+    res.status(202).json({ code: 0, data: { jobId: jobId, status: 'queued', duplicate: false }, message: 'ok' });
+    req.app.locals.ocrWorker.kick().catch(function (error) {
+      console.error('[Upload] OCR worker kick failed:', error.message);
+    });
+  } catch (error) { next(error); }
+});
+
+router.get('/ocr-jobs/:id', async function (req, res, next) {
+  try {
+    var result = await db.collection('ocr_jobs').doc(req.params.id).get();
+    var job = result.data;
+    if (!job) return res.status(404).json({ code: -1, errorCode: 'OCR_JOB_NOT_FOUND', data: null, message: '识别任务不存在' });
+    await caseAccess.getCaseForUser(job.caseId, req.openid);
+    res.json({ code: 0, data: {
+      jobId: job._id,
+      caseId: job.caseId,
+      status: job.status,
+      progress: job.progress,
+      result: job.status === 'completed' ? job.result : null,
+      errorCode: job.errorCode || '',
+      errorMessage: job.errorMessage || '',
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+    }, message: 'ok' });
+  } catch (error) { next(error); }
+});
 
 router.post('/ocr-batch', caseAccess.requireCaseAccess, async function (req, res, next) {
   try {

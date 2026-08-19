@@ -152,55 +152,87 @@ function uploadVideoToCloud(filePath, caseId) {
  * @param {function(number, number): void} [onProgress] - 进度回调 (current, total)
  * @returns {Promise<{text: string, fileIds: string[]}>}
  */
-function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
-  var totalCount = tempFilePaths.length;
+function mapOcrJobResult(data, fileIds) {
+  var images = data.images || [];
+  var blocks = [];
+  var hashes = [];
+  var perceptualHashes = [];
+  var acceptedFileIds = [];
+  images.forEach(function (image) {
+    if (!image.duplicate && !image.error) {
+      hashes.push(image.exactHash);
+      perceptualHashes.push(image.perceptualHash);
+      if (fileIds[image.index]) acceptedFileIds.push(fileIds[image.index]);
+      blocks = blocks.concat(image.blocks || []);
+    }
+  });
+  return {
+    text: data.text || '', fileIds: acceptedFileIds, images: images,
+    ocrBlocks: blocks, sourceHashes: hashes, perceptualHashes: perceptualHashes,
+    acceptedCount: data.acceptedCount || 0, duplicateCount: data.duplicateCount || 0,
+  };
+}
+
+function startOcrJob(fileIds, caseId, knownHashes) {
+  return cloudRun.call('/api/upload/ocr-jobs', 'POST', {
+    caseId: caseId,
+    fileIds: fileIds,
+    knownExactHashes: knownHashes && knownHashes.exact || [],
+    knownPerceptualHashes: knownHashes && knownHashes.perceptual || [],
+    idempotencyKey: cloudRun.idempotencyKey('ocr_' + caseId),
+  }).then(function (result) { return result.data; });
+}
+
+function getOcrJob(jobId) {
+  return cloudRun.call('/api/upload/ocr-jobs/' + jobId, 'GET').then(function (result) {
+    return result.data || {};
+  });
+}
+
+function waitForOcrJob(jobId, fileIds, onProgress) {
+  var transientFailures = 0;
+  return new Promise(function (resolve, reject) {
+    function poll() {
+      getOcrJob(jobId).then(function (job) {
+        transientFailures = 0;
+        var progress = job.progress || {};
+        if (onProgress) onProgress(progress.current || 0, progress.total || fileIds.length);
+        if (job.status === 'completed') {
+          resolve(mapOcrJobResult(job.result || {}, fileIds));
+          return;
+        }
+        if (job.status === 'failed') {
+          var error = new Error(job.errorMessage || '图片识别失败，请重新提交该批图片');
+          error.errorCode = job.errorCode || 'OCR_JOB_FAILED';
+          reject(error);
+          return;
+        }
+        setTimeout(poll, 2000);
+      }).catch(function (error) {
+        transientFailures++;
+        if (transientFailures >= 5) {
+          reject(error);
+          return;
+        }
+        setTimeout(poll, Math.min(5000, 1000 * transientFailures));
+      });
+    }
+    poll();
+  });
+}
+
+function resumeImagesAndOCR(jobId, fileIds, onProgress) {
+  return waitForOcrJob(jobId, fileIds || [], onProgress);
+}
+
+function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes, onJobCreated) {
   var uploadTasks = tempFilePaths.map(function (filePath) {
     return uploadImageToCloud(filePath, caseId);
   });
   return Promise.all(uploadTasks).then(function (fileIds) {
-    // callContainer 对单次同步调用有较短等待窗口。长截图的高精度 OCR 会分块，
-    // 因此逐张调用，避免一批 9 张图片在网关超时前还没处理完。
-    var state = {
-      images: [], blocks: [], hashes: [], perceptualHashes: [], acceptedFileIds: [],
-      textParts: [], acceptedCount: 0, duplicateCount: 0,
-    };
-    var exactHashes = (knownHashes && knownHashes.exact || []).slice();
-    var perceptualHashes = (knownHashes && knownHashes.perceptual || []).slice();
-    var sequence = Promise.resolve();
-    fileIds.forEach(function (fileId, index) {
-      sequence = sequence.then(function () {
-        return cloudRun.call('/api/upload/ocr-batch', 'POST', {
-          caseId: caseId,
-          fileIds: [fileId],
-          knownExactHashes: exactHashes,
-          knownPerceptualHashes: perceptualHashes,
-        }).then(function (result) {
-          var data = result.data || {};
-          var image = (data.images || [])[0] || { index: 0, error: '识别服务未返回结果' };
-          image.index = index;
-          state.images.push(image);
-          if (image.duplicate) {
-            state.duplicateCount++;
-          } else if (!image.error) {
-            state.acceptedCount++;
-            state.acceptedFileIds.push(fileId);
-            state.hashes.push(image.exactHash);
-            state.perceptualHashes.push(image.perceptualHash);
-            exactHashes.push(image.exactHash);
-            perceptualHashes.push(image.perceptualHash);
-            state.blocks = state.blocks.concat(image.blocks || []);
-            state.textParts.push((image.text || '') + '\n\n--- 截图 ' + (index + 1) + ' 结束 ---');
-          }
-          if (onProgress) onProgress(index + 1, totalCount);
-        });
-      });
-    });
-    return sequence.then(function () {
-      return {
-        text: state.textParts.join('\n\n'), fileIds: state.acceptedFileIds, images: state.images,
-        ocrBlocks: state.blocks, sourceHashes: state.hashes, perceptualHashes: state.perceptualHashes,
-        acceptedCount: state.acceptedCount, duplicateCount: state.duplicateCount,
-      };
+    return startOcrJob(fileIds, caseId, knownHashes).then(function (job) {
+      if (onJobCreated) onJobCreated(job.jobId, fileIds);
+      return waitForOcrJob(job.jobId, fileIds, onProgress);
     });
   });
 }
@@ -240,4 +272,7 @@ module.exports = {
   uploadVideoToCloud: uploadVideoToCloud,
   ocrBatch: ocrBatch,
   uploadImagesAndOCR: uploadImagesAndOCR,
+  startOcrJob: startOcrJob,
+  getOcrJob: getOcrJob,
+  resumeImagesAndOCR: resumeImagesAndOCR,
 };

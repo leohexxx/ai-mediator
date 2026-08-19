@@ -32,6 +32,8 @@ Page({
     evidenceRevision: null,
     pendingEvidenceKey: '',
     pendingAnalysisKey: '',
+    pendingOcrJobId: '',
+    pendingOcrFileIds: [],
     // 累计图片（支持分批追加）
     allTempFilePaths: [],
     // 视频
@@ -70,6 +72,8 @@ Page({
       ocrBlocks: draft && draft.ocrBlocks || [],
       ocrConfirmed: draft && draft.ocrConfirmed === true,
       pendingEvidenceKey: draft && draft.pendingEvidenceKey || '',
+      pendingOcrJobId: draft && draft.pendingOcrJobId || '',
+      pendingOcrFileIds: draft && draft.pendingOcrFileIds || [],
       uploadMode: draft && draft.chatText ? 'album' : '',
       showGuide: !(draft && draft.chatText),
       canEditPersonalityA: options.mode === 'single' || (options.role || 'party_a') === 'party_a',
@@ -77,6 +81,7 @@ Page({
       analysisPerspective: options.perspective === 'communication' ? 'communication' : 'evidence',
     });
     this._loadPersonality();
+    if (draft && draft.pendingOcrJobId) this._resumePendingOcrJob();
   },
 
   /** 资料只作为沟通偏好参考，读取后回填到分析前的可选面板。 */
@@ -111,6 +116,8 @@ Page({
       ocrBlocks: this.data.ocrBlocks || [],
       ocrConfirmed: this.data.ocrConfirmed === true,
       pendingEvidenceKey: this.data.pendingEvidenceKey || '',
+      pendingOcrJobId: this.data.pendingOcrJobId || '',
+      pendingOcrFileIds: this.data.pendingOcrFileIds || [],
     });
   },
 
@@ -227,62 +234,81 @@ Page({
           mask: true,
         });
       },
-      { exact: that.data.sourceHashes || [], perceptual: that.data.perceptualHashes || [] }
-    ).then(function (ocrResult) {
-      wx.hideLoading();
-
-      var extractedText = ocrResult.text || '';
-      var oldText = that.data.chatText;
-      // 追加到已有文本后
-      var combinedText = oldText
-        ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText
-        : extractedText;
-      var acceptedCount = ocrResult.acceptedCount != null ? ocrResult.acceptedCount : imageCount;
-      var totalCount = existingCount + acceptedCount;
-      var allFileIds = (that.data.uploadedFileIds || []).concat(ocrResult.fileIds || []);
-      var allHashes = (that.data.sourceHashes || []).concat(ocrResult.sourceHashes || []);
-      var allPerceptualHashes = (that.data.perceptualHashes || []).concat(ocrResult.perceptualHashes || []);
-      var allBlocks = (that.data.ocrBlocks || []).concat(ocrResult.ocrBlocks || []);
-
-      // 原文始终保留；长文本摘要由CloudRun按证据版本缓存处理。
-
-      that.setData({
-        ocrProcessing: false,
-        ocrProgress: { current: imageCount, total: imageCount },
-        ocrError: '',
-        chatText: combinedText,
-        selectedImageCount: totalCount,
-        uploadedFileIds: allFileIds,
-        sourceHashes: allHashes,
-        perceptualHashes: allPerceptualHashes,
-        ocrBlocks: allBlocks,
-        ocrConfirmed: false,
-      });
-      that._saveDraft();
-
-      if (extractedText.trim()) {
-        var duplicateTip = ocrResult.duplicateCount ? '，跳过重复' + ocrResult.duplicateCount + '张' : '';
-        wx.showToast({ title: '已识别' + totalCount + '张' + duplicateTip, icon: 'none' });
-      } else {
-        wx.showToast({ title: '该批未识别到文字', icon: 'none' });
+      { exact: that.data.sourceHashes || [], perceptual: that.data.perceptualHashes || [] },
+      function (jobId, fileIds) {
+        that.setData({ pendingOcrJobId: jobId, pendingOcrFileIds: fileIds || [] });
+        that._saveDraft();
       }
+    ).then(function (ocrResult) {
+      that._applyOcrResult(ocrResult, imageCount, existingCount);
     }).catch(function (err) {
-      wx.hideLoading();
-      var errorCode = (err && err.errorCode) || 'OCR_REQUEST_FAILED';
-      var errorMessage = (err && (err.message || err.errMsg)) || '请求未到达识别服务';
-      var errorSummary = errorCode + '：' + String(errorMessage).slice(0, 80);
-      console.error('OCR 失败:', { errorCode: errorCode, message: errorMessage, statusCode: err && err.statusCode });
+      that._handleOcrError(err);
+    });
+  },
 
-      that.setData({
-        ocrProcessing: false,
-        ocrError: errorSummary,
-        chatText: that.data.chatText || '[截图处理失败: ' + errorMessage + '。您可以改用"直接粘贴文本"方式上传。]',
-      });
-      wx.showModal({
-        title: '图片识别失败',
-        content: errorSummary + '\n可重新选择本批图片，或改用粘贴文本。',
-        showCancel: false,
-      });
+  _applyOcrResult: function (ocrResult, imageCount, existingCount) {
+    wx.hideLoading();
+    var extractedText = ocrResult.text || '';
+    var oldText = this.data.chatText;
+    var combinedText = oldText ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText : extractedText;
+    var acceptedCount = ocrResult.acceptedCount != null ? ocrResult.acceptedCount : imageCount;
+    var totalCount = existingCount + acceptedCount;
+    this.setData({
+      ocrProcessing: false,
+      ocrProgress: { current: imageCount, total: imageCount },
+      ocrError: '',
+      chatText: combinedText,
+      selectedImageCount: totalCount,
+      uploadedFileIds: (this.data.uploadedFileIds || []).concat(ocrResult.fileIds || []),
+      sourceHashes: (this.data.sourceHashes || []).concat(ocrResult.sourceHashes || []),
+      perceptualHashes: (this.data.perceptualHashes || []).concat(ocrResult.perceptualHashes || []),
+      ocrBlocks: (this.data.ocrBlocks || []).concat(ocrResult.ocrBlocks || []),
+      ocrConfirmed: false,
+      pendingOcrJobId: '',
+      pendingOcrFileIds: [],
+    });
+    this._saveDraft();
+    if (extractedText.trim()) {
+      var duplicateTip = ocrResult.duplicateCount ? '，跳过重复' + ocrResult.duplicateCount + '张' : '';
+      wx.showToast({ title: '已识别' + totalCount + '张' + duplicateTip, icon: 'none' });
+    } else {
+      wx.showToast({ title: '该批未识别到文字', icon: 'none' });
+    }
+  },
+
+  _handleOcrError: function (err) {
+    wx.hideLoading();
+    var errorCode = (err && err.errorCode) || 'OCR_REQUEST_FAILED';
+    var errorMessage = (err && (err.message || err.errMsg)) || '请求未到达识别服务';
+    var errorSummary = errorCode + '：' + String(errorMessage).slice(0, 80);
+    console.error('OCR 失败:', { errorCode: errorCode, message: errorMessage, statusCode: err && err.statusCode });
+    this.setData({ ocrProcessing: false, ocrError: errorSummary });
+    this._saveDraft();
+    wx.showModal({
+      title: '图片识别暂未完成',
+      content: errorSummary + '\n任务记录已经保留，重新进入此页面会继续查询。',
+      showCancel: false,
+    });
+  },
+
+  _resumePendingOcrJob: function () {
+    var that = this;
+    var jobId = this.data.pendingOcrJobId;
+    var fileIds = this.data.pendingOcrFileIds || [];
+    if (!jobId || !fileIds.length) return;
+    var existingCount = this.data.selectedImageCount || 0;
+    this.setData({
+      uploadMode: 'album', showGuide: false, ocrProcessing: true,
+      ocrProgress: { current: 0, total: fileIds.length }, ocrError: '',
+    });
+    wx.showLoading({ title: '恢复识别任务...', mask: true });
+    evidenceService.resumeImagesAndOCR(jobId, fileIds, function (current, total) {
+      that.setData({ ocrProgress: { current: current, total: total } });
+      wx.showLoading({ title: '识别中 ' + current + '/' + total + '...', mask: true });
+    }).then(function (ocrResult) {
+      that._applyOcrResult(ocrResult, fileIds.length, existingCount);
+    }).catch(function (error) {
+      that._handleOcrError(error);
     });
   },
 

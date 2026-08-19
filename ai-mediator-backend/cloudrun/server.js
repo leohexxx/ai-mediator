@@ -13,11 +13,13 @@ var chatRoute = require('./routes/chat');
 var evidenceRoute = require('./routes/evidence');
 var database = require('./services/db');
 var analysisWorker = require('./services/analysisWorker').createWorker();
+var ocrWorker = require('./services/ocrWorker').createWorker();
 var metrics = require('./services/metrics');
 
 database.assertReady();
 var app = express();
 app.locals.analysisWorker = analysisWorker;
+app.locals.ocrWorker = ocrWorker;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -38,10 +40,12 @@ var server = app.listen(config.port, function () {
 });
 
 analysisWorker.start();
+ocrWorker.start();
 var metricsLogger = config.localMode ? null : metrics.startStructuredLogging(config.metrics.structuredLogIntervalMs);
 server.on('close', function () {
   analysisWorker.stop();
+  ocrWorker.stop();
   if (metricsLogger) metricsLogger.close();
 });
 
-module.exports = { app: app, server: server, analysisWorker: analysisWorker };
+module.exports = { app: app, server: server, analysisWorker: analysisWorker, ocrWorker: ocrWorker };

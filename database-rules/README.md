@@ -5,7 +5,7 @@ v0.2.0 起小程序不再直接读写业务集合；V3 的证据规则引擎、�
 在 CloudBase 控制台的集合权限管理中应用：
 
 - `cases`、`analyses`、`analysis_rate_limits`、`evidence`、`evidence_batches`、`invitations`、`users`、`share_cards`：使用 `server-only.json`。
-- `messages`（旧链路）、`conversation_messages`、`chat_jobs`：使用 `server-only.json`。`messages.json` 仅保留为紧急回滚旧云函数时的临时规则，正常发布不得应用。
+- `messages`（旧链路）、`conversation_messages`、`chat_jobs`、`ocr_jobs`：使用 `server-only.json`。`messages.json` 仅保留为紧急回滚旧云函数时的临时规则，正常发布不得应用。
 
 CloudRun 使用服务端 API Key 访问数据库，不受前端数据库规则限制，业务权限由后端参与方校验。规则部署后，用非案件参与者账号验证无法读取任何业务集合，并完整回归邀请、补证、分析、中断、追问和报告流程。
 

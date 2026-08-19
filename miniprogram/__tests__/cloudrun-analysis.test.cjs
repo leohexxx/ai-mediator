@@ -52,8 +52,9 @@ async function run() {
   assert.strictEqual(evidenceSource.includes("callFunction('ocrImage'"), false, 'V3 OCR must not use legacy OCR function');
   assert.strictEqual(evidenceSource.includes("callFunction('ocrBatch'"), false, 'V3 batch OCR must not use legacy OCR function');
   assert.strictEqual(evidenceSource.includes('encoding: \'base64\''), false, '图片 OCR 不应再把 Base64 原图塞进 callContainer 请求');
-  assert.ok(evidenceSource.includes('fileIds: [fileId]'), '图片 OCR 应只向 CloudRun 发送已上传的单个 fileID');
-  assert.ok(evidenceSource.includes('逐张调用'), '长截图 OCR 必须拆为逐张调用，避免 callContainer 批量调用超时');
+  assert.ok(evidenceSource.includes("'/api/upload/ocr-jobs'"), '图片 OCR 应创建异步识别任务');
+  assert.ok(evidenceSource.includes("'/api/upload/ocr-jobs/' + jobId"), '图片 OCR 应轮询异步识别结果');
+  assert.ok(uploadPageSource.includes('pendingOcrJobId'), '上传页必须保存待完成任务以支持离开页面后恢复');
   assert.strictEqual(evidenceSource.includes('compressText'), false, 'V3 must preserve original evidence instead of client-side compression');
   assert.strictEqual(uploadPageSource.includes('?.'), false, 'Mini Program upload code must not use unsupported optional chaining');
   assert.strictEqual(homeMarkup.includes('秒出结果'), false, 'V3 home must not promise an unverified instant result');
