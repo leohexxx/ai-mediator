@@ -3,6 +3,10 @@
   margin-bottom: 32rpx;
 }
 
+.collaboration-cast { display: flex; align-items: center; width: 190rpx; height: 64rpx; margin-bottom: 12rpx; }
+.cast-avatar { width: 64rpx; height: 64rpx; }
+.cast-referee { width: 54rpx; height: 54rpx; margin: 0 -2rpx; z-index: 2; }
+
 .case-title {
   font-size: var(--font-2xl);
   font-weight: var(--font-bold);
@@ -26,6 +30,8 @@
 .analysis-hint {
   text-align: center;
   margin-top: 24rpx;
+  border: 1rpx solid rgba(192, 132, 252, .3);
+  box-shadow: var(--shadow-sm);
 }
 
 .hint-icon {

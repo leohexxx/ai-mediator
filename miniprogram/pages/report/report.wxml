@@ -27,8 +27,13 @@
   <!-- 报告内容（仅分析完成时展示，分析中只显示进度条，避免渲染半成品/旧缓存） -->
   <view wx:if="{{analysis && !restricted && progress && progress.step === 'done'}}">
 
-    <view class="report-battle-banner"><text class="battle-icon">⚔️</text><text>评理结果到啦，看看这波谁更有理</text><text class="battle-icon">⚖️</text></view>
-    <view class="revision-note">📌 本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据</view>
+    <view class="report-battle-banner">
+      <image class="battle-character" src="../../assets/characters/party-a.svg" mode="aspectFit" />
+      <view class="battle-copy"><text>评理结果到啦</text><text class="battle-subtitle">看看这波谁更有理</text></view>
+      <image class="battle-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
+      <image class="battle-character" src="../../assets/characters/party-b.svg" mode="aspectFit" />
+    </view>
+    <view class="revision-note"><image class="revision-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />本报告基于第 {{analysis.lockedEvidenceRevision || analysis.evidenceRevision || 1}} 版证据</view>
     <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">👤 当前只有一方提供证据，结论仅供参考。</view>
 
     <!-- 补充内容标记 -->

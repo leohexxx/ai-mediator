@@ -1,5 +1,14 @@
 <!-- 上传聊天记录页 -->
 <view class="container">
+  <view class="evidence-workbench-head">
+    <image class="workbench-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
+    <view class="workbench-copy">
+      <view class="workbench-kicker">EVIDENCE DESK</view>
+      <view class="workbench-title">把聊天记录交给 AI 裁判</view>
+      <view class="workbench-desc">截图优先；可连续追加，再确认后开始评理。</view>
+    </view>
+  </view>
+
   <!-- 补充内容标识 -->
   <view class="supplement-badge" wx:if="{{supplement}}">
     📎 补充聊天内容 — 重新看看有什么新发现
@@ -14,7 +23,7 @@
   <view class="upload-options">
     <!-- 方式一：从相册选择截图（最推荐） -->
     <view class="upload-card upload-card-recommend {{uploadMode === 'album' ? 'active' : ''}}" bindtap="onChooseMedia">
-      <view class="upload-icon">🖼️</view>
+      <image class="upload-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
       <view class="upload-title">从相册选择截图</view>
       <view class="upload-desc">最方便！直接选微信聊天截图，自动识别文字</view>
       <view class="upload-file-name text-brand" wx:if="{{uploadMode === 'album' && ocrProcessing}}">
@@ -47,7 +56,7 @@
 
     <!-- 方式三：直接粘贴文本（方便快捷） -->
     <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
-      <view class="upload-icon">📋</view>
+      <image class="upload-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
       <view class="upload-title">直接粘贴文本</view>
       <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
     </view>
@@ -72,7 +81,7 @@
 
   <!-- 方式三：粘贴文本 -->
   <view class="upload-card {{uploadMode === 'paste' ? 'active' : ''}}" bindtap="onPasteText">
-    <view class="upload-icon">📋</view>
+    <image class="upload-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
     <view class="upload-title">直接粘贴文本</view>
     <view class="upload-desc">复制聊天记录到剪贴板后粘贴</view>
   </view>

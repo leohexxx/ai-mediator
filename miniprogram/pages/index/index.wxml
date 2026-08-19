@@ -3,18 +3,16 @@
 
   <!-- 顶部品牌区域 -->
   <view class="brand-section">
-    <view class="brand-emoji-row">
-      <text class="brand-emoji b1">😤</text>
-      <text class="brand-emoji b2">🤬</text>
-      <text class="brand-emoji b3">👄</text>
-      <text class="brand-emoji b4">😭</text>
-      <text class="brand-emoji b5">😡</text>
+    <view class="brand-characters">
+      <image class="brand-avatar avatar-a" src="../../assets/characters/party-a.svg" mode="aspectFit" />
+      <image class="brand-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
+      <image class="brand-avatar avatar-b" src="../../assets/characters/party-b.svg" mode="aspectFit" />
     </view>
     <view class="brand-logo">
       <text class="brand-text-gradient">啷个对</text>
     </view>
     <view class="brand-tagline">
-      <text class="tagline-text">吵架了？让 AI 来评评理 🤖⚖️</text>
+      <text class="tagline-text">吵架了？让 AI 来评评理</text>
     </view>
   </view>
 
@@ -24,19 +22,19 @@
     <view class="hero-bubble-wrap">
       <!-- 主要大气泡 -->
       <view class="hero-bubble main-bubble">
-        <text class="bubble-icon">⚡</text>
+        <image class="bubble-avatar" src="../../assets/characters/party-a.svg" mode="aspectFit" />
         <text class="bubble-text">你有理</text>
       </view>
 
       <!-- 对面的气泡 -->
       <view class="hero-bubble vs-bubble">
-        <text class="bubble-icon">🔥</text>
+        <image class="bubble-avatar" src="../../assets/characters/party-b.svg" mode="aspectFit" />
         <text class="bubble-text">我有理</text>
       </view>
 
       <!-- AI 裁判 -->
       <view class="hero-judge">
-        <text class="judge-icon">🤖</text>
+        <image class="judge-icon" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
         <text class="judge-label">AI 裁判</text>
       </view>
     </view>
@@ -48,7 +46,7 @@
         data-mode="single"
         catchtap="onSwitchMode"
       >
-        <text class="mode-card-icon">🧑‍⚖️</text>
+        <image class="mode-card-icon" src="../../assets/characters/party-a.svg" mode="aspectFit" />
         <view class="mode-card-info">
           <text class="mode-card-name">单人评理</text>
           <text class="mode-card-desc">自己上传 · 提交分析</text>
@@ -67,7 +65,7 @@
         data-mode="dual"
         catchtap="onSwitchMode"
       >
-        <text class="mode-card-icon">👥</text>
+        <image class="mode-card-icon" src="../../assets/characters/party-b.svg" mode="aspectFit" />
         <view class="mode-card-info">
           <text class="mode-card-name">双人对决</text>
           <text class="mode-card-desc">邀请对方 · 一起评理</text>
@@ -80,7 +78,7 @@
 
     <!-- 主 CTA 按钮 -->
     <view class="hero-cta-btn {{creating ? 'cta-loading' : ''}}" catchtap="onStartAnalyze">
-      <text class="cta-btn-icon">{{creating ? '⏳' : (mode === 'dual' ? '📨' : '🚀')}}</text>
+      <image class="cta-btn-icon" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
       <text class="cta-btn-text">{{creating ? '创建中...' : (mode === 'dual' ? '创建邀请链接' : '开始评理！')}}</text>
     </view>
 
@@ -93,15 +91,15 @@
   <!-- 三点卖点 -->
   <view class="features-row">
     <view class="feature-chip">
-      <text class="chip-icon">📸</text>
+      <image class="chip-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
       <text class="chip-text">截图即分析</text>
     </view>
     <view class="feature-chip">
-      <text class="chip-icon">🤫</text>
+      <view class="chip-shield">保</view>
       <text class="chip-text">匿名参与</text>
     </view>
     <view class="feature-chip">
-      <text class="chip-icon">💬</text>
+      <image class="chip-icon" src="../../assets/icons/chat.svg" mode="aspectFit" />
       <text class="chip-text">AI 追问</text>
     </view>
   </view>
@@ -109,7 +107,7 @@
   <!-- 案例区标题 -->
   <view class="section-header" wx:if="{{!isEmpty}}">
     <view class="section-title-wrap">
-      <text class="section-icon">📋</text>
+      <image class="section-icon" src="../../assets/icons/evidence.svg" mode="aspectFit" />
       <text class="section-title">我的评理记录</text>
     </view>
     <view class="section-badge">
@@ -133,7 +131,7 @@
       <view class="case-body">
         <view class="case-top-row">
           <view class="case-title-wrap">
-            <text class="case-emoji">{{item.isSingleMode ? '🧑‍⚖️' : '👥'}}</text>
+            <view class="case-emoji">{{item.isSingleMode ? '单' : '双'}}</view>
             <text class="case-title">{{item.title || '评理现场'}}</text>
           </view>
 
@@ -155,9 +153,7 @@
 
   <!-- 空状态 — 调皮版 -->
   <view class="empty-fun" wx:if="{{isEmpty && !loading}}">
-    <view class="empty-graphic">
-      <text class="empty-big-emoji">🫣</text>
-    </view>
+    <view class="empty-graphic"><image class="empty-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" /></view>
     <text class="empty-fun-title">还没人来找我评理呢！</text>
     <text class="empty-fun-desc">快戳上面那个红按钮试试呗~</text>
   </view>

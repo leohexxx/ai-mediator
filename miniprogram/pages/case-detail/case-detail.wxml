@@ -2,6 +2,11 @@
 <view class="container" wx:if="{{!loading && !showJoinPrompt}}">
   <!-- 案例标题 -->
   <view class="case-header">
+    <view class="collaboration-cast">
+      <image class="cast-avatar" src="../../assets/characters/party-a.svg" mode="aspectFit" />
+      <image class="cast-referee" src="../../assets/characters/ai-referee.svg" mode="aspectFit" />
+      <image class="cast-avatar" src="../../assets/characters/party-b.svg" mode="aspectFit" />
+    </view>
     <view class="case-title">{{caseData.title}}</view>
     <view class="case-meta text-secondary">
       关系：{{caseData.relationship || '未设置'}} | 创建于 {{caseData.createdAt}}
