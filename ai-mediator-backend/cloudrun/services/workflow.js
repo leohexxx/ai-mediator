@@ -191,6 +191,7 @@ function createWorkflow(options) {
         promptVersion: evidenceIntelligence.PROMPT_VERSION,
         mode: caseMode,
         deep: input.deep === true,
+        perspective: input.perspective === 'communication' ? 'communication' : 'evidence',
         status: 'queued',
         evidenceRevision: revision,
         lockedEvidenceRevision: revision,

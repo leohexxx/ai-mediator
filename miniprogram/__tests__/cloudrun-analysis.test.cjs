@@ -64,6 +64,9 @@ async function run() {
   assert.ok(reportPageMarkup.includes('不用于判断事实、责任或证据充分度'), 'Preference UI must state its evidence boundary');
   assert.ok(uploadPageSource.includes('updatePersonality'), 'Preferences must save before analysis starts');
   assert.ok(reportPageSource.includes('updatePersonality'), 'Preferences must be editable from the report');
+  assert.ok(uploadMarkup.includes('只按证据分析'), 'Analysis UI must distinguish evidence-only mode');
+  assert.ok(uploadMarkup.includes('证据 + 沟通画像'), 'Analysis UI must expose the communication lens');
+  assert.ok(analysisSource.includes('data.perspective'), 'CloudRun analysis request must carry the selected perspective');
 
   var started = await analysis.analyzeCase('case-1', true, true, { evidenceRevision: 2, idempotencyKey: 'start-1' });
   assert.strictEqual(started.data.analysisId, 'a-1');

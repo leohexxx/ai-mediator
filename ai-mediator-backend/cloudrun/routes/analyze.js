@@ -16,6 +16,7 @@ router.post('/start', async function (req, res, next) {
       openid: req.openid,
       evidenceRevision: body.evidenceRevision,
       deep: body.deep === true,
+      perspective: body.perspective === 'communication' ? 'communication' : 'evidence',
       idempotencyKey: body.idempotencyKey || '',
     });
     var analysis = result.analysis;

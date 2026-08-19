@@ -428,7 +428,7 @@ Page({
       return;
     }
     wx.navigateTo({
-      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1',
+      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1&perspective=' + ((this.data.analysis && this.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence'),
     });
   },
 
@@ -450,12 +450,12 @@ Page({
         }).then(function () {
           wx.hideLoading();
           that.setData({ canceling: false });
-          wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1' });
+          wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1&perspective=' + ((that.data.analysis && that.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence') });
         }).catch(function (error) {
           wx.hideLoading();
           that.setData({ canceling: false });
           if (error && error.errorCode === 'ANALYSIS_ALREADY_COMPLETED') {
-            wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1' });
+            wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1&perspective=' + ((that.data.analysis && that.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence') });
             return;
           }
           wx.showToast({ title: error && error.message || '打断失败，请重试', icon: 'none' });
@@ -520,7 +520,9 @@ Page({
           showPersonalityEditor: false,
         });
         var deep = that.data.analysis && that.data.analysis.deep === true;
-        return analysisService.analyzeCase(that.data.caseId, true, deep);
+        return analysisService.analyzeCase(that.data.caseId, true, deep, {
+          perspective: that.data.analysis && that.data.analysis.perspective === 'communication' ? 'communication' : 'evidence',
+        });
       })
       .then(function (result) {
         wx.hideLoading();

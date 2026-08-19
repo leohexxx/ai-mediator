@@ -63,3 +63,12 @@ test('MBTI 与星座只作为可选沟通偏好，且会进入缓存区分', fun
   var withPreference = intelligence.evidenceFingerprint('case-1', 1, [], 'quick', 'flash', preferences);
   assert.notEqual(base, withPreference);
 });
+
+test('沟通画像仅在用户选择沟通视角时进入模型输出契约', function () {
+  var evidencePrompt = pipeline.analysisTemplate({ analysisPerspective: 'evidence' }, false);
+  var communicationPrompt = pipeline.analysisTemplate({ analysisPerspective: 'communication' }, false);
+  assert.match(evidencePrompt, /不得输出、推测或引用 MBTI、星座/);
+  assert.doesNotMatch(evidencePrompt, /"communicationInsights"/);
+  assert.match(communicationPrompt, /"communicationInsights"/);
+  assert.match(communicationPrompt, /只能作为自愿偏好参考/);
+});

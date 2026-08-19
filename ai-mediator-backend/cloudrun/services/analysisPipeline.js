@@ -30,29 +30,43 @@ var ANALYSIS_SYSTEM_PROMPT = [
 ].join('\n');
 
 function analysisTemplate(payload, deep) {
+  var communicationMode = payload.analysisPerspective === 'communication';
+  var output = {
+    coreConclusion: {
+      overallWinner: 'a/b/tie（仅兼容字段，不要把报告写成输赢裁决）',
+      scoreA: 50, scoreB: 50,
+      oneLineVerdict: '基于现有证据的中性摘要',
+      keyReasons: ['只写有证据支持的理由'],
+      recommendedAction: '最优先的一步',
+      commonGround: ['双方记录中可以共同确认的内容'],
+      disputedIssues: [{ title: '', partyAView: '', partyBView: '', evidenceIds: ['r1m1'], uncertainty: '' }],
+      missingEvidence: ['影响判断但当前缺少的材料'],
+      nextActions: ['具体、可执行、非对抗的步骤'],
+    },
+    evidenceWeights: [{ sourceMessageId: 'r1m1', speaker: 'party_a', content: '简短引用', timestamp: '', weight: 70, weightReason: '', favors: 'a/b/neutral' }],
+    emotionCurve: [{ speaker: 'party_a', points: [{ timestamp: '', emotion: '', intensity: 50, trigger: '' }] }],
+    mediationStrategy: [{ step: 1, title: '', description: '', target: 'a/b/both', expectedOutcome: '', difficulty: 'easy/medium/hard' }],
+    detailedAnalysis: { summary: '', relationship: '', characters: [], conflicts: [], timeline: [] },
+    advice: { toA: [], toB: [], toBoth: [] },
+  };
+  if (communicationMode) {
+    output.communicationInsights = {
+      summary: '明确这是沟通偏好假设，不是事实或人格诊断',
+      partyA: '基于自愿资料和聊天表现，给出可尝试的沟通方式',
+      partyB: '基于自愿资料和聊天表现，给出可尝试的沟通方式',
+      interactionPattern: '说明可能的沟通摩擦点，并保留不确定性',
+      suggestions: ['给出可执行且非标签化的沟通建议'],
+    };
+  }
   return [
-    '## 分析模式\n' + (deep ? '深度模式：可展开多个相互竞争的解释，但每个解释都要标明不确定性。' : '快速模式：聚焦最重要的三个争议点和下一步行动。'),
+    '## 分析深度\n' + (deep ? '深度模式：可展开多个相互竞争的解释，但每个解释都要标明不确定性。' : '快速模式：聚焦最重要的三个争议点和下一步行动。'),
+    '## 分析视角\n' + (communicationMode
+      ? '证据 + 沟通画像：证据结论只能依据证据；可单独输出沟通画像，且 MBTI/星座只能作为自愿偏好参考。'
+      : '只按证据分析：不得输出、推测或引用 MBTI、星座、人格类型或沟通画像。'),
     '## 服务端结构化输入（个人敏感字段已脱敏）',
     JSON.stringify(payload),
     '## 输出结构',
-    JSON.stringify({
-      coreConclusion: {
-        overallWinner: 'a/b/tie（仅兼容字段，不要把报告写成输赢裁决）',
-        scoreA: 50, scoreB: 50,
-        oneLineVerdict: '基于现有证据的中性摘要',
-        keyReasons: ['只写有证据支持的理由'],
-        recommendedAction: '最优先的一步',
-        commonGround: ['双方记录中可以共同确认的内容'],
-        disputedIssues: [{ title: '', partyAView: '', partyBView: '', evidenceIds: ['r1m1'], uncertainty: '' }],
-        missingEvidence: ['影响判断但当前缺少的材料'],
-        nextActions: ['具体、可执行、非对抗的步骤'],
-      },
-      evidenceWeights: [{ sourceMessageId: 'r1m1', speaker: 'party_a', content: '简短引用', timestamp: '', weight: 70, weightReason: '', favors: 'a/b/neutral' }],
-      emotionCurve: [{ speaker: 'party_a', points: [{ timestamp: '', emotion: '', intensity: 50, trigger: '' }] }],
-      mediationStrategy: [{ step: 1, title: '', description: '', target: 'a/b/both', expectedOutcome: '', difficulty: 'easy/medium/hard' }],
-      detailedAnalysis: { summary: '', relationship: '', characters: [], conflicts: [], timeline: [] },
-      advice: { toA: [], toB: [], toBoth: [] },
-    }),
+    JSON.stringify(output),
     '置信度由后端根据证据质量计算，不要自行生成 confidence。',
   ].join('\n\n');
 }
@@ -105,6 +119,7 @@ function resultFields(result) {
     evidenceQuality: result.evidenceQuality || {},
     safetySignals: result.safetySignals || [],
     knowledgeReferences: result.knowledgeReferences || [],
+    communicationInsights: result.communicationInsights || null,
   };
 }
 
@@ -280,7 +295,8 @@ async function run(analysisId, options) {
   if (!intelligence.features.messageCount) throw new Error('尚未提交有效证据');
   var model = analysis.deep ? config.llm.deepModel : config.llm.model;
   var preferences = communicationPreferences(caseData);
-  var cacheKey = evidenceIntelligence.evidenceFingerprint(analysis.caseId, analysis.lockedEvidenceRevision, batches, analysis.deep ? 'deep' : 'quick', model, preferences);
+  var perspective = analysis.perspective === 'communication' ? 'communication' : 'evidence';
+  var cacheKey = evidenceIntelligence.evidenceFingerprint(analysis.caseId, analysis.lockedEvidenceRevision, batches, perspective + ':' + (analysis.deep ? 'deep' : 'quick'), model, perspective === 'communication' ? preferences : null);
   await db.collection('analyses').doc(analysisId).update({ data: {
     promptVersion: intelligence.promptVersion,
     cacheKey: cacheKey,
@@ -299,7 +315,7 @@ async function run(analysisId, options) {
     facts: intelligence.facts,
     risks: intelligence.risks,
   });
-  var context = { intelligence: intelligence, knowledge: knowledge };
+  var context = { intelligence: intelligence, knowledge: knowledge, perspective: perspective };
 
   if (intelligence.route !== 'llm') {
     var deterministic = analysisContract.deterministicReport(context, intelligence.route);
@@ -343,7 +359,8 @@ async function run(analysisId, options) {
         return evidenceIntelligence.redactSensitiveText(batch.note || '').slice(0, 600);
       }).filter(Boolean).slice(-4),
     },
-    communicationPreferences: preferences,
+    analysisPerspective: perspective,
+    communicationPreferences: perspective === 'communication' ? preferences : null,
     features: intelligence.features,
     evidenceQuality: intelligence.quality,
     extractedFacts: intelligence.facts,

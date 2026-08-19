@@ -43,8 +43,18 @@
 .analysis-mode-modal { width: 100%; padding: 38rpx 32rpx calc(28rpx + env(safe-area-inset-bottom)); box-sizing: border-box; background: var(--color-bg); border-top: 8rpx solid var(--color-brand); }
 .modal-title { margin-top: 10rpx; color: var(--color-text-primary); font-size: 36rpx; font-weight: 800; }
 .modal-subtitle { margin-top: 12rpx; color: var(--color-text-secondary); font-size: 22rpx; line-height: 1.65; }
-.mode-comparison { display: flex; gap: 14rpx; margin-top: 26rpx; }
-.analysis-option { flex: 1; min-height: 190rpx; padding: 20rpx; box-sizing: border-box; background: var(--color-card); border: 1rpx solid var(--color-border); }
+.analysis-step { margin-top: 28rpx; color: var(--color-text-primary); font-size: 23rpx; font-weight: 800; }
+.analysis-step text { display: inline-block; width: 36rpx; margin-right: 8rpx; color: var(--color-warning); font-size: 18rpx; letter-spacing: 1rpx; }
+.perspective-options { display: flex; flex-direction: column; gap: 12rpx; margin-top: 14rpx; }
+.perspective-option { padding: 22rpx 20rpx; background: var(--color-card); border: 1rpx solid var(--color-border); border-left: 5rpx solid transparent; }
+.perspective-option.selected { border-color: var(--color-brand); border-left-color: var(--color-brand); background: #EDF5F1; }
+.perspective-option.selected.communication { border-color: var(--color-warning); border-left-color: var(--color-warning); background: #F8EBD7; }
+.preference-wrap { margin-top: 16rpx; padding: 18rpx; background: var(--color-card); border-top: 4rpx solid var(--color-warning); }
+.preference-head { color: var(--color-text-primary); font-size: 25rpx; font-weight: 800; }
+.preference-desc { margin-top: 8rpx; color: var(--color-text-secondary); font-size: 20rpx; line-height: 1.55; }
+.mode-comparison { display: flex; gap: 14rpx; margin-top: 14rpx; }
+.analysis-option { flex: 1; min-height: 128rpx; padding: 20rpx; box-sizing: border-box; background: var(--color-card); border: 1rpx solid var(--color-border); }
+.deep-option { border-top: 4rpx solid var(--color-warning); }
 .option-name { font-size: 27rpx; font-weight: 700; }
 .option-desc { margin-top: 10rpx; color: var(--color-text-secondary); font-size: 20rpx; line-height: 1.55; }
 .option-meta { margin-top: 12rpx; color: var(--color-brand); font-size: 19rpx; font-weight: 700; }

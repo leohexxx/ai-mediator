@@ -463,3 +463,16 @@
 .report-page .modal-desc { margin-top: 8rpx; color: var(--color-text-secondary); font-size: 22rpx; line-height: 1.5; }
 .report-page .modal-close { color: var(--color-brand); font-size: 22rpx; }
 .report-page .btn-reanalyze { background: var(--color-brand); border-radius: 0; }
+
+/* V3.2：证据结论与沟通画像分层展示。 */
+.report-page .meta-badge.perspective { color: #794C17; border-color: var(--color-warning); }
+.report-page .communication-insights { margin: 22rpx 0; padding: 24rpx; background: #F8EBD7; border: 1rpx solid #E6C890; border-left: 6rpx solid var(--color-warning); }
+.report-page .communication-head { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
+.report-page .communication-mode { color: #794C17; font-size: 19rpx; font-weight: 700; }
+.report-page .communication-title { margin-top: 8rpx; color: var(--color-text-primary); font-size: 30rpx; font-weight: 800; }
+.report-page .communication-disclaimer { margin-top: 14rpx; color: #794C17; font-size: 20rpx; line-height: 1.6; }
+.report-page .communication-summary { margin-top: 18rpx; color: var(--color-text-primary); font-size: 24rpx; line-height: 1.65; }
+.report-page .communication-item, .report-page .communication-pattern { margin-top: 12rpx; color: var(--color-text-secondary); font-size: 22rpx; line-height: 1.6; }
+.report-page .communication-item text { display: inline-block; min-width: 74rpx; margin-right: 12rpx; color: #fff; background: var(--color-warning); font-size: 19rpx; text-align: center; }
+.report-page .communication-suggestion { margin-top: 12rpx; padding-top: 12rpx; color: var(--color-text-primary); border-top: 1rpx solid #E6C890; font-size: 22rpx; line-height: 1.6; }
+.report-page .communication-empty { margin-top: 16rpx; padding: 16rpx; color: var(--color-text-secondary); background: rgba(255,255,255,.46); font-size: 22rpx; line-height: 1.6; }

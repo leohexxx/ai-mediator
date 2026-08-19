@@ -45,6 +45,8 @@ Page({
     canEditPersonalityB: true,
     personalityLabelA: '发起方的沟通偏好',
     personalityLabelB: '受邀方的沟通偏好',
+    // 分析视角决定是否把可选沟通偏好送入模型；分析深度独立决定模型预算。
+    analysisPerspective: 'evidence',
     // 深度模式（Pro 模型，更深入但更慢）
     deepMode: false,
     // 视频帧 OCR 的离屏 canvas 缓存
@@ -71,6 +73,7 @@ Page({
       showGuide: !(draft && draft.chatText),
       canEditPersonalityA: options.mode === 'single' || (options.role || 'party_a') === 'party_a',
       canEditPersonalityB: options.mode === 'single' || (options.role || 'party_a') === 'party_b',
+      analysisPerspective: options.perspective === 'communication' ? 'communication' : 'evidence',
     });
     this._loadPersonality();
   },
@@ -640,7 +643,7 @@ Page({
           // 补充内容模式：沿用当前分析方式，基于新证据版本开始分析
           that._startAnalysis(true);
         } else {
-          // 普通模式：由用户手势选择快速/深度分析，并申请完成通知
+          // 普通模式：由用户先选分析视角，再选分析深度。
           that.setData({
             showPersonalityModal: true,
           });
@@ -656,18 +659,21 @@ Page({
     });
   },
 
-  // ===== 分析方式面板 =====
+  // ===== 分析视角与深度面板 =====
 
-  /** 深度分析；人格资料仅用于调整建议的表达方式。 */
+  onSelectPerspective: function (event) {
+    var perspective = event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.perspective;
+    this.setData({ analysisPerspective: perspective === 'communication' ? 'communication' : 'evidence' });
+  },
+
+  /** 深度分析；沟通画像仅在用户主动选择时启用。 */
   onPersonalityConfirm: function () {
     var that = this;
     this.setData({ deepMode: true });
     that._requestSubscribe(function () { that._savePersonalityThenStart(); });
   },
 
-  /**
-   * 快速分析
-   */
+  /** 快速分析。 */
   onPersonalitySkip: function () {
     var that = this;
     this.setData({ deepMode: false });
@@ -678,7 +684,7 @@ Page({
     var that = this;
     var picker = this.selectComponent('#personalityPicker');
     var profiles = picker ? picker.getData() : null;
-    if (!profiles || !(profiles.personalityA || profiles.personalityB)) {
+    if (this.data.analysisPerspective !== 'communication' || !profiles || !(profiles.personalityA || profiles.personalityB)) {
       that._startAnalysis(false);
       return;
     }
@@ -747,7 +753,7 @@ Page({
 
     if (!this.data.pendingAnalysisKey) {
       this.setData({
-        pendingAnalysisKey: 'analysis_' + this.data.caseId + '_' + this.data.role + '_r' + (this.data.evidenceRevision || 'latest'),
+        pendingAnalysisKey: 'analysis_' + this.data.caseId + '_' + this.data.role + '_r' + (this.data.evidenceRevision || 'latest') + '_p' + this.data.analysisPerspective,
       });
     }
 
@@ -756,6 +762,7 @@ Page({
     // 等待 analyzeCase 返回（拿到 analysisId 后再跳转，避免报告页找不到分析记录）
     analysisService.analyzeCase(this.data.caseId, force === true, deep, {
       evidenceRevision: this.data.evidenceRevision,
+      perspective: this.data.analysisPerspective,
       idempotencyKey: this.data.pendingAnalysisKey,
     }).then(function (analysisRes) {
       wx.hideLoading();

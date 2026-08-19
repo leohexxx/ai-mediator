@@ -90,6 +90,23 @@ test('双方同时启动分析时事务锁只允许一个成功', async function
   await removeDoc('cases', caseId);
 });
 
+test('分析视角默认只按证据，用户可显式选择证据加沟通画像', async function () {
+  var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
+  var caseId = 'perspective-' + suffix;
+  var workflow = createWorkflow({ db: db });
+  await db.collection('cases').doc(caseId).set({ data: {
+    mode: 'single', status: 'single_submitted', evidenceRevision: 0, analysisLock: false,
+    party_a: { openid: 'a' }, party_b: { openid: null },
+  } });
+  var batch = await workflow.appendEvidence({ caseId: caseId, openid: 'a', rawText: '甲方: A', parsedMessages: validMessages('甲方') });
+  var started = await workflow.startAnalysis({ caseId: caseId, openid: 'a', evidenceRevision: 1, perspective: 'communication', idempotencyKey: 'communication' });
+  assert.equal(started.analysis.perspective, 'communication');
+  await workflow.cancelAnalysis({ analysisId: started.analysis._id, openid: 'a' });
+  await removeDoc('analyses', started.analysis._id);
+  await removeDoc('evidence_batches', batch.batch._id);
+  await removeDoc('cases', caseId);
+});
+
 test('证据和分析幂等键不会创建重复版本', async function () {
   var suffix = Date.now() + '-' + Math.random().toString(36).slice(2);
   var caseId = 'dual-idempotent-' + suffix;

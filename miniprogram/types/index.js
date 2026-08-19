@@ -115,6 +115,18 @@
  * @property {MediationStep[]} mediationStrategy
  * @property {DetailedAnalysis} detailedAnalysis
  * @property {Advice} advice
+ * @property {'evidence'|'communication'} perspective
+ * @property {CommunicationInsights|null} communicationInsights
+ */
+
+/**
+ * @typedef {Object} CommunicationInsights
+ * @property {string} summary
+ * @property {string} partyA
+ * @property {string} partyB
+ * @property {string} interactionPattern
+ * @property {string[]} suggestions
+ * @property {string} disclaimer
  */
 
 /**

@@ -119,6 +119,19 @@ function knowledgeReferences(knowledge) {
   });
 }
 
+function normalizeCommunicationInsights(value, enabled) {
+  if (!enabled) return null;
+  value = value && typeof value === 'object' ? value : {};
+  return {
+    summary: String(value.summary || '').slice(0, 500),
+    partyA: String(value.partyA || value.toA || '').slice(0, 500),
+    partyB: String(value.partyB || value.toB || '').slice(0, 500),
+    interactionPattern: String(value.interactionPattern || value.pattern || '').slice(0, 600),
+    suggestions: strings(value.suggestions, 6),
+    disclaimer: '此部分结合当事人自愿填写的沟通偏好，仅供沟通参考，不用于判断事实、责任或证据充分度。',
+  };
+}
+
 function confidenceReasons(intelligence) {
   var breakdown = intelligence.quality.breakdown;
   return intelligence.quality.reasons.concat([
@@ -187,6 +200,7 @@ function normalize(raw, context) {
     evidenceQuality: intelligence.quality,
     safetySignals: intelligence.risks,
     knowledgeReferences: knowledgeReferences(context.knowledge),
+    communicationInsights: normalizeCommunicationInsights(raw.communicationInsights, context.perspective === 'communication'),
   };
 }
 
@@ -216,4 +230,5 @@ module.exports = {
   normalize: normalize,
   deterministicReport: deterministicReport,
   findBalancedJson: findBalancedJson,
+  normalizeCommunicationInsights: normalizeCommunicationInsights,
 };

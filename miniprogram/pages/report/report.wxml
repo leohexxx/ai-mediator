@@ -27,6 +27,7 @@
       </view>
       <view class="meta-badge" wx:if="{{analysis.cacheHit}}">已复用同版本结果</view>
       <view class="meta-badge" wx:elif="{{analysis.llmSkippedReason}}">规则引擎完成</view>
+      <view class="meta-badge perspective" wx:else>{{analysis.perspective === 'communication' ? '证据 + 沟通画像' : '仅按证据'}}</view>
     </view>
     <view class="single-evidence-note" wx:if="{{analysis.singlePartyEvidence}}">当前只有一方提供证据，报告不能代表另一方完整立场。</view>
     <view class="revision-note" wx:if="{{isReanalysis}}">这是补证后的新版本；旧报告仍对应旧证据快照。</view>
@@ -43,10 +44,22 @@
         </view>
         <button class="personality-edit-btn" bindtap="onEditPersonality">{{personalityTextA || personalityTextB ? '编辑' : '补充'}} MBTI / 星座</button>
       </view>
-      <view class="personality-panel-desc">由当事人自愿填写，只用于调整沟通建议的表达方式；不用于判断事实、责任或证据充分度。</view>
+      <view class="personality-panel-desc">由当事人自愿填写。只有选择“证据 + 沟通画像”时才会进入本轮建议；不用于判断事实、责任或证据充分度。</view>
       <view class="personality-row" wx:if="{{personalityTextA}}"><text class="personality-tag">发起方</text><text class="personality-text">{{personalityTextA}}</text></view>
       <view class="personality-row" wx:if="{{personalityTextB}}"><text class="personality-tag">受邀方</text><text class="personality-text">{{personalityTextB}}</text></view>
       <view class="personality-empty" wx:if="{{!personalityTextA && !personalityTextB}}">尚未填写；可随时补充后重新生成沟通建议。</view>
+    </view>
+
+    <view class="communication-insights" wx:if="{{analysis.perspective === 'communication'}}">
+      <view class="communication-head"><text class="panel-kicker">COMMUNICATION LENS</text><text class="communication-mode">证据 + 沟通画像</text></view>
+      <view class="communication-title">沟通画像参考</view>
+      <view class="communication-disclaimer">{{analysis.communicationInsights.disclaimer || '本部分仅作沟通参考，不用于判断事实、责任或证据充分度。'}}</view>
+      <view class="communication-summary" wx:if="{{analysis.communicationInsights.summary}}">{{analysis.communicationInsights.summary}}</view>
+      <view class="communication-item" wx:if="{{analysis.communicationInsights.partyA}}"><text>发起方</text>{{analysis.communicationInsights.partyA}}</view>
+      <view class="communication-item" wx:if="{{analysis.communicationInsights.partyB}}"><text>受邀方</text>{{analysis.communicationInsights.partyB}}</view>
+      <view class="communication-pattern" wx:if="{{analysis.communicationInsights.interactionPattern}}">可能的互动模式：{{analysis.communicationInsights.interactionPattern}}</view>
+      <view class="communication-suggestion" wx:for="{{analysis.communicationInsights.suggestions}}" wx:key="*this">{{index + 1}}. {{item}}</view>
+      <view class="communication-empty" wx:if="{{!analysis.communicationInsights.summary && !analysis.communicationInsights.partyA && !analysis.communicationInsights.partyB}}">尚未形成画像内容；可补充双方认可的 MBTI 或星座后重新分析。</view>
     </view>
 
     <view class="knowledge-panel" wx:if="{{analysis.knowledgeReferences && analysis.knowledgeReferences.length}}">

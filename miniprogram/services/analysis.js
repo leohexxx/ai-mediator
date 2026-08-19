@@ -20,6 +20,7 @@ function analyzeCase(caseId, force, deep, options) {
   options = options || {};
   var data = { caseId: caseId };
   if (deep) data.deep = true;
+  if (options.perspective === 'communication') data.perspective = 'communication';
   if (options.evidenceRevision != null) data.evidenceRevision = options.evidenceRevision;
   data.idempotencyKey = options.idempotencyKey || cloudRun.idempotencyKey('analysis_' + caseId);
   return callCloudRun('/api/analyze/start', 'POST', data);

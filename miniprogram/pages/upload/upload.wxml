@@ -97,23 +97,42 @@
   <view class="analysis-mode-modal">
     <view class="modal-kicker">EVIDENCE SAVED</view>
     <view class="modal-title">第 {{evidenceRevision || 1}} 版证据已保存</view>
-    <view class="modal-subtitle">可选填写 MBTI 与星座，帮助调整沟通建议的表达方式；它们不参与事实归属、责任或置信度判断。</view>
-    <personality-picker id="personalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="{{personalityLabelA}}" party-b-label="{{personalityLabelB}}" hint-text="可选：补充双方的沟通偏好参考" />
+    <view class="modal-subtitle">先决定本轮从什么角度看问题；再选择分析深度。两项选择彼此独立。</view>
+
+    <view class="analysis-step"><text>01</text> 选择分析视角</view>
+    <view class="perspective-options">
+      <view class="perspective-option {{analysisPerspective === 'evidence' ? 'selected' : ''}}" data-perspective="evidence" bindtap="onSelectPerspective">
+        <view class="option-name">只按证据分析</view>
+        <view class="option-desc">只依据聊天记录、OCR 校对和规则事实，整理分歧、缺失信息与下一步。</view>
+        <view class="option-meta">默认 · 不使用 MBTI / 星座</view>
+      </view>
+      <view class="perspective-option {{analysisPerspective === 'communication' ? 'selected communication' : ''}}" data-perspective="communication" bindtap="onSelectPerspective">
+        <view class="option-name">证据 + 沟通画像</view>
+        <view class="option-desc">保留相同的证据结论，额外结合自愿填写的偏好，生成沟通方式与相处建议。</view>
+        <view class="option-meta">仅影响建议表达，不判定事实或责任</view>
+      </view>
+    </view>
+
+    <view class="preference-wrap" wx:if="{{analysisPerspective === 'communication'}}">
+      <view class="preference-head">可选填写 MBTI / 星座</view>
+      <view class="preference-desc">资料会进入“沟通画像”部分，用于调整建议的措辞、节奏和沟通渠道。</view>
+      <personality-picker id="personalityPicker" personality-a="{{personalityA}}" personality-b="{{personalityB}}" editable-a="{{canEditPersonalityA}}" editable-b="{{canEditPersonalityB}}" party-a-label="{{personalityLabelA}}" party-b-label="{{personalityLabelB}}" hint-text="可选：填写自己认可的沟通偏好" />
+    </view>
+
+    <view class="analysis-step"><text>02</text> 选择分析深度</view>
     <view class="mode-comparison">
       <view class="analysis-option">
         <view class="option-name">快速分析</view>
-        <view class="option-desc">规则引擎先处理明确事实，AI 聚焦主要分歧和下一步。</view>
-        <view class="option-meta">建议日常使用</view>
+        <view class="option-desc">优先处理主要分歧与下一步，适合日常沟通。</view>
       </view>
-      <view class="analysis-option">
+      <view class="analysis-option deep-option">
         <view class="option-name">深度分析</view>
-        <view class="option-desc">适合长记录和多个争议点，耗时与模型费用更高。</view>
-        <view class="option-meta">复杂案件使用</view>
+        <view class="option-desc">展开更多可能解释，适合长记录和多个争议点。</view>
       </view>
     </view>
     <view class="modal-actions">
-      <button class="btn-quick" bindtap="onPersonalitySkip">快速分析</button>
-      <button class="btn-deep" bindtap="onPersonalityConfirm">深度分析</button>
+      <button class="btn-quick" bindtap="onPersonalitySkip">开始快速分析</button>
+      <button class="btn-deep" bindtap="onPersonalityConfirm">开始深度分析</button>
     </view>
   </view>
 </view>
