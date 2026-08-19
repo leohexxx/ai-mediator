@@ -2,7 +2,7 @@
 .report-label, .section-number { color: var(--color-brand); font-size: 18rpx; font-weight: 700; letter-spacing: 3rpx; }
 .report-title { margin-top: 8rpx; color: var(--color-text-primary); font-size: 38rpx; line-height: 1.25; font-weight: 800; }
 .summary-text { margin-top: 20rpx; color: var(--color-text-primary); font-size: 29rpx; line-height: 1.75; }
-.risk-notice { margin-top: 24rpx; padding: 20rpx; color: #74332D; background: #F7E4E1; border-left: 6rpx solid var(--color-error); font-size: 22rpx; line-height: 1.6; }
+.risk-notice { margin-top: 24rpx; padding: 20rpx; color: #FFD2DC; background: var(--color-error-bg); border-left: 6rpx solid var(--color-error); font-size: 22rpx; line-height: 1.6; }
 .risk-label { margin-bottom: 5rpx; font-weight: 800; }
 
 .quality-panel { margin-top: 30rpx; padding: 24rpx; background: var(--color-bg); border: 1rpx solid var(--color-border); }
@@ -13,7 +13,7 @@
 .quality-score text { color: var(--color-text-muted); font-size: 18rpx; font-weight: 400; }
 .quality-track { height: 8rpx; margin-top: 18rpx; background: var(--color-border); overflow: hidden; }
 .quality-fill { height: 100%; background: var(--color-brand); }
-.single-party { margin-top: 14rpx; color: #794C17; font-size: 20rpx; font-weight: 700; }
+.single-party { margin-top: 14rpx; color: #FFE4A4; font-size: 20rpx; font-weight: 700; }
 .basis-row { display: flex; flex-wrap: wrap; gap: 8rpx 18rpx; margin-top: 16rpx; color: var(--color-text-muted); font-size: 18rpx; }
 .reason-item { position: relative; margin-top: 10rpx; padding-left: 18rpx; color: var(--color-text-secondary); font-size: 20rpx; line-height: 1.55; }
 .reason-item::before { content: ''; position: absolute; left: 0; top: 13rpx; width: 6rpx; height: 6rpx; background: var(--color-warning); }
@@ -28,7 +28,7 @@
 .party-view, .uncertainty { margin-top: 10rpx; color: var(--color-text-secondary); font-size: 21rpx; line-height: 1.6; }
 .party-view text { color: var(--color-text-primary); font-weight: 700; }
 .uncertainty { color: var(--color-text-muted); }
-.actions { padding: 24rpx; background: #EDF5F1; border-top: 0; }
+.actions { padding: 24rpx; background: rgba(168, 85, 247, .13); border-top: 0; }
 .action-item { display: flex; gap: 16rpx; margin-top: 16rpx; }
 .action-number { display: flex; align-items: center; justify-content: center; width: 36rpx; height: 36rpx; flex-shrink: 0; color: #fff; background: var(--color-brand); font-size: 18rpx; font-weight: 700; }
 .action-copy { flex: 1; color: var(--color-text-primary); font-size: 23rpx; line-height: 1.6; }
