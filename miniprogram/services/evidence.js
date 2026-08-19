@@ -154,41 +154,54 @@ function uploadVideoToCloud(filePath, caseId) {
  */
 function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes) {
   var totalCount = tempFilePaths.length;
-  var completedCount = 0;
   var uploadTasks = tempFilePaths.map(function (filePath) {
-    return uploadImageToCloud(filePath, caseId).then(function (fileId) {
-      completedCount++;
-      if (onProgress) onProgress(completedCount, totalCount);
-      return fileId;
-    });
+    return uploadImageToCloud(filePath, caseId);
   });
   return Promise.all(uploadTasks).then(function (fileIds) {
-    return cloudRun.call('/api/upload/ocr-batch', 'POST', {
-      caseId: caseId, fileIds: fileIds,
-      knownExactHashes: knownHashes && knownHashes.exact || [],
-      knownPerceptualHashes: knownHashes && knownHashes.perceptual || [],
-    })
-      .then(function (result) {
-        var data = result.data || {};
-        var images = data.images || [];
-        var blocks = [];
-        var hashes = [];
-        var perceptualHashes = [];
-        var acceptedFileIds = [];
-        images.forEach(function (image) {
-          if (!image.duplicate && !image.error) {
-            hashes.push(image.exactHash);
+    // callContainer 对单次同步调用有较短等待窗口。长截图的高精度 OCR 会分块，
+    // 因此逐张调用，避免一批 9 张图片在网关超时前还没处理完。
+    var state = {
+      images: [], blocks: [], hashes: [], perceptualHashes: [], acceptedFileIds: [],
+      textParts: [], acceptedCount: 0, duplicateCount: 0,
+    };
+    var exactHashes = (knownHashes && knownHashes.exact || []).slice();
+    var perceptualHashes = (knownHashes && knownHashes.perceptual || []).slice();
+    var sequence = Promise.resolve();
+    fileIds.forEach(function (fileId, index) {
+      sequence = sequence.then(function () {
+        return cloudRun.call('/api/upload/ocr-batch', 'POST', {
+          caseId: caseId,
+          fileIds: [fileId],
+          knownExactHashes: exactHashes,
+          knownPerceptualHashes: perceptualHashes,
+        }).then(function (result) {
+          var data = result.data || {};
+          var image = (data.images || [])[0] || { index: 0, error: '识别服务未返回结果' };
+          image.index = index;
+          state.images.push(image);
+          if (image.duplicate) {
+            state.duplicateCount++;
+          } else if (!image.error) {
+            state.acceptedCount++;
+            state.acceptedFileIds.push(fileId);
+            state.hashes.push(image.exactHash);
+            state.perceptualHashes.push(image.perceptualHash);
+            exactHashes.push(image.exactHash);
             perceptualHashes.push(image.perceptualHash);
-            if (fileIds[image.index]) acceptedFileIds.push(fileIds[image.index]);
-            blocks = blocks.concat(image.blocks || []);
+            state.blocks = state.blocks.concat(image.blocks || []);
+            state.textParts.push((image.text || '') + '\n\n--- 截图 ' + (index + 1) + ' 结束 ---');
           }
+          if (onProgress) onProgress(index + 1, totalCount);
         });
-        return {
-          text: data.text || '', fileIds: acceptedFileIds, images: images,
-          ocrBlocks: blocks, sourceHashes: hashes, perceptualHashes: perceptualHashes,
-          acceptedCount: data.acceptedCount || 0, duplicateCount: data.duplicateCount || 0,
-        };
       });
+    });
+    return sequence.then(function () {
+      return {
+        text: state.textParts.join('\n\n'), fileIds: state.acceptedFileIds, images: state.images,
+        ocrBlocks: state.blocks, sourceHashes: state.hashes, perceptualHashes: state.perceptualHashes,
+        acceptedCount: state.acceptedCount, duplicateCount: state.duplicateCount,
+      };
+    });
   });
 }
 
