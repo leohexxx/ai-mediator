@@ -4,5 +4,6 @@ module.exports = {
   enabled: true,
   env: 'cloudbase-d4g5p82875fe1a5ce',
   serviceName: 'ai-mediator-backend',
+  release: '0.3.10',
   progressPollIntervalMs: 1500,
 };

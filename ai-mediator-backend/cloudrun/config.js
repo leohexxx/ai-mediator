@@ -2,9 +2,11 @@
 // 配置加载 — 从环境变量读取，提供默认值
 // ═══════════════════════════════════════════════
 require('dotenv').config();
+var packageMeta = require('./package.json');
 
 var config = {
   port: parseInt(process.env.PORT || '9000', 10),
+  release: process.env.APP_RELEASE || packageMeta.version,
 
   // CloudBase 环境
   cloudbase: {

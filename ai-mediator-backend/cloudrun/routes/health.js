@@ -12,6 +12,7 @@ router.get('/', function (req, res) {
       status: 'ok',
       time: new Date().toISOString(),
       mode: config.localMode ? 'local' : 'cloudbase',
+      release: config.release,
     },
     message: 'ok',
   });
