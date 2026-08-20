@@ -1,7 +1,7 @@
 # 啷个对 / AI Mediator：下一位 AI 交接说明
 
 最后整理：2026-08-20  
-当前应用版本：`0.3.10`（代码与待上传小程序包）
+当前应用版本：`0.3.10`（代码与已上传小程序包）
 小程序 AppID：`wxf82c52d4800346a6`（必须在这个既有小程序上更新，禁止新建小程序）
 
 这份文档记录已完成的改造、产品约束、当前部署状态、未解决问题和继续修改时必须遵守的边界。它不包含任何真实密钥、Token、SecretId 或 SecretKey；凭据只应存在于 CloudRun 环境变量或用户本地未纳入 Git 的环境文件中。
@@ -35,14 +35,14 @@
 - 验证 `ocr_jobs` 可读、可写、可删（已清理探测数据）；验证 `cases` 集合可读（count=1）。
 - 将 `ocr_jobs` 权限在控制台手动配置为「仅管理端可读写」，等价于 `database-rules/server-only.json` 的四项 `false`。
 - 重新跑定向回归：CloudRun OCR 4/4、小程序 CloudRun 链路 1/1，均通过。
-- 定位「上传图片识别半天后报没网络」的根因：生产 CloudRun 仍是旧版本 `006`，没有本轮 `ocr_jobs`、`OCR_COLLECTION_NOT_READY` 和结构化日志修复；不是 CloudBase 集合/权限问题，也不是本机代码问题。
+- 定位「上传图片识别半天后报没网络」的根因：当时生产 CloudRun 仍是旧版本 `006`，没有本轮 `ocr_jobs`、`OCR_COLLECTION_NOT_READY` 和结构化日志修复；不是 CloudBase 集合/权限问题，也不是本机代码问题。
+- 2026-08-20 已发布 CloudRun `007` 并切换 100% 流量，访问类型已复核为仅 `MINIAPP`；同时已同步案例主流程的 7 个云函数代码。
 
 ### 0.3 交接给下一位 AI 必须完成的动作
 
-1. 让用户把 CloudRun 服务 `ai-mediator-backend` 从 `006` 重启 / 发布新版本（或重新部署镜像），并保持访问类型 `MINIAPP`。
-2. 让用户在微信开发者工具上传小程序为 `0.3.10`，并在公众平台设为体验版、清除旧缓存后重扫。
-3. 上传图片做端到端回归：`POST /api/upload/ocr-jobs` 返回 `202 + jobId` → Worker → 千问视觉 → 轮询完成 → 页面显示「继续识别这批截图」可恢复。
-4. 若仍失败，收集小程序 vConsole 的 `errMsg`、`statusCode`、`response.data.message`，以及 CloudRun 结构化日志的 `ocr_job_queued/started/completed/failed` 事件，再定位。
+1. 在微信公众平台将已上传的 `0.3.10` 设为体验版，清除旧缓存后重扫。
+2. 上传图片做端到端回归：`POST /api/upload/ocr-jobs` 返回 `202 + jobId` → Worker → 千问视觉 → 轮询完成 → 页面显示「继续识别这批截图」可恢复。
+3. 若仍失败，收集小程序 vConsole 的 `errMsg`、`statusCode`、`response.data.message`，以及 CloudRun 结构化日志的 `ocr_job_queued/started/completed/failed` 事件，再定位。
 
 ## 1. 先读这一节：当前工作目录的状态
 
@@ -159,14 +159,14 @@ CloudBase 数据库 / 云存储
 ## 6. 已部署的云端状态（仅作交接，不要在文档中补写凭据）
 
 - CloudBase 环境：既有环境 `cloudbase-d4g5p82875fe1a5ce`。
-- CloudRun 服务：`ai-mediator-backend`，交接时已确认线上仍是旧版本 `006`（流量 100%）。`006` 不包含本轮 OCR 异步任务、`ocr_jobs` 初始化与结构化日志修复，必须重启或重新部署到新版本后才能验证截图 OCR。
+- CloudRun 服务：`ai-mediator-backend`，当前线上版本为 `007`（流量 100%），已包含本地 `0.3.10` 发布标记、异步 OCR 与集合初始化修复；访问类型已复核为仅 `MINIAPP`。
 - 本机已存在服务端凭据文件 `ai-mediator-backend/cloudrun/env.txt`（已 gitignore），其中 `CLOUDBASE_ENV_ID=cloudbase-d4g5p82875fe1a5ce`、`CLOUDBASE_APIKEY=<服务端 API Key>`、`LOCAL_MODE=false`。继续操作前用 `set -a && . ./env.txt && set +a` 加载，不要提交或打印值。
 - CloudRun 必须保持私有访问类型 `MINIAPP`，不得改为 `PUBLIC` 或 `OA`。
 - 建议并已配置的容量基线：最小实例 `2`、最大实例 `10`、每实例分析并发 `2`、每实例 OCR 并发 `1`（OCR 由两个最小实例横向处理）。
 - 已配置但绝不记录值的环境变量类别：CloudBase 服务端 API Key、DeepSeek Key、腾讯 OCR 凭据、千问视觉 Key、通知内部令牌。
 - 千问视觉相关变量名：`QWEN_VISION_API_KEY`、`QWEN_VISION_MODEL=qwen3.8-max`、`QWEN_VISION_BASE_URL`、`QWEN_VISION_TIMEOUT_MS=120000`、`OCR_JOB_POLL_MS=2000`、`OCR_JOB_LEASE_MS=600000`、`OCR_JOB_MAX_ATTEMPTS=2`、`OCR_JOB_MAX_CONCURRENT=1`。
 - `ocr_jobs` 已设置为数据库 server-only：客户端 `read/create/update/delete` 都禁止，CloudRun 通过服务端 API Key 访问并在代码里校验参与方。集合已在生产环境创建并验证可读写；初始化脚本为 `npm run db:ensure-collections --prefix ai-mediator-backend/cloudrun`；集合缺失时会转换为 `OCR_COLLECTION_NOT_READY`。
-- 小程序包 `0.3.9` 已上传到原 AppID；交接时需上传 `0.3.10` 并设为体验版完成回归，再提交审核。
+- 小程序包 `0.3.10` 已上传到原 AppID；仍需在公众平台设为体验版完成回归，再提交审核。
 
 ## 7. 测试基线与已验证项
 
@@ -191,7 +191,7 @@ npm run build
 ### P0：先完成体验版真机回归
 
 - 异步 OCR 已部署，但需要在 **0.3.10 体验版**用真实手机截图走完链路。重点确认创建作业在同步等待窗口内返回、后台最终完成、重进页面恢复、失败信息可理解。
-- 交接时线上 CloudRun 仍是旧版本 `006`，未包含本轮 `ocr_jobs` 初始化、`OCR_COLLECTION_NOT_READY` 和结构化日志；必须先重启 / 重新部署，再测 OCR。
+- CloudRun `007` 已发布并承载流量；真机回归应确认体验者不是仍在使用旧小程序包缓存。
 - 当前 CloudRun 的应用请求日志可见性有限。已补充不含聊天文本和图片内容的结构化 OCR 事件：`ocr_job_queued`、`ocr_job_started`、`ocr_job_completed`、`ocr_job_failed`，并记录 `jobId`、案件 ID、图片数量、尝试次数、错误码和耗时；若真机失败，应按这些字段定位。
 - 不要为 `102002` 再把 OCR 改回同步调用；这是已连续出现的同一个根因，应该诊断是否仍使用旧包或异步任务本身失败。
 
@@ -234,10 +234,9 @@ npm run build
 
 ## 10. 推荐的下一次执行顺序
 
-1. 让用户重启 / 重新部署 CloudRun `ai-mediator-backend`，确认线上不再是 `006`，并保持 `MINIAPP`。
-2. 让用户上传小程序 `0.3.10`，在公众平台设为体验版，清除缓存后重扫进入。
-3. 用真实手机截图或 `1/` 目录测试图片走完 OCR 端到端链路，验证「继续识别这批截图」可恢复。
-4. 若 OCR 失败，先收集不含聊天内容的 `jobId`、状态、错误码和时间，再查 CloudRun 与 `ocr_jobs` 状态；不要凭感觉继续改超时参数。
+1. 在公众平台将小程序 `0.3.10` 设为体验版，清除缓存后重扫进入。
+2. 用真实手机截图或 `1/` 目录测试图片走完 OCR 端到端链路，验证「继续识别这批截图」可恢复。
+3. 若 OCR 失败，先收集不含聊天内容的 `jobId`、状态、错误码和时间，再查 CloudRun 与 `ocr_jobs` 状态；不要凭感觉继续改超时参数。
 5. 真机稳定后，更新 V3 发布手册版本并补充异步 OCR 回归项。
 6. 轮换所有曾在聊天或本机脚本中暴露的凭据，并验证新凭据在 CloudRun 环境变量生效。
 7. 观察一段体验版数据后，再决定是否开启更完整日志/告警，以及何时淘汰旧 OCR 兼容路径。
