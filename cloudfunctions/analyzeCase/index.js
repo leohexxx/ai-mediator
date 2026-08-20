@@ -23,6 +23,8 @@ var parser = require('./common/parser');
 var llm = require('./common/llm');
 var personalityUtil = require('./common/personality');
 var analysisPrompt = require('./common/prompts/analysisPrompt');
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 // 卡死判定
 var STUCK_MS = 3 * 60 * 1000;
@@ -78,7 +80,7 @@ async function getMergedMessages(caseId, isSingleMode) {
   return allMessages;
 }
 
-function buildPartiesAndContext(caseData, isSingleMode) {
+async function buildPartiesAndContext(caseData, isSingleMode) {
   var hasPartyB = caseData.party_b && caseData.party_b.openid;
   var parties = [{ name: caseData.party_a.nickname || '甲方', role: 'party_a' }];
   if (!isSingleMode) {
@@ -102,6 +104,19 @@ function buildPartiesAndContext(caseData, isSingleMode) {
     if (personalityA && personalityB && personalityA.mbti && personalityB.mbti) {
       caseContext += '\n  提示: 结合双方的 MBTI 类型和星座属性，分析性格差异如何影响他们的沟通方式和冲突模式。';
     }
+  }
+  // 【新增】查询 evidence 集合获取最新记录的 note 内容
+  try {
+    var evResult = await db.collection('evidence')
+      .where({ caseId: caseData._id })
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+    if (evResult.data.length > 0 && evResult.data[0].note) {
+      caseContext += '\n\n## 用户补充说明\n' + evResult.data[0].note;
+    }
+  } catch (e) {
+    console.warn('读取note失败:', e.message);
   }
   return { parties: parties, caseContext: caseContext };
 }
@@ -130,7 +145,7 @@ async function failStage(caseId, analysisId, isSingleMode, err) {
   }).catch(function () {});
   if (await isCurrentAnalysis(caseId, analysisId)) {
     await db.collection('cases').doc(caseId).update({
-      data: { status: isSingleMode ? 'single_submitted' : 'waiting_submission', updatedAt: new Date().toISOString() },
+      data: { status: isSingleMode ? STATUS.SINGLE_SUBMITTED : STATUS.WAITING_SUBMISSION, updatedAt: new Date().toISOString() },
     }).catch(function () {});
   }
 }
@@ -156,8 +171,15 @@ async function handleInitial(event, openid) {
   var isSingleMode = !(hasPartyB && caseData.party_b && caseData.party_b.submitted);
   var mode = isSingleMode ? 'single' : 'dual';
 
+  // 辩论模式检测
+  var isDebate = caseData.mode === 'dual' && caseData.status === STATUS.DUAL_A_SUBMITTED;
+  if (isDebate) {
+    isSingleMode = false; // 双方证据都要考虑
+    mode = 'dual';
+  }
+
   // analyzing 拦截 — 但缩短卡死阈值到 30s，方便用户重试
-  if (caseData.status === 'analyzing' && caseData.analysisId && !force) {
+  if (caseData.status === STATUS.ANALYZING && caseData.analysisId && !force) {
     var existing = await db.collection('analyses').doc(caseData.analysisId).get().catch(function () { return { data: null }; });
     var prog = existing.data && existing.data.progress;
     if (existing.data) {
@@ -187,13 +209,13 @@ async function handleInitial(event, openid) {
       mediationStrategy: [], detailedAnalysis: {},
       advice: { toA: [], toB: [], toBoth: [] },
       progress: { step: 'parsing', message: initialMessage, progress: 0 },
-      shareCount: 0, isReanalysis: isReanalysis || false, createdAt: now,
+      shareCount: 0, isReanalysis: isReanalysis || false, isDebate: isDebate || false, createdAt: now,
     },
   });
   var analysisId = analysisResult._id;
 
   await db.collection('cases').doc(caseId).update({
-    data: { status: 'analyzing', analysisId: analysisId, updatedAt: now },
+    data: { status: caseStatus.assertTransition(caseData.status, STATUS.ANALYZING), analysisId: analysisId, updatedAt: now },
   });
 
   return {
@@ -236,7 +258,14 @@ async function handleCore(caseId, analysisId, fallback) {
   try {
     await updateProgress(analysisId, 'core', isSingleMode);
     var allMessages = await getMergedMessages(caseId, isSingleMode);
-    var pc = buildPartiesAndContext(caseData, isSingleMode);
+    var pc = await buildPartiesAndContext(caseData, isSingleMode);
+
+    // 【新增】注入辩论模式指引
+    if (analysisDoc.data && analysisDoc.data.isDebate) {
+      pc.caseContext += '\n\n## 双人辩论模式\n' +
+        '本案例已由甲方先行提交分析，现乙方补充了己方视角的聊天记录。' +
+        '请在分析中对比双方证据的异同，区分"甲方陈述"和"乙方陈述"两个维度，最后给出综合判断。';
+    }
 
     // 补充证据重新分析标记 — 注入到 caseContext，会传播到所有阶段
     if (analysisDoc.data && analysisDoc.data.isReanalysis) {
@@ -338,7 +367,14 @@ async function handleStrategy(caseId, analysisId, fallback) {
         progress: { step: 'done', message: isSingleMode ? '单人分析完成' : '分析完成', progress: 100 },
       },
     });
-    var finalStatus = isSingleMode ? 'single_completed' : 'completed';
+    var caseModeResult = await db.collection('cases').doc(caseId).get();
+    var caseModeData = caseModeResult.data;
+    var finalStatus = caseStatus.finalAnalysisStatus({
+      isDebate: analysisDoc.data && analysisDoc.data.isDebate,
+      analysisMode: analysis.mode,
+      caseMode: caseModeData && caseModeData.mode,
+    });
+    caseStatus.assertTransition(caseModeData.status, finalStatus);
     await db.collection('cases').doc(caseId).update({ data: { status: finalStatus, updatedAt: new Date().toISOString() } });
     try {
       var caseResult2 = await db.collection('cases').doc(caseId).get();

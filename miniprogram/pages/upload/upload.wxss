@@ -1,277 +1,51 @@
-/* 上传聊天记录页样式 */
-.role-badge {
-  display: inline-block;
-  padding: 8rpx 24rpx;
-  background: rgba(99, 102, 241, 0.15);
-  border-radius: var(--radius-full);
-  font-size: var(--font-sm);
-  color: var(--color-brand);
-  margin-bottom: 32rpx;
-}
+.evidence-workbench-head { position: relative; display: flex; align-items: flex-start; margin: 10rpx 0 46rpx; padding: 0 0 36rpx; border-bottom: 1rpx solid var(--color-border); }
+.workbench-number { width: 86rpx; padding-top: 6rpx; color: var(--color-accent); font-family: Georgia,serif; font-size: 26rpx; letter-spacing: 3rpx; }
+.workbench-copy { flex: 1; }
+.workbench-kicker { color: var(--color-accent); font-size: 18rpx; letter-spacing: 4rpx; }
+.workbench-title { margin-top: 7rpx; color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: 50rpx; font-weight: 700; line-height: 1.2; }
+.workbench-desc { margin-top: 14rpx; color: var(--color-text-muted); font-size: 23rpx; line-height: 1.7; }
 
-.upload-options {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  margin-bottom: 0;
-}
+.supplement-badge,.role-badge { margin-bottom: 22rpx; padding: 16rpx 20rpx; color: var(--color-text-secondary); background: rgba(255,255,255,.035); border-left: 4rpx solid var(--color-accent); font-size: 21rpx; letter-spacing: 1rpx; }
+.supplement-badge { border-left-color: var(--color-brand-light); }
+.upload-options { display: flex; flex-direction: column; gap: 14rpx; }
+.upload-card { position: relative; min-height: 154rpx; padding: 26rpx 28rpx; box-sizing: border-box; overflow: hidden; background: rgba(255,255,255,.035); border: 1rpx solid var(--color-border); border-radius: var(--radius-md); transition: transform var(--transition-normal), border-color var(--transition-normal), background var(--transition-normal); }
+.upload-card:active { transform: scale(.985); background: var(--color-card-hover); }
+.upload-card.active { background: rgba(169,79,96,.11); border-color: rgba(201,120,136,.58); }
+.upload-card-recommend { min-height: 184rpx; padding-top: 28rpx; border-color: rgba(194,160,90,.28); }
+.upload-card-recommend::after { content: '首选'; position: absolute; top: 0; right: 0; padding: 7rpx 17rpx; color: #29252A; background: var(--color-accent); border-radius: 0 0 0 12rpx; font-size: 18rpx; font-weight: 700; }
+.upload-index { margin-bottom: 8rpx; color: var(--color-accent); font-family: Georgia,serif; font-size: 18rpx; letter-spacing: 3rpx; }
+.upload-title { color: var(--color-text-primary); font-size: 30rpx; font-weight: 650; }
+.upload-desc { max-width: 560rpx; margin-top: 6rpx; color: var(--color-text-muted); font-size: 22rpx; line-height: 1.55; }
+.upload-file-name { margin-top: 14rpx; font-size: 22rpx; font-weight: 600; }
+.upload-error { margin-top: 13rpx; color: var(--color-error); font-size: 20rpx; line-height: 1.55; word-break: break-all; }
+.ocr-retry-hint { margin-top: 16rpx; color: var(--color-text-secondary); font-size: 22rpx; line-height: 1.55; }
+.btn-retry-ocr { display: inline-flex; margin-top: 18rpx; padding: 14rpx 20rpx; color: var(--color-brand-dark); background: var(--color-accent); border-radius: var(--radius-sm); font-size: 23rpx; }
+.add-more-row { padding: 2rpx 0 8rpx; }
+.btn-add-more { display: flex; align-items: center; justify-content: center; min-height: 76rpx; color: var(--color-brand-light); background: rgba(169,79,96,.08); border: 1rpx dashed rgba(201,120,136,.45); border-radius: var(--radius-md); font-size: 23rpx; }
+.btn-add-more:active { background: rgba(169,79,96,.16); }
 
-.upload-card {
-  width: 100%;
-  padding: 32rpx 24rpx;
-  background: var(--color-card);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-lg);
-  text-align: center;
-  transition: var(--transition-fast);
-  margin-bottom: 0;
-  box-sizing: border-box;
-}
+.text-input-area,.note-section { margin-top: 34rpx; }
+.text-input-area { position: relative; }
+.text-input,.note-input { width: 100%; min-height: 240rpx; padding: 26rpx; box-sizing: border-box; color: var(--color-text-primary); background: rgba(255,255,255,.035); border: 1rpx solid var(--color-border); border-radius: var(--radius-md); font-size: 25rpx; line-height: 1.7; }
+.text-input:focus,.note-input:focus { border-color: rgba(194,160,90,.6); }
+.note-input { min-height: 160rpx; margin-top: 15rpx; }
+.input-placeholder { color: var(--color-text-muted); }
+.text-count { margin-top: 8rpx; text-align: right; font-size: 19rpx; }
+.note-label { color: var(--color-accent); font-size: 19rpx; letter-spacing: 2rpx; }
+.note-desc { margin-top: 5rpx; color: var(--color-text-secondary); font-size: 25rpx; }
+.submit-area { margin-top: 32rpx; }
+.submit-area .btn-primary { width: 100%; }
 
-.upload-card.active {
-  border-color: var(--color-brand);
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.upload-card:last-child {
-  margin-top: 16rpx;
-  flex: none;
-  width: 100%;
-}
-
-.upload-icon {
-  font-size: 48rpx;
-  margin-bottom: 12rpx;
-}
-
-.upload-title {
-  font-size: var(--font-md);
-  font-weight: var(--font-medium);
-  color: var(--color-text-primary);
-  margin-bottom: 6rpx;
-}
-
-.upload-desc {
-  font-size: var(--font-xs);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.upload-file-name {
-  font-size: var(--font-sm);
-  margin-top: 8rpx;
-}
-
-.or-divider {
-  display: flex;
-  align-items: center;
-  padding: 32rpx 0;
-}
-
-.or-line {
-  flex: 1;
-  height: 1rpx;
-  background: var(--color-border);
-}
-
-.or-text {
-  padding: 0 24rpx;
-  font-size: var(--font-sm);
-}
-
-.text-input-area {
-  margin-bottom: 24rpx;
-}
-
-.text-input {
-  width: 100%;
-  min-height: 300rpx;
-  background: var(--color-card);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 24rpx;
-  font-size: var(--font-sm);
-  color: var(--color-text-primary);
-  line-height: 1.8;
-  font-family: monospace;
-  box-sizing: border-box;
-}
-
-.input-placeholder {
-  color: var(--color-text-muted);
-}
-
-.text-count {
-  text-align: right;
-  font-size: var(--font-xs);
-  margin-top: 8rpx;
-}
-
-.note-section {
-  margin-bottom: 24rpx;
-}
-
-.note-label {
-  font-size: var(--font-md);
-  font-weight: var(--font-medium);
-  color: var(--color-text-primary);
-  margin-bottom: 4rpx;
-}
-
-.note-desc {
-  font-size: var(--font-sm);
-  color: var(--color-text-muted);
-  margin-bottom: 12rpx;
-}
-
-.note-input {
-  width: 100%;
-  min-height: 120rpx;
-  background: var(--color-card);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 24rpx;
-  font-size: var(--font-sm);
-  color: var(--color-text-primary);
-  box-sizing: border-box;
-}
-
-.submit-area {
-  padding: 16rpx 0;
-}
-
-.submit-area .btn-primary {
-  width: 100%;
-}
-
-/* ===== 性格信息弹窗 ===== */
-.personality-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.personality-modal {
-  width: 90vw;
-  max-height: 80vh;
-  background: var(--color-card);
-  border-radius: 24rpx;
-  padding: 40rpx 32rpx 32rpx;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: center;
-  margin-bottom: 8rpx;
-}
-
-.modal-subtitle {
-  font-size: 24rpx;
-  color: var(--color-text-muted);
-  text-align: center;
-  margin-bottom: 24rpx;
-}
-
-.modal-scroll {
-  flex: 1;
-  max-height: 50vh;
-  margin-bottom: 24rpx;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 16rpx;
-}
-
-.deep-mode-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 24rpx;
-  margin: 16rpx 0;
-  background: var(--color-bg-tertiary);
-  border-radius: 20rpx;
-}
-
-.deep-mode-info {
-  flex: 1;
-  padding-right: 20rpx;
-}
-
-.deep-mode-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.deep-mode-desc {
-  font-size: 22rpx;
-  color: var(--color-text-secondary);
-  margin-top: 6rpx;
-  line-height: 1.4;
-}
-
-.btn-skip {
-  flex: 1;
-  padding: 20rpx 32rpx;
-  text-align: center;
-  border-radius: 48rpx;
-  font-size: 28rpx;
-  font-weight: 500;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-}
-
-.btn-confirm {
-  flex: 2;
-  padding: 20rpx 32rpx;
-  text-align: center;
-  border-radius: 48rpx;
-  font-size: 28rpx;
-  font-weight: 500;
-  background: var(--color-brand);
-  color: #ffffff;
-}
-
-/* 推荐卡片（截图置顶高亮） */
-.upload-card-recommend {
-  border-color: var(--color-brand);
-  border-width: 2rpx;
-  position: relative;
-}
-.upload-card-recommend::before {
-  content: '推荐';
-  position: absolute;
-  top: -10rpx;
-  right: 20rpx;
-  background: var(--color-brand);
-  color: #fff;
-  font-size: 20rpx;
-  padding: 4rpx 16rpx;
-  border-radius: 20rpx;
-  font-weight: 500;
-}
-
-/* 继续添加按钮 */
-.add-more-row {
-  text-align: center;
-  margin-top: -8rpx;
-  margin-bottom: 8rpx;
-}
-.btn-add-more {
-  display: inline-block;
-  padding: 12rpx 32rpx;
-  border: 1rpx dashed var(--color-brand);
-  border-radius: var(--radius-full);
-  font-size: 24rpx;
-  color: var(--color-brand);
-  background: transparent;
-}
+.personality-overlay { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: flex-end; background: rgba(18,17,23,.86); }
+.personality-modal { width: 100%; max-height: 90vh; padding: 40rpx 34rpx calc(28rpx + env(safe-area-inset-bottom)); box-sizing: border-box; background: #24222C; border: 1rpx solid var(--color-border-light); border-radius: 24rpx 24rpx 0 0; box-shadow: var(--shadow-lg); }
+.modal-title { color: var(--color-text-primary); font-family: 'Songti SC','STSong','SimSun',serif; font-size: 39rpx; font-weight: 700; }
+.modal-subtitle { margin-top: 8rpx; color: var(--color-text-muted); font-size: 22rpx; }
+.modal-scroll { max-height: 50vh; margin-top: 24rpx; }
+.deep-mode-row { display: flex; align-items: center; gap: 20rpx; margin-top: 24rpx; padding: 22rpx 0; border-top: 1rpx solid var(--color-border); border-bottom: 1rpx solid var(--color-border); }
+.deep-mode-info { flex: 1; }
+.deep-mode-title { color: var(--color-text-primary); font-size: 27rpx; font-weight: 600; }
+.deep-mode-desc { margin-top: 4rpx; color: var(--color-text-muted); font-size: 20rpx; line-height: 1.5; }
+.modal-actions { display: flex; gap: 14rpx; margin-top: 28rpx; }
+.btn-skip,.btn-confirm { min-height: 84rpx; border-radius: var(--radius-md); font-size: 25rpx; }
+.btn-skip { flex: .7; color: var(--color-text-secondary); background: transparent; border: 1rpx solid var(--color-border-light); }
+.btn-confirm { flex: 1.5; color: #F8F3EC; background: var(--color-brand); }

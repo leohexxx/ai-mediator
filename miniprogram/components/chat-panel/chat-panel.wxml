@@ -1,6 +1,9 @@
 <!-- 追问聊天面板 -->
 <view class="chat-panel card" wx:if="{{analysis}}">
-  <view class="chat-header">💬 追问调解员</view>
+  <view class="chat-header">
+    <view class="chat-header-seal">AI</view>
+    <view><view class="chat-header-title">追问调解员</view><view class="chat-header-sub">有疑问就继续问，AI 会结合本轮证据回答</view></view>
+  </view>
 
   <!-- 消息列表 -->
   <scroll-view
@@ -17,10 +20,12 @@
 
     <!-- 消息气泡 -->
     <view wx:for="{{messages}}" wx:key="timestamp" class="msg-row {{item.role === 'user' ? 'msg-user' : 'msg-ai'}}">
+      <view wx:if="{{item.role !== 'user'}}" class="message-avatar ai">AI</view>
       <view class="msg-bubble">
         <text>{{item.content}}</text>
         <text wx:if="{{item.streaming}}" class="cursor-blink">|</text>
       </view>
+      <view wx:if="{{item.role === 'user'}}" class="message-avatar user">我</view>
     </view>
 
     <!-- 流式输入中指示器 -->
@@ -46,8 +51,6 @@
       disabled="{{streaming}}"
       maxlength="500"
     />
-    <view class="send-btn {{inputText && !streaming ? 'active' : ''}}" bindtap="onSend">
-      📤
-    </view>
+    <view class="send-btn {{inputText && !streaming ? 'active' : ''}}" bindtap="onSend">发</view>
   </view>
 </view>

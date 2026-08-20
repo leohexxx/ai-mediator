@@ -10,6 +10,8 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
 var parser = require('./common/parser');
+var caseStatus = require('./common/caseStatus');
+var STATUS = caseStatus.STATUS;
 
 /**
  * 云函数入口
@@ -57,9 +59,14 @@ exports.main = async function (event, context) {
       return { code: -1, data: null, message: '无权操作此案例' };
     }
 
-    // 检查案例状态（补充证据模式跳过此检查）
+    // 分析锁对新旧客户端都生效，supplement 不得绕过。
+    if (caseData.analysisLock === true || caseData.status === STATUS.ANALYZING || caseData.status === STATUS.CANCEL_REQUESTED) {
+      return { code: -1, errorCode: 'EVIDENCE_LOCKED', data: null, message: 'AI正在分析，需先打断分析后才能补充证据' };
+    }
+
+    // 兼容旧客户端的其他状态检查
     if (!supplement) {
-      var invalidStatuses = ['completed', 'single_completed', 'analyzing'];
+      var invalidStatuses = [STATUS.COMPLETED, STATUS.SINGLE_COMPLETED, STATUS.DUAL_B_SUBMITTED, STATUS.ANALYZING, STATUS.EXPIRED];
       if (invalidStatuses.indexOf(caseData.status) !== -1) {
         return { code: -1, data: null, message: '分析已完成或进行中，无法修改证据' };
       }
@@ -119,7 +126,7 @@ exports.main = async function (event, context) {
       // 补充证据: 即使已完成也重置为 single_submitted，以便重新分析
       var isSingle = caseData.mode === 'single' || !caseData.mode;
       if (isSingle) {
-        updateData['status'] = 'single_submitted';
+        updateData['status'] = caseStatus.assertTransition(caseData.status, STATUS.SINGLE_SUBMITTED);
       }
     } else {
       updateData['party_b.submitted'] = true;
@@ -128,8 +135,12 @@ exports.main = async function (event, context) {
 
     // 补充证据时清除旧分析结果标记，确保重新分析可以执行
     if (supplement) {
-      updateData['status'] = 'single_submitted';
+      updateData['status'] = caseStatus.assertTransition(caseData.status, STATUS.SINGLE_SUBMITTED);
     }
+
+    // 保留 dual_a_submitted，随后 analyzeCase 才能识别这是乙方辩论提交；
+    // analyzing 状态由 analyzeCase 在真正创建分析记录后写入。
+    var isDebateSubmission = caseData.mode === 'dual' && caseData.status === STATUS.DUAL_A_SUBMITTED && party === 'party_b';
 
     await db.collection('cases').doc(caseId).update({ data: updateData });
 
@@ -139,17 +150,23 @@ exports.main = async function (event, context) {
 
     var autoAnalyze = false;
 
-    // 双人模式: 双方都已提交 → 自动分析
+    // 双人模式基础判定
     var hasPartyB = updatedData.party_b && updatedData.party_b.openid;
-    if (hasPartyB && updatedData.party_a.submitted && updatedData.party_b.submitted) {
-      autoAnalyze = true;
-    }
 
-    // 单人模式: 甲方已提交 → 自动分析
+    // 双人模式: 甲方已提交且乙方已加入 → 允许自动分析（新增）
+    var canAutoAnalyzeDualA = updatedData.mode === 'dual' && party === 'party_a' && updatedData.party_a.submitted && hasPartyB;
+
+    // 双人模式: 辩论场景 — 乙方在 dual_a_submitted 下补充（新增）
+    var canAutoAnalyzeDebate = isDebateSubmission;
+
+    // 双人模式: 双方都已提交 → 自动分析（现有）
+    var canAutoAnalyzeBoth = hasPartyB && updatedData.party_a.submitted && updatedData.party_b.submitted;
+
+    // 单人模式: 甲方已提交 → 自动分析（现有）
     var isSingleMode = updatedData.mode === 'single' || (!hasPartyB);
-    if (isSingleMode && updatedData.party_a.submitted) {
-      autoAnalyze = true;
-    }
+    var canAutoAnalyzeSingle = isSingleMode && updatedData.party_a.submitted;
+
+    autoAnalyze = canAutoAnalyzeDualA || canAutoAnalyzeDebate || canAutoAnalyzeBoth || canAutoAnalyzeSingle;
 
     return {
       code: 0,

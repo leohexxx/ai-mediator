@@ -1,54 +1,6 @@
 // ═══════════════════════════════════════════════
-// 登录态管理工具
+// 小程序用户资料工具。身份由 wx.cloud / CloudBase 网关自然注入，客户端不缓存 OpenID。
 // ═══════════════════════════════════════════════
-
-/**
- * 获取当前用户的 openid。
- * 优先从 app.globalData 读取，其次从本地缓存读取，
- * 都没有则触发登录流程。
- *
- * @returns {Promise<string>}
- */
-function getOpenid() {
-  return new Promise(function (resolve, reject) {
-    var app = getApp();
-
-    // 先从 globalData 读取
-    if (app.globalData && app.globalData.openid) {
-      resolve(app.globalData.openid);
-      return;
-    }
-
-    // 再从本地缓存读取
-    var cachedOpenid = wx.getStorageSync('openid');
-    if (cachedOpenid) {
-      app.globalData.openid = cachedOpenid;
-      resolve(cachedOpenid);
-      return;
-    }
-
-    // 触发登录
-    app.doLogin()
-      .then(function (openid) {
-        resolve(openid);
-      })
-      .catch(function (err) {
-        reject(err);
-      });
-  });
-}
-
-/**
- * 设置 openid（写入缓存和 globalData）
- * @param {string} openid
- */
-function setOpenid(openid) {
-  wx.setStorageSync('openid', openid);
-  var app = getApp();
-  if (app && app.globalData) {
-    app.globalData.openid = openid;
-  }
-}
 
 /**
  * 获取用户信息（昵称、头像）。
@@ -80,7 +32,5 @@ function getUserProfile() {
 }
 
 module.exports = {
-  getOpenid: getOpenid,
-  setOpenid: setOpenid,
   getUserProfile: getUserProfile,
 };

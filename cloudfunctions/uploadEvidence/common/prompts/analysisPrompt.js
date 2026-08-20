@@ -7,8 +7,8 @@
 // ═══════════════════════════════════════════════
 
 var COMMON_PREAMBLE =
-  '你是一位专业的对话争议分析师，同时精通 MBTI 性格类型学和星座性格分析。' +
-  '你的专长是从聊天记录中提取关键证据、分析情绪动态、结合双方性格特质给出客观判断和可操作的调解方案。\n\n';
+  '你是一位专业的对话沟通分析师，同时精通 MBTI 性格类型学和星座性格分析。' +
+  '你的专长是从聊天记录中分析沟通内容、分析情绪动态、结合双方性格特质给出客观判断和可操作的调解方案。\n\n';
 
 // 长文本阈值（字符数）。超过则先做一次摘要再分析，避免单阶段输入过大、首 token 过慢。
 var SUMMARIZE_THRESHOLD = 12000;
@@ -27,13 +27,29 @@ var STAGES = {
 function buildContextBlock(caseContext, parties) {
   var partyInfo = parties
     .map(function (p) {
-      return '- ' + (p.role === 'party_a' ? '甲方' : '乙方') + ': ' + p.name;
+      return '- ' + p.name;
     })
     .join('\n');
 
-  return '## 案件背景\n' +
+  return '## 对话背景\n' +
     (caseContext || '无额外背景信息') + '\n\n' +
     '## 当事人信息\n' + partyInfo + '\n';
+}
+
+/**
+ * 构建双人辩论模式上下文注入块
+ * @param {boolean} isDebate - 是否为辩论模式
+ * @returns {string}
+ */
+function buildDebateContextBlock(isDebate) {
+  if (!isDebate) return '';
+  return '\n## 双人辩论模式说明\n' +
+    '本案例已由一方先提供沟通内容完成初步分析，现由另一方补充己方视角的聊天记录。\n' +
+    '请进行对比分析：\n' +
+    '1. 分别分析各方的陈述与沟通内容\n' +
+    '2. 标注双方沟通内容的一致点和矛盾点\n' +
+    '3. 在"当事人A的陈述"和"当事人B的陈述"两个维度分别给出判断\n' +
+    '4. 最后给出综合的客观判断\n';
 }
 
 /**
@@ -44,8 +60,8 @@ function buildSummarizeUserPrompt(formattedChat, parties, caseContext) {
   return COMMON_PREAMBLE +
     '## 任务\n' +
     '下面的聊天记录较长。请先做一次结构化压缩，供后续分析使用。要求：\n' +
-    '1. 挑出对判断争议最关键的 30-50 条对话，**逐条保留原文**，保留说话人标签与时间戳；\n' +
-    '2. 在开头用 2-3 句话概述关系背景、争议焦点、双方核心诉求；\n' +
+    '1. 挑出对判断分歧最关键的 30-50 条对话，**逐条保留原文**，保留说话人标签与时间戳；\n' +
+    '2. 在开头用 2-3 句话概述关系背景、分歧焦点、双方核心诉求；\n' +
     '3. 标注 3-5 个情绪/冲突转折点；\n' +
     '4. 不要做最终评判，只做忠实压缩。\n\n' +
     buildContextBlock(caseContext, parties) + '\n' +
@@ -60,9 +76,13 @@ function buildCoreUserPrompt(chatText, parties, caseContext) {
   return COMMON_PREAMBLE +
     '## 本阶段任务（第一阶段：理解 + 性格 + 综合判断）\n' +
     '1. 通读聊天记录，识别双方昵称、角色、关系与对话走向；\n' +
-    '2. 结合案件背景中的 MBTI 与星座信息，分析双方性格特质，并与聊天中的实际行为对照；\n' +
-    '3. 基于证据与性格，给出综合评分（scoreA + scoreB = 100）与置信度；\n' +
+    '2. 结合对话背景中的 MBTI 与星座信息，分析双方性格特质，并与聊天中的实际行为对照；\n' +
+    '3. 基于沟通内容与性格，给出综合评分（scoreA + scoreB = 100）与置信度；\n' +
     '4. oneLineVerdict 与 keyReasons 中要融入性格维度。\n\n' +
+    '## 调解方向要求\n' +
+    '- 调解建议应偏向积极正面的方向，促进双方理解和关系修复\n' +
+    '- 但不是盲目积极，仍需保持客观公正\n' +
+    '- 避免单纯指责某一方，而是提供建设性的改进方向\n\n' +
     '## 评分规则\n' +
     '- scoreA + scoreB = 100，分数高的一方更有理；\n' +
     '- 基于客观事实判断，不要被情绪化语言左右；\n' +
@@ -83,7 +103,7 @@ function buildCoreUserPrompt(chatText, parties, caseContext) {
     '    "confidenceReasons": ["置信度原因1", "置信度原因2"]\n' +
     '  },\n' +
     '  "summary": "案情摘要",\n' +
-    '  "relationship": "人物关系（如：情侣、朋友、同事、家人等）",\n' +
+    '  "relationship": "人物关系（如：朋友、同事、家人、同学等）",\n' +
     '  "characters": [\n' +
     '    {\n' +
     '      "name": "人物名称",\n' +
@@ -103,14 +123,14 @@ function buildCoreUserPrompt(chatText, parties, caseContext) {
  */
 function buildEvidenceUserPrompt(chatText, parties, caseContext, priorContext) {
   return COMMON_PREAMBLE +
-    '## 本阶段任务（第二阶段：证据 + 情绪 + 冲突 + 时间线）\n' +
+    '## 本阶段任务（第二阶段：沟通内容 + 情绪 + 冲突 + 时间线）\n' +
     '1. 找出 3-4 条对判断有决定性影响的关键对话，评估权重(0-100)与偏向，content 用原文但可适度精简；\n' +
     '2. 为每一方建立情绪轨迹（3-4 个转折点），标注触发原因与强度(0-100)；\n' +
-    '3. 梳理 2-3 个争议话题（conflicts）与 3-5 条关键时间线（timeline）；\n' +
-    '4. 结合性格特质说明证据与情绪反应模式（如水象敏感、T 型逻辑化处理情绪）。\n' +
+    '3. 梳理 2-3 个分歧话题（conflicts）与 3-5 条关键时间线（timeline）；\n' +
+    '4. 结合性格特质说明沟通内容与情绪反应模式（如水象敏感、T 型逻辑化处理情绪）。\n' +
     '注意：输出必须完整，不要省略任何字段，确保 JSON 闭合。\n\n' +
     '## 评分规则\n' +
-    '- 证据权重 ≥80 决定性证据，60-79 重要证据，<60 辅助证据。\n\n' +
+    '- 内容权重 ≥80 决定性内容，60-79 重要内容，<60 辅助内容。\n\n' +
     '## 第一阶段结论（已产出，请保持一致）\n' +
     priorContext + '\n\n' +
     buildContextBlock(caseContext, parties) + '\n' +
@@ -125,7 +145,7 @@ function buildEvidenceUserPrompt(chatText, parties, caseContext, priorContext) {
     '    { "speaker": "说话人", "points": [ { "timestamp": "时间或null", "emotion": "情绪标签", "intensity": 70, "trigger": "触发原因" } ] }\n' +
     '  ],\n' +
     '  "conflicts": [\n' +
-    '    { "topic": "争议话题", "partyAStance": "甲方立场", "partyBStance": "乙方立场", "aiJudgment": "AI客观判断", "winner": "a 或 b 或 tie", "severity": "low 或 medium 或 high" }\n' +
+    '    { "topic": "分歧话题", "partyAStance": "当事人A的立场", "partyBStance": "当事人B的立场", "aiJudgment": "AI客观判断", "winner": "a 或 b 或 tie", "severity": "low 或 medium 或 high" }\n' +
     '  ],\n' +
     '  "timeline": [\n' +
     '    { "timestamp": "时间", "speaker": "说话人", "content": "关键对话摘要", "emotion": "情绪标签", "significance": "为什么重要", "isTurningPoint": false }\n' +
@@ -142,7 +162,11 @@ function buildStrategyUserPrompt(chatText, parties, caseContext, priorContext) {
     '## 本阶段任务（第三阶段：调解策略 + 建议）\n' +
     '1. 设计 3-5 步调解方案，每步有具体操作、针对方、预期效果、执行难度；\n' +
     '2. 根据双方性格特质给出符合其沟通偏好的建议（如内向型建议书面沟通、情感型先肯定感受再讨论事实）；\n' +
-    '3. 给出分别针对甲、乙、双方的具体建议。\n\n' +
+    '3. 给出分别针对各方、双方的具体建议。\n\n' +
+    '## 调解方向要求\n' +
+    '- 调解建议应偏向积极正面的方向，促进双方理解和关系修复\n' +
+    '- 但不是盲目积极，仍需保持客观公正\n' +
+    '- 避免单纯指责某一方，而是提供建设性的改进方向\n\n' +
     '## 前序阶段结论（已产出，请保持一致）\n' +
     priorContext + '\n\n' +
     buildContextBlock(caseContext, parties) + '\n' +
@@ -154,8 +178,8 @@ function buildStrategyUserPrompt(chatText, parties, caseContext, priorContext) {
     '    { "step": 1, "title": "步骤标题", "description": "具体做什么", "target": "a 或 b 或 both", "expectedOutcome": "预期效果", "difficulty": "easy 或 medium 或 hard" }\n' +
     '  ],\n' +
     '  "advice": {\n' +
-    '    "toA": ["结合甲方性格特质的具体建议1", "建议2"],\n' +
-    '    "toB": ["结合乙方性格特质的具体建议1", "建议2"],\n' +
+    '    "toA": ["结合当事人A性格特质的具体建议1", "建议2"],\n' +
+    '    "toB": ["结合当事人B性格特质的具体建议1", "建议2"],\n' +
     '    "toBoth": ["双方基于性格差异应共同注意的事项"]\n' +
     '  }\n' +
     '}\n\n请用中文输出。';
@@ -179,7 +203,7 @@ function getStageMaxTokens(stage) {
 
 // ── 兼容旧接口（单次大 prompt，仅保留给老测试/回退）────────
 var ANALYSIS_PROMPT = COMMON_PREAMBLE +
-  '## 分析流程\n理解对话 → 性格特质分析 → 提取关键证据 → 追踪情绪 → 综合判断 → 制定策略。\n\n' +
+  '## 分析流程\n理解对话 → 性格特质分析 → 提取关键对话 → 追踪情绪 → 综合判断 → 制定策略。\n\n' +
   '请输出包含 coreConclusion / evidenceWeights / emotionCurve / mediationStrategy / detailedAnalysis / advice 的完整 JSON。';
 
 function buildAnalysisUserPrompt(formattedChat, parties, caseContext) {
@@ -193,6 +217,7 @@ module.exports = {
   STAGES: STAGES,
   buildStageUserPrompt: buildStageUserPrompt,
   getStageMaxTokens: getStageMaxTokens,
+  buildDebateContextBlock: buildDebateContextBlock,
   // 兼容
   ANALYSIS_PROMPT: ANALYSIS_PROMPT,
   buildAnalysisUserPrompt: buildAnalysisUserPrompt,

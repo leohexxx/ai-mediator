@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════
 
 var cloudUtil = require('../utils/cloud');
+var cloudRun = require('../utils/cloudrun');
 
 /**
  * 上传聊天证据
@@ -15,12 +16,15 @@ var cloudUtil = require('../utils/cloud');
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
 function uploadEvidence(params) {
-  return cloudUtil.callFunction('uploadEvidence', {
+  return cloudRun.call('/api/evidence/batches', 'POST', {
     caseId: params.caseId,
     rawText: params.rawText,
     note: params.note || '',
     fileIds: params.fileIds || [],
-    supplement: params.supplement === true,
+    sourceHashes: params.sourceHashes || [],
+    perceptualHashes: params.perceptualHashes || [],
+    ocrBlocks: params.ocrBlocks || [],
+    idempotencyKey: params.idempotencyKey || cloudRun.idempotencyKey('evidence_' + params.caseId),
   });
 }
 
@@ -142,121 +146,116 @@ function uploadVideoToCloud(filePath, caseId) {
 }
 
 /**
- * OCR 识别本地图片（前端转 base64 后传给云函数）
- * @param {string} filePath - 本地文件路径
- * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
- */
-function ocrImage(filePath) {
-  return new Promise(function (resolve, reject) {
-    // 通过 canvas 缩放到 ≤1600px，JPEG quality 0.6
-    // compressImage 作为首选方案（会降级到 canvas）
-    // toDataURL 直接拿 base64，不绕文件读写
-    var MAX = 1600;
-    wx.getImageInfo({
-      src: filePath,
-      success: function (info) {
-        var w = info.width;
-        var h = info.height;
-        if (w <= MAX && h <= MAX) {
-          // 小图：直接读文件发
-          wx.getFileSystemManager().readFile({
-            filePath: filePath,
-            encoding: 'base64',
-            success: function (res) {
-              cloudUtil.callFunction('ocrImage', {
-                base64: res.data,
-                mimeType: 'image/jpeg',
-              }).then(resolve).catch(reject);
-            },
-            fail: reject,
-          });
-          return;
-        }
-        // 大图：canvas 缩放
-        var scale = MAX / Math.max(w, h);
-        var cw = Math.floor(w * scale);
-        var ch = Math.floor(h * scale);
-        var canvas = wx.createOffscreenCanvas({ type: '2d', width: cw, height: ch });
-        var ctx = canvas.getContext('2d');
-        var img = canvas.createImage();
-        img.onload = function () {
-          ctx.drawImage(img, 0, 0, cw, ch);
-          var b64 = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
-          cloudUtil.callFunction('ocrImage', {
-            base64: b64,
-            mimeType: 'image/jpeg',
-          }).then(resolve).catch(reject);
-        };
-        img.onerror = function () { reject(new Error('图片加载失败')); };
-        img.src = filePath;
-      },
-      fail: function () { reject(new Error('读取图片信息失败')); },
-    });
-  });
-}
-
-/**
- * OCR 识别 base64 图片（直接传 base64，不读文件。用于视频帧等场景）
- * @param {string} base64 - 图片 base64 编码（不含 data:image 前缀）
- * @returns {Promise<{code: number, data: {text: string}|null, message: string}>}
- */
-function ocrImageBase64(base64) {
-  return cloudUtil.callFunction('ocrImage', {
-    base64: base64,
-    mimeType: 'image/jpeg',
-  });
-}
-
-/**
  * 批量上传图片并做 OCR 识别
  * @param {string[]} tempFilePaths - 本地文件路径列表
  * @param {string} caseId - 案例 ID
  * @param {function(number, number): void} [onProgress] - 进度回调 (current, total)
  * @returns {Promise<{text: string, fileIds: string[]}>}
  */
-function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
-  var totalCount = tempFilePaths.length;
-  var textResults = [];
-  var fileIds = [];
-
-  function uploadOne(index) {
-    if (index >= totalCount) {
-      return {
-        text: textResults.join('\n\n--- 截图 ' + (index) + ' 结束 ---\n\n'),
-        fileIds: fileIds,
-      };
+function mapOcrJobResult(data, fileIds) {
+  var images = data.images || [];
+  var blocks = [];
+  var hashes = [];
+  var perceptualHashes = [];
+  var acceptedFileIds = [];
+  images.forEach(function (image) {
+    if (!image.duplicate && !image.error) {
+      hashes.push(image.exactHash);
+      perceptualHashes.push(image.perceptualHash);
+      if (fileIds[image.index]) acceptedFileIds.push(fileIds[image.index]);
+      blocks = blocks.concat(image.blocks || []);
     }
+  });
+  return {
+    text: data.text || '', fileIds: acceptedFileIds, images: images,
+    ocrBlocks: blocks, sourceHashes: hashes, perceptualHashes: perceptualHashes,
+    acceptedCount: data.acceptedCount || 0, duplicateCount: data.duplicateCount || 0,
+  };
+}
 
-    if (onProgress) onProgress(index + 1, totalCount);
+function isCallContainerTimeout(error) {
+  var message = error && (error.errMsg || error.message || '');
+  return String(message).indexOf('102002') !== -1 || String(message).toLowerCase().indexOf('request timeout') !== -1;
+}
 
-    var filePath = tempFilePaths[index];
+function startOcrJob(fileIds, caseId, knownHashes) {
+  var payload = {
+    caseId: caseId,
+    fileIds: fileIds,
+    knownExactHashes: knownHashes && knownHashes.exact || [],
+    knownPerceptualHashes: knownHashes && knownHashes.perceptual || [],
+    // 重试必须复用幂等键：首次请求可能已在服务端创建任务，但响应在网关处超时。
+    idempotencyKey: cloudRun.idempotencyKey('ocr_' + caseId),
+  };
 
-    // 先 OCR（用本地路径），同时上传云存储保存聊天内容
-    // OCR 是核心功能，上传是附属功能——上传失败不应影响 OCR 结果
-    var ocrPromise = ocrImage(filePath);
-    var uploadPromise = uploadImageToCloud(filePath, caseId).catch(function (e) {
-      console.warn('云存储上传失败（不影响 OCR）:', e && (e.errMsg || e.message));
-      return null;
-    });
-
-    return Promise.all([ocrPromise.catch(function (e) {
-      return { code: -1, data: null, message: e.message || 'OCR 失败' };
-    }), uploadPromise]).then(function (results) {
-      var ocrResult = results[0];
-      var fileID = results[1];
-
-      if (fileID) fileIds.push(fileID);
-
-      if (ocrResult.code === 0 && ocrResult.data && ocrResult.data.text) {
-        textResults.push(ocrResult.data.text);
-      } else {
-        textResults.push('[截图' + (index + 1) + ' OCR 未识别到文字: ' + (ocrResult.message || '') + ']');
-      }
-      return uploadOne(index + 1);
-    });
+  function callOnce() {
+    return cloudRun.call('/api/upload/ocr-jobs', 'POST', payload);
   }
 
-  return uploadOne(0);
+  return callOnce().catch(function (error) {
+    if (!isCallContainerTimeout(error)) throw error;
+    // 给服务端极短时间完成写入，再用同一幂等键确认任务是否已创建。
+    return new Promise(function (resolve) { setTimeout(resolve, 800); }).then(callOnce);
+  }).then(function (result) { return result.data; });
+}
+
+function getOcrJob(jobId) {
+  return cloudRun.call('/api/upload/ocr-jobs/' + jobId, 'GET').then(function (result) {
+    return result.data || {};
+  });
+}
+
+function waitForOcrJob(jobId, fileIds, onProgress) {
+  var transientFailures = 0;
+  return new Promise(function (resolve, reject) {
+    function poll() {
+      getOcrJob(jobId).then(function (job) {
+        transientFailures = 0;
+        var progress = job.progress || {};
+        if (onProgress) onProgress(progress.current || 0, progress.total || fileIds.length);
+        if (job.status === 'completed') {
+          resolve(mapOcrJobResult(job.result || {}, fileIds));
+          return;
+        }
+        if (job.status === 'failed') {
+          var error = new Error(job.errorMessage || '图片识别失败，请重新提交该批图片');
+          error.errorCode = job.errorCode || 'OCR_JOB_FAILED';
+          reject(error);
+          return;
+        }
+        setTimeout(poll, 2000);
+      }).catch(function (error) {
+        transientFailures++;
+        if (transientFailures >= 5) {
+          reject(error);
+          return;
+        }
+        setTimeout(poll, Math.min(5000, 1000 * transientFailures));
+      });
+    }
+    poll();
+  });
+}
+
+function resumeImagesAndOCR(jobId, fileIds, onProgress) {
+  return waitForOcrJob(jobId, fileIds || [], onProgress);
+}
+
+function uploadImagesAndOCR(tempFilePaths, caseId, onProgress, knownHashes, onJobCreated) {
+  var uploadTasks = tempFilePaths.map(function (filePath) {
+    return uploadImageToCloud(filePath, caseId);
+  });
+  return Promise.all(uploadTasks).then(function (fileIds) {
+    return startOcrJob(fileIds, caseId, knownHashes).then(function (job) {
+      if (onJobCreated) onJobCreated(job.jobId, fileIds);
+      return waitForOcrJob(job.jobId, fileIds, onProgress);
+    }).catch(function (error) {
+      // 任务创建失败时，图片已经在云存储中；把 fileIds 带回页面，允许稍后重试创建任务，避免用户重新选图。
+      error.fileIds = fileIds;
+      error.caseId = caseId;
+      throw error;
+    });
+  });
 }
 
 /**
@@ -264,10 +263,24 @@ function uploadImagesAndOCR(tempFilePaths, caseId, onProgress) {
  * @param {Array<{base64: string, timeIndex: number}>} frames - 帧列表
  * @returns {Promise<{code: number, data: {combinedText: string, results: Array}|null, message: string}>}
  */
-function ocrBatch(frames) {
-  return cloudUtil.callFunction('ocrBatch', {
-    frames: frames,
-    mimeType: 'image/jpeg',
+function ocrBatch(frames, caseId) {
+  return cloudRun.call('/api/upload/ocr-batch', 'POST', {
+    caseId: caseId,
+    images: frames.map(function (frame, index) {
+      return { base64: frame.base64, index: index, timeIndex: frame.timeIndex };
+    }),
+  }).then(function (result) {
+    var data = result.data || {};
+    return {
+      code: 0,
+      data: {
+        successCount: data.acceptedCount || 0,
+        totalFrames: frames.length,
+        combinedText: data.text || '',
+        images: data.images || [],
+      },
+      message: result.message || 'ok',
+    };
   });
 }
 
@@ -278,8 +291,9 @@ module.exports = {
   getClipboardText: getClipboardText,
   uploadImageToCloud: uploadImageToCloud,
   uploadVideoToCloud: uploadVideoToCloud,
-  ocrImage: ocrImage,
-  ocrImageBase64: ocrImageBase64,
   ocrBatch: ocrBatch,
   uploadImagesAndOCR: uploadImagesAndOCR,
+  startOcrJob: startOcrJob,
+  getOcrJob: getOcrJob,
+  resumeImagesAndOCR: resumeImagesAndOCR,
 };

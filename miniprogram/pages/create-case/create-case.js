@@ -72,6 +72,7 @@ Page({
         title: that.data.title || '评理',
         relationship: that.data.relationship,
         privacy: that.data.privacy,
+        mode: 'dual',
         userInfo: userInfo,
       });
     }).then(function (res) {

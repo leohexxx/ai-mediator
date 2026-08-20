@@ -2,20 +2,32 @@
 // 分析服务层 - analyzeCase 调用 + 进度监听
 // ═══════════════════════════════════════════════
 
-var cloudUtil = require('../utils/cloud');
+var cloudRun = require('../utils/cloudrun');
+var cloudRunConfig = require('../config/cloudrun');
+
+function callCloudRun(path, method, data) {
+  return cloudRun.call(path, method, data);
+}
 
 /**
  * 触发案例分析
  * @param {string} caseId
- * @param {boolean} [force=false] - 强制重新分析（用于卡死恢复/重新分析，绕过 analyzing 拦截）
+ * @param {boolean} [force=false] - 兼容旧调用签名，V3 不允许绕过分析锁
  * @param {boolean} [deep=false] - 深度模式（Pro 加强判断/建议，耗时更长）
  * @returns {Promise<{code: number, data: Object|null, message: string}>}
  */
-function analyzeCase(caseId, force, deep) {
+function analyzeCase(caseId, force, deep, options) {
+  options = options || {};
   var data = { caseId: caseId };
-  if (force) data.force = true;
   if (deep) data.deep = true;
-  return cloudUtil.callFunction('analyzeCase', data);
+  if (options.perspective === 'communication') data.perspective = 'communication';
+  if (options.evidenceRevision != null) data.evidenceRevision = options.evidenceRevision;
+  data.idempotencyKey = options.idempotencyKey || cloudRun.idempotencyKey('analysis_' + caseId);
+  return callCloudRun('/api/analyze/start', 'POST', data);
+}
+
+function cancelAnalysis(analysisId) {
+  return callCloudRun('/api/analyze/' + encodeURIComponent(analysisId) + '/cancel', 'POST', {});
 }
 
 /**
@@ -24,17 +36,8 @@ function analyzeCase(caseId, force, deep) {
  * @returns {Promise<Object>}
  */
 function getAnalysis(analysisId) {
-  return new Promise(function (resolve, reject) {
-    var db = cloudUtil.getDatabase();
-    db.collection('analyses').doc(analysisId).get({
-      success: function (res) {
-        resolve(res.data);
-      },
-      fail: function (err) {
-        reject(err);
-      },
-    });
-  });
+  return callCloudRun('/api/analyze/' + encodeURIComponent(analysisId), 'GET')
+    .then(function (result) { return result.data; });
 }
 
 /**
@@ -44,77 +47,57 @@ function getAnalysis(analysisId) {
  * @returns {{close: function(): void}}
  */
 function watchAnalysisProgress(analysisId, onProgress) {
-  var db = cloudUtil.getDatabase();
+  return watchCloudRunAnalysisProgress(analysisId, onProgress);
+}
 
-  try {
-    var watcher = db.collection('analyses')
-      .where({ _id: analysisId })
-      .field({ progress: true })
-      .watch({
-        onChange: function (snapshot) {
-          if (snapshot.docs && snapshot.docs.length > 0) {
-            var progress = snapshot.docs[0].progress;
-            if (progress && onProgress) {
-              onProgress(progress);
-            }
+function watchCloudRunAnalysisProgress(analysisId, onProgress) {
+  var active = true;
+  var timer = null;
+  var lastProgress = '';
+  var baseDelay = cloudRunConfig.progressPollIntervalMs || 1500;
+  var nextDelay = baseDelay;
 
-            if (progress && progress.step === 'done') {
-              if (watcher && watcher.close) {
-                watcher.close();
-              }
-            }
-          }
-        },
-        onError: function (err) {
-          console.error('watch analysis progress error:', err);
-        },
-      });
-
-    return {
-      close: function () {
-        if (watcher && watcher.close) {
-          watcher.close();
-        }
-      },
-    };
-  } catch (err) {
-    // 降级为轮询
-    console.warn('watch API 不可用，使用轮询方案');
-    var polling = true;
-
-    var timer = setInterval(function () {
-      if (!polling) return;
-
-      db.collection('analyses')
-        .where({ _id: analysisId })
-        .field({ progress: true })
-        .get({
-          success: function (res) {
-            if (res.data && res.data.length > 0) {
-              var progress = res.data[0].progress;
-              if (progress && onProgress) {
-                onProgress(progress);
-              }
-
-              if (progress && progress.step === 'done') {
-                polling = false;
-              }
-            }
-          },
-        });
-    }, 1000);
-
-    return {
-      close: function () {
-        polling = false;
-        clearInterval(timer);
-      },
-    };
+  function isTerminal(analysis) {
+    return analysis && (analysis.status === 'completed' || analysis.status === 'failed' || analysis.status === 'canceled' ||
+      (analysis.progress && (analysis.progress.step === 'done' || analysis.progress.step === 'error' || analysis.progress.step === 'canceled')));
   }
+
+  function poll() {
+    if (!active) return;
+    getAnalysis(analysisId).then(function (analysis) {
+      if (!active) return;
+      var progress = analysis && analysis.progress;
+      var progressKey = progress ? [progress.step, progress.message, progress.progress].join('|') : '';
+      if (progress && progressKey !== lastProgress && onProgress) {
+        lastProgress = progressKey;
+        nextDelay = baseDelay;
+        onProgress(progress);
+      } else {
+        nextDelay = Math.min(Math.round(nextDelay * 1.5), 8000);
+      }
+
+      if (!isTerminal(analysis)) {
+        timer = setTimeout(poll, nextDelay);
+      }
+    }).catch(function (err) {
+      console.error('CloudRun analysis progress query failed:', err);
+      nextDelay = Math.min(Math.round(nextDelay * 1.5), 8000);
+      if (active) timer = setTimeout(poll, nextDelay);
+    });
+  }
+
+  poll();
+  return {
+    close: function () {
+      active = false;
+      if (timer) clearTimeout(timer);
+    },
+  };
 }
 
 module.exports = {
   analyzeCase: analyzeCase,
   getAnalysis: getAnalysis,
   watchAnalysisProgress: watchAnalysisProgress,
+  cancelAnalysis: cancelAnalysis,
 };

@@ -1,13 +1,6 @@
 // ═══════════════════════════════════════════════
-// chat-panel 组件 — 聊天追问面板（微信气泡风格 + 流式渲染）
-//
-// 流水线设计（解决云函数容器回收问题）：
-//   1. 客户端预生成 sessionId
-//   2. 客户端在 DB 中创建 session 文档
-//   3. 客户端 watch session 文档（实时监听流）
-//   4. 客户端调用云函数（传 sessionId）
-//   5. 云函数 await LLM 调用（不 setTimeout，不走 fire-and-forget）
-//   6. LLM 流式写入 DB → watch 实时推送到 UI
+// chat-panel 组件 — 双方共享的服务端持久化追问面板。
+// 客户端只调用私有 CloudRun API，不再直接读写 messages 集合。
 // ═══════════════════════════════════════════════
 
 var chatService = require('../../services/chat');
@@ -41,6 +34,19 @@ Component({
     streamingText: '',
     /** 是否已加载历史 */
     historyLoaded: false,
+    activeJobId: '',
+  },
+
+  lifetimes: {
+    attached: function () {
+      this.loadHistory();
+    },
+  },
+
+  observers: {
+    caseId: function (caseId) {
+      if (caseId && !this.data.historyLoaded) this.loadHistory();
+    },
   },
 
   methods: {
@@ -76,95 +82,55 @@ Component({
 
       this.scrollToBottom();
 
-      // 预生成 sessionId
       var tempSessionId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+      that.setData({ sessionId: tempSessionId, activeJobId: tempSessionId });
 
-      // 在 DB 中创建 session 文档
-      var db = wx.cloud.database();
-      db.collection('messages').add({
-        data: {
-          _id: tempSessionId,
-          caseId: that.data.caseId,
-          chunks: [],
-          status: 'streaming',
-          fullText: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        success: function () {
-          // 开始 watch session
-          that.data.sessionId = tempSessionId;
-          that._msgWatcher = chatService.watchMessages(
-            tempSessionId,
-            function (chunks) {
-              var fullText = '';
-              for (var i = 0; i < chunks.length; i++) {
-                fullText += chunks[i].text;
-              }
-              var msgs = that.data.messages;
-              var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-              if (lastMsg && lastMsg.role === 'assistant' && lastMsg.streaming !== false) {
-                msgs[msgs.length - 1] = {
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: lastMsg.timestamp,
-                  streaming: true,
-                };
-              } else {
-                msgs.push({
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: new Date().toISOString(),
-                  streaming: true,
-                });
-              }
-              that.setData({ messages: msgs, streamingText: fullText });
-              that.scrollToBottom();
-            },
-            function (fullText) {
-              var msgs = that.data.messages;
-              var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-              if (lastMsg && lastMsg.role === 'assistant') {
-                msgs[msgs.length - 1] = {
-                  role: 'assistant',
-                  content: fullText,
-                  timestamp: lastMsg.timestamp,
-                  streaming: false,
-                };
-              }
-              that.setData({
-                messages: msgs,
-                streaming: false,
-                streamingText: '',
-              });
-              if (that._msgWatcher) {
-                that._msgWatcher.close();
-                that._msgWatcher = null;
-              }
-            }
-          );
-
-          // 调用云函数
-          chatService.sendMessage({
-            caseId: that.data.caseId,
-            message: text,
-            sessionId: tempSessionId,
-          }).then(function (res) {
-            if (res.code === 0) {
-              that.setData({ sessionId: tempSessionId });
-            } else {
-              console.warn('追问云函数返回异常:', res.message);
-            }
-          }).catch(function (err) {
-            console.warn('追问云函数调用异常:', err);
-          });
-        },
-        fail: function (err) {
-          console.error('创建会话失败:', err);
-          that.setData({ streaming: false, streamingText: '' });
-          wx.showToast({ title: '创建会话失败，请重试', icon: 'none' });
-        },
+      chatService.sendMessage({
+        caseId: that.data.caseId,
+        analysisId: that.data.analysis && that.data.analysis._id,
+        message: text,
+        jobId: tempSessionId,
+      }).then(function (res) {
+        var data = res.data || {};
+        if (data.status === 'canceled') {
+          that.setData({ streaming: false, streamingText: '', activeJobId: '' });
+          return;
+        }
+        var nextMessages = that.data.messages.concat([{
+          role: 'assistant', content: data.reply || '', timestamp: new Date().toISOString(), streaming: false,
+        }]);
+        that.setData({ messages: nextMessages, streaming: false, streamingText: '', activeJobId: '' });
+        that.scrollToBottom();
+      }).catch(function (err) {
+          console.warn('追问云函数调用异常:', err);
+          that.setData({ streaming: false, streamingText: '', activeJobId: '' });
+          wx.showToast({ title: '追问失败，请重试', icon: 'none' });
       });
+    },
+
+    onCancelSend: function () {
+      var that = this;
+      if (!this.data.activeJobId) return;
+      chatService.cancelMessage(this.data.activeJobId).then(function () {
+        that.setData({ streaming: false, streamingText: '', activeJobId: '' });
+        wx.showToast({ title: '已打断回答', icon: 'none' });
+      }).catch(function (error) {
+        if (error && error.errorCode === 'CHAT_ALREADY_COMPLETED') that.loadHistory();
+        else wx.showToast({ title: '打断失败', icon: 'none' });
+      });
+    },
+
+    loadHistory: function () {
+      var that = this;
+      if (!this.data.caseId || this.data.historyLoaded) return;
+      chatService.getHistory(this.data.caseId).then(function (result) {
+        var history = result.data && result.data.messages || [];
+        that.setData({
+          messages: history.map(function (item) { return { role: item.role, content: item.content, timestamp: item.createdAt }; }),
+          historyLoaded: true,
+        });
+        that.scrollToBottom();
+      }).catch(function () {});
     },
 
     /**

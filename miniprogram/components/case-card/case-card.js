@@ -44,12 +44,12 @@ Component({
           statusText = '乙方 等待加入';
           statusIcon = '⏳';
           statusClass = 'status-waiting';
-        } else if (item.status === 'waiting_submission') {
+        } else if (item.status === 'waiting_submission' || item.status === 'dual_collecting' || item.status === 'canceled') {
           statusText = '乙方 ' + (item.party_b.submitted ? '✓已提交' : '⏳待提交');
           statusIcon = item.party_b.submitted ? '✅' : '⏳';
           statusClass = item.party_b.submitted ? 'status-done' : 'status-waiting';
-        } else if (item.status === 'analyzing') {
-          statusText = '🔍 分析中';
+        } else if (item.status === 'analyzing' || item.status === 'cancel_requested') {
+          statusText = item.status === 'cancel_requested' ? '⏹ 正在打断' : '🔍 分析中';
           statusIcon = '🟢';
           statusClass = 'status-analyzing';
         } else if (item.status === 'completed') {
@@ -58,12 +58,12 @@ Component({
           statusClass = 'status-done';
         }
       } else {
-        if (item.status === 'waiting_submission') {
+        if (item.status === 'waiting_submission' || item.status === 'dual_collecting' || item.status === 'canceled') {
           statusText = '甲方 ' + (item.party_a.submitted ? '✓已提交' : '⏳待提交');
           statusIcon = item.party_a.submitted ? '✅' : '⏳';
           statusClass = item.party_a.submitted ? 'status-done' : 'status-waiting';
-        } else if (item.status === 'analyzing') {
-          statusText = '🔍 分析中';
+        } else if (item.status === 'analyzing' || item.status === 'cancel_requested') {
+          statusText = item.status === 'cancel_requested' ? '⏹ 正在打断' : '🔍 分析中';
           statusIcon = '🟢';
           statusClass = 'status-analyzing';
         } else if (item.status === 'completed') {

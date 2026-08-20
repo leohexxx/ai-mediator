@@ -12,6 +12,7 @@
       </view>
     </view>
   </view>
+  <view class="progress-note">AI 正在处理任务进度，不展示模型内部思考。</view>
 
   <!-- 步骤列表 -->
   <view class="step-list">

@@ -1,60 +1,46 @@
-// ═══════════════════════════════════════════════
-// core-verdict 组件 — 核心结论卡片
-// ═══════════════════════════════════════════════
-
+// V3 核心报告：展示事实边界、争议与行动，不展示输赢评分。
 Component({
   properties: {
-    /** CoreConclusion 数据 */
-    coreConclusion: {
-      type: Object,
-      value: null,
-    },
+    coreConclusion: { type: Object, value: null },
   },
-
   data: {
-    /** 胜方 */
-    winner: '',
-    /** 甲方分数 */
-    scoreA: 50,
-    /** 乙方分数 */
-    scoreB: 50,
-    /** 一句话结论 */
-    oneLineVerdict: '',
-    /** 核心原因 */
-    keyReasons: [],
-    /** 建议行动 */
-    recommendedAction: '',
-    /** 置信度 */
+    summary: '',
+    commonGround: [],
+    disputedIssues: [],
+    missingEvidence: [],
+    nextActions: [],
     confidence: 0,
-    /** 置信度原因 */
+    confidenceLevel: '低',
     confidenceReasons: [],
-    /** 置信度等级 */
-    confidenceLevel: '中',
+    confidenceBreakdown: {},
+    analysisBasis: {},
+    riskNotice: '',
+    isSinglePartyEvidence: false,
   },
-
   observers: {
     'coreConclusion': function (cc) {
       if (!cc) return;
-
-      var winner = '';
-      if (cc.overallWinner === 'a') winner = '🏆 甲方更有理';
-      else if (cc.overallWinner === 'b') winner = '🏆 乙方更有理';
-      else winner = '🤝 双方各有道理';
-
-      var confidenceLevel = '低';
-      if (cc.confidence >= 75) confidenceLevel = '高';
-      else if (cc.confidence >= 50) confidenceLevel = '中';
-
+      var confidence = Number(cc.confidence) || 0;
+      var confidenceLevel = confidence >= 75 ? '较充分' : confidence >= 50 ? '有限' : '不足';
+      var disputedIssues = Array.isArray(cc.disputedIssues) && cc.disputedIssues.length
+        ? cc.disputedIssues
+        : (cc.keyReasons || []).map(function (reason, index) { return { id: 'legacy_' + index, title: reason }; });
+      var nextActions = Array.isArray(cc.nextActions) && cc.nextActions.length
+        ? cc.nextActions
+        : (cc.recommendedAction ? [cc.recommendedAction] : []);
       this.setData({
-        winner: winner,
-        scoreA: cc.scoreA || 50,
-        scoreB: cc.scoreB || 50,
-        oneLineVerdict: cc.oneLineVerdict || '',
-        keyReasons: cc.keyReasons || [],
-        recommendedAction: cc.recommendedAction || '',
-        confidence: cc.confidence || 50,
-        confidenceReasons: cc.confidenceReasons || [],
+        summary: cc.oneLineVerdict || '',
+        commonGround: cc.commonGround || [],
+        disputedIssues: disputedIssues,
+        missingEvidence: cc.missingEvidence || [],
+        nextActions: nextActions,
+        confidence: confidence,
         confidenceLevel: confidenceLevel,
+        confidenceReasons: cc.confidenceReasons || [],
+        confidenceBreakdown: cc.confidenceBreakdown || {},
+        analysisBasis: cc.analysisBasis || {},
+        riskNotice: cc.riskNotice || '',
+        isSinglePartyEvidence: cc.isSinglePartyEvidence === true,
       });
     },
   },

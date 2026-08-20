@@ -46,7 +46,7 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-brand), var(--color-party-b));
+  background: var(--color-brand);
   border-radius: var(--radius-full);
   transition: width 0.5s ease;
 }
@@ -97,7 +97,7 @@
   background: var(--color-brand);
   border-color: var(--color-brand);
   color: #fff;
-  box-shadow: 0 0 16rpx rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 20rpx rgba(169, 79, 96, 0.28);
 }
 
 .step-label {
@@ -124,4 +124,11 @@
 
 .step-item.done .step-line {
   background: var(--color-success);
+}
+
+.progress-note {
+  margin: 16rpx 0 0;
+  color: var(--color-text-muted);
+  font-size: 19rpx;
+  line-height: 1.5;
 }

@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════
-// 上传聊天记录页 (v4) — UI 温和化
+// 上传聊天记录页 (V3) — 批次证据、OCR校对与分析方式分离
 // ═══════════════════════════════════════════════
 
 var evidenceService = require('../../services/evidence');
 var analysisService = require('../../services/analysis');
 var caseService = require('../../services/case');
+var storage = require('../../utils/storage');
 
 Page({
   data: {
@@ -23,15 +24,33 @@ Page({
     ocrProgress: { current: 0, total: 0 },
     ocrProcessing: false,
     uploadedFileIds: [],
+    sourceHashes: [],
+    perceptualHashes: [],
+    ocrBlocks: [],
+    ocrConfirmed: false,
+    ocrError: '',
+    evidenceRevision: null,
+    pendingEvidenceKey: '',
+    pendingAnalysisKey: '',
+    pendingOcrJobId: '',
+    pendingOcrFileIds: [],
+    ocrCreatePending: false,
     // 累计图片（支持分批追加）
     allTempFilePaths: [],
     // 视频
     videoPath: '',
     videoContext: null,
 
-    // 性格弹窗
+    // 证据保存后的分析方式面板（沿用字段名以兼容旧状态）
     showPersonalityModal: false,
-    personalitySubmitted: false,
+    personalityA: null,
+    personalityB: null,
+    canEditPersonalityA: true,
+    canEditPersonalityB: true,
+    personalityLabelA: '发起方的沟通偏好',
+    personalityLabelB: '受邀方的沟通偏好',
+    // 分析视角决定是否把可选沟通偏好送入模型；分析深度独立决定模型预算。
+    analysisPerspective: 'evidence',
     // 深度模式（Pro 模型，更深入但更慢）
     deepMode: false,
     // 视频帧 OCR 的离屏 canvas 缓存
@@ -39,13 +58,74 @@ Page({
   },
 
   onLoad: function (options) {
+    var caseId = options.caseId || '';
+    var draft = storage.getJSON('evidence_draft_' + caseId, null);
     this.setData({
-      caseId: options.caseId || '',
+      caseId: caseId,
       role: options.role || 'party_a',
       mode: options.mode || 'single',
       supplement: options.supplement === '1',
-      showGuide: true,
+      chatText: draft && draft.chatText || '',
+      selectedImageCount: draft && draft.selectedImageCount || 0,
+      uploadedFileIds: draft && draft.uploadedFileIds || [],
+      sourceHashes: draft && draft.sourceHashes || [],
+      perceptualHashes: draft && draft.perceptualHashes || [],
+      ocrBlocks: draft && draft.ocrBlocks || [],
+      ocrConfirmed: draft && draft.ocrConfirmed === true,
+      pendingEvidenceKey: draft && draft.pendingEvidenceKey || '',
+      pendingOcrJobId: draft && draft.pendingOcrJobId || '',
+      pendingOcrFileIds: draft && draft.pendingOcrFileIds || [],
+      ocrCreatePending: draft && draft.ocrCreatePending === true,
+      uploadMode: draft && (draft.chatText || draft.ocrCreatePending || draft.pendingOcrJobId) ? 'album' : '',
+      showGuide: !(draft && draft.chatText),
+      canEditPersonalityA: options.mode === 'single' || (options.role || 'party_a') === 'party_a',
+      canEditPersonalityB: options.mode === 'single' || (options.role || 'party_a') === 'party_b',
+      analysisPerspective: options.perspective === 'communication' ? 'communication' : 'evidence',
     });
+    this._loadPersonality();
+    if (draft && draft.pendingOcrJobId) this._resumePendingOcrJob();
+  },
+
+  /** 资料只作为沟通偏好参考，读取后回填到分析前的可选面板。 */
+  _loadPersonality: function () {
+    var that = this;
+    if (!this.data.caseId) return;
+    caseService.getCaseDetail(this.data.caseId, { summaryOnly: true }).then(function (res) {
+      var caseData = res && res.data && res.data.caseData;
+      if (!caseData) return;
+      var isSingle = caseData.mode === 'single';
+      var currentRole = res.data.role || that.data.role;
+      that.setData({
+        mode: caseData.mode || that.data.mode,
+        role: currentRole,
+        personalityA: caseData.party_a && caseData.party_a.personality || null,
+        personalityB: caseData.party_b && caseData.party_b.personality || null,
+        canEditPersonalityA: isSingle || currentRole === 'party_a',
+        canEditPersonalityB: isSingle || currentRole === 'party_b',
+      });
+    }).catch(function () {
+      // 不阻断证据上传；性格资料始终是可选项。
+    });
+  },
+
+  _saveDraft: function () {
+    storage.setJSON('evidence_draft_' + this.data.caseId, {
+      chatText: this.data.chatText,
+      selectedImageCount: this.data.selectedImageCount,
+      uploadedFileIds: this.data.uploadedFileIds || [],
+      sourceHashes: this.data.sourceHashes || [],
+      perceptualHashes: this.data.perceptualHashes || [],
+      ocrBlocks: this.data.ocrBlocks || [],
+      ocrConfirmed: this.data.ocrConfirmed === true,
+      pendingEvidenceKey: this.data.pendingEvidenceKey || '',
+      pendingOcrJobId: this.data.pendingOcrJobId || '',
+      pendingOcrFileIds: this.data.pendingOcrFileIds || [],
+      ocrCreatePending: this.data.ocrCreatePending === true,
+    });
+  },
+
+  _clearDraft: function () {
+    storage.remove('evidence_draft_' + this.data.caseId);
   },
 
   onChooseMessageFile: function () {
@@ -66,8 +146,23 @@ Page({
 
   onChooseMedia: function () {
     var that = this;
+    if (that.data.selectedImageCount >= 100) {
+      wx.showToast({ title: '每个案例最多100张截图', icon: 'none' });
+      return;
+    }
 
-    evidenceService.chooseMedia(9).then(function (result) {
+    // ═══ 新增：首次进入提示字数限制 ═══
+    if (!that.data._shownTextLimitTip) {
+      that.setData({ _shownTextLimitTip: true });
+      wx.showToast({
+        title: '提示：文字较多时可提取关键信息缩短分析时间',
+        icon: 'none',
+        duration: 3000,
+      });
+    }
+    // ═══════════════════════════════════
+
+    evidenceService.chooseMedia(Math.min(9, 100 - that.data.selectedImageCount)).then(function (result) {
       var imageCount = result.tempFilePaths.length;
 
       // 累加所有图片路径
@@ -88,8 +183,12 @@ Page({
    */
   onContinueChooseMedia: function () {
     var that = this;
+    if (that.data.selectedImageCount >= 100) {
+      wx.showToast({ title: '每个案例最多100张截图', icon: 'none' });
+      return;
+    }
 
-    evidenceService.chooseMedia(9).then(function (result) {
+    evidenceService.chooseMedia(Math.min(9, 100 - that.data.selectedImageCount)).then(function (result) {
       var imageCount = result.tempFilePaths.length;
 
       // 累加图片路径
@@ -120,6 +219,8 @@ Page({
       showGuide: false,
       ocrProcessing: true,
       ocrProgress: { current: 0, total: imageCount },
+      ocrError: '',
+      ocrCreatePending: false,
     });
 
     wx.showLoading({ title: '上传并识别中...', mask: true });
@@ -136,41 +237,145 @@ Page({
           title: '识别中 ' + current + '/' + total + '...',
           mask: true,
         });
+      },
+      { exact: that.data.sourceHashes || [], perceptual: that.data.perceptualHashes || [] },
+      function (jobId, fileIds) {
+        that.setData({ pendingOcrJobId: jobId, pendingOcrFileIds: fileIds || [] });
+        that._saveDraft();
       }
     ).then(function (ocrResult) {
-      wx.hideLoading();
-
-      var extractedText = ocrResult.text || '';
-      var oldText = that.data.chatText;
-      // 追加到已有文本后
-      var combinedText = oldText
-        ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText
-        : extractedText;
-      var totalCount = existingCount + imageCount;
-      var allFileIds = (that.data.uploadedFileIds || []).concat(ocrResult.fileIds || []);
-
-      that.setData({
-        ocrProcessing: false,
-        ocrProgress: { current: imageCount, total: imageCount },
-        chatText: combinedText,
-        selectedImageCount: totalCount,
-        uploadedFileIds: allFileIds,
-      });
-
-      if (extractedText.trim()) {
-        wx.showToast({ title: '识别成功，共 ' + totalCount + ' 张', icon: 'success' });
-      } else {
-        wx.showToast({ title: '该批未识别到文字', icon: 'none' });
-      }
+      that._applyOcrResult(ocrResult, imageCount, existingCount);
     }).catch(function (err) {
-      wx.hideLoading();
-      console.error('OCR 失败:', err);
+      that._handleOcrError(err);
+    });
+  },
 
-      that.setData({
-        ocrProcessing: false,
-        chatText: that.data.chatText || '[截图处理失败: ' + (err.message || '请重试') + '。您可以改用"直接粘贴文本"方式上传。]',
+  _applyOcrResult: function (ocrResult, imageCount, existingCount) {
+    wx.hideLoading();
+    var extractedText = ocrResult.text || '';
+    var oldText = this.data.chatText;
+    var combinedText = oldText ? oldText + '\n\n--- 追加截图 ---\n\n' + extractedText : extractedText;
+    var acceptedCount = ocrResult.acceptedCount != null ? ocrResult.acceptedCount : imageCount;
+    var totalCount = existingCount + acceptedCount;
+    this.setData({
+      ocrProcessing: false,
+      ocrProgress: { current: imageCount, total: imageCount },
+      ocrError: '',
+      chatText: combinedText,
+      selectedImageCount: totalCount,
+      uploadedFileIds: (this.data.uploadedFileIds || []).concat(ocrResult.fileIds || []),
+      sourceHashes: (this.data.sourceHashes || []).concat(ocrResult.sourceHashes || []),
+      perceptualHashes: (this.data.perceptualHashes || []).concat(ocrResult.perceptualHashes || []),
+      ocrBlocks: (this.data.ocrBlocks || []).concat(ocrResult.ocrBlocks || []),
+      ocrConfirmed: false,
+      pendingOcrJobId: '',
+      pendingOcrFileIds: [],
+    });
+    this._saveDraft();
+    if (extractedText.trim()) {
+      var duplicateTip = ocrResult.duplicateCount ? '，跳过重复' + ocrResult.duplicateCount + '张' : '';
+      wx.showToast({ title: '已识别' + totalCount + '张' + duplicateTip, icon: 'none' });
+    } else {
+      wx.showToast({ title: '该批未识别到文字', icon: 'none' });
+    }
+  },
+
+  _handleOcrError: function (err) {
+    wx.hideLoading();
+    var errorCode = (err && err.errorCode) || 'OCR_REQUEST_FAILED';
+    var errorMessage = (err && (err.message || err.errMsg)) || '请求未到达识别服务';
+    var failedFileIds = (err && err.fileIds) || [];
+    var hasJob = !!this.data.pendingOcrJobId;
+    var hasUploadedFiles = !!((this.data.pendingOcrFileIds && this.data.pendingOcrFileIds.length) || failedFileIds.length);
+    var collectionNotReady = errorCode === 'OCR_COLLECTION_NOT_READY';
+    var errorSummary = errorCode + '：' + String(errorMessage).slice(0, 80);
+    console.error('OCR 失败:', { errorCode: errorCode, message: errorMessage, statusCode: err && err.statusCode });
+    this.setData({
+      ocrProcessing: false,
+      ocrError: errorSummary,
+      ocrCreatePending: !hasJob && hasUploadedFiles,
+      pendingOcrFileIds: failedFileIds.length ? failedFileIds : (this.data.pendingOcrFileIds || []),
+    });
+    this._saveDraft();
+    var content;
+    if (collectionNotReady) {
+      content = '图片已经上传到云端，但识别任务数据库尚未初始化，当前没有生成任务记录。\n\n请联系管理员创建 ocr_jobs 集合；修复后回到本页面，点击“继续识别这批截图”，不需要重新选择图片。';
+    } else if (hasJob) {
+      content = errorSummary + '\n\n识别任务仍在记录中。回到本案件详情，再进入上传页即可继续查询。';
+    } else if (hasUploadedFiles) {
+      content = errorSummary + '\n\n图片已经上传，但任务还没有创建成功。修复服务后回到本页面，点击“继续识别这批截图”。';
+    } else {
+      content = errorSummary + '\n\n本次没有生成可恢复的识别任务，请稍后重新选择图片。';
+    }
+    wx.showModal({
+      title: collectionNotReady ? '识别服务尚未初始化' : '图片识别暂未完成',
+      content: content,
+      showCancel: false,
+    });
+  },
+
+  onRetryCreateOcrJob: function () {
+    var that = this;
+    var fileIds = this.data.pendingOcrFileIds || [];
+    if (!fileIds.length || this.data.ocrProcessing) return;
+    this.setData({ ocrProcessing: true, ocrCreatePending: false, ocrError: '', ocrProgress: { current: 0, total: fileIds.length } });
+    wx.showLoading({ title: '继续创建识别任务...', mask: true });
+    evidenceService.startOcrJob(fileIds, this.data.caseId, {
+      exact: this.data.sourceHashes || [],
+      perceptual: this.data.perceptualHashes || [],
+    }).then(function (job) {
+      that.setData({ pendingOcrJobId: job.jobId, ocrCreatePending: false });
+      that._saveDraft();
+      wx.hideLoading();
+      return evidenceService.resumeImagesAndOCR(job.jobId, fileIds, function (current, total) {
+        that.setData({ ocrProgress: { current: current, total: total } });
+        wx.showLoading({ title: '识别中 ' + current + '/' + total + '...', mask: true });
       });
-      wx.showToast({ title: '识别失败，请重试', icon: 'none' });
+    }).then(function (ocrResult) {
+      that._applyOcrResult(ocrResult, fileIds.length, that.data.selectedImageCount || 0);
+    }).catch(function (error) {
+      that._handleOcrError(error);
+    });
+  },
+
+  _resumePendingOcrJob: function () {
+    var that = this;
+    var jobId = this.data.pendingOcrJobId;
+    var fileIds = this.data.pendingOcrFileIds || [];
+    if (!jobId || !fileIds.length) return;
+    var existingCount = this.data.selectedImageCount || 0;
+    this.setData({
+      uploadMode: 'album', showGuide: false, ocrProcessing: true,
+      ocrProgress: { current: 0, total: fileIds.length }, ocrError: '',
+    });
+    wx.showLoading({ title: '恢复识别任务...', mask: true });
+    evidenceService.resumeImagesAndOCR(jobId, fileIds, function (current, total) {
+      that.setData({ ocrProgress: { current: current, total: total } });
+      wx.showLoading({ title: '识别中 ' + current + '/' + total + '...', mask: true });
+    }).then(function (ocrResult) {
+      that._applyOcrResult(ocrResult, fileIds.length, existingCount);
+    }).catch(function (error) {
+      that._handleOcrError(error);
+    });
+  },
+
+  /**
+   * 长文本保留原文；V3 由 CloudRun 先提取结构化事实，再只选择必要片段进入模型。
+   */
+  _handleOversizedText: function (text, fileIds, count) {
+    var that = this;
+    wx.showModal({
+      title: '文字内容较多',
+      content: '识别出约 ' + text.length + ' 字。V3 会保存原始证据，并由服务端先做规则提取、脱敏和片段筛选，以缩短分析时间。',
+      showCancel: false,
+      success: function () {
+        that.setData({
+          ocrProcessing: false,
+          chatText: text,
+          uploadedFileIds: fileIds,
+          selectedImageCount: count,
+        });
+      },
     });
   },
 
@@ -382,18 +587,19 @@ Page({
 
       wx.showLoading({ title: '识别中 ' + (startIdx + 1) + '-' + endIdx + '/' + frameBase64List.length, mask: true });
 
-      evidenceService.ocrBatch(batchFrames).then(function (res) {
+      evidenceService.ocrBatch(batchFrames, that.data.caseId).then(function (res) {
         if (res.code === 0 && res.data) {
           allResults.successCount += (res.data.successCount || 0);
           if (res.data.combinedText) {
             allResults.combinedText += (allResults.combinedText ? '\n\n' : '') + res.data.combinedText;
           }
         } else {
-          console.warn('批次失败:', startIdx, '-', endIdx, res?.message);
+          console.warn('批次失败:', startIdx, '-', endIdx, res && res.message);
         }
         processBatch(endIdx);
       }).catch(function (err) {
-        console.error('批次OCR失败', startIdx, '-', endIdx, ':', err?.errMsg || err?.message || err);
+        console.error('批次OCR失败', startIdx, '-', endIdx, ':',
+          (err && (err.errMsg || err.message)) || err);
         processBatch(endIdx);
       });
     }
@@ -467,6 +673,11 @@ Page({
 
   onTextInput: function (e) {
     this.setData({ chatText: e.detail.value });
+    this._saveDraft();
+  },
+
+  onOpenOcrPreview: function () {
+    wx.navigateTo({ url: '/pages/ocr-preview/ocr-preview?caseId=' + this.data.caseId });
   },
 
   onNoteInput: function (e) {
@@ -482,8 +693,17 @@ Page({
       wx.showToast({ title: '请先上传或输入聊天记录', icon: 'none' });
       return;
     }
+    if (this.data.ocrBlocks && this.data.ocrBlocks.length && !this.data.ocrConfirmed) {
+      wx.showToast({ title: '请先校对并确认OCR结果', icon: 'none' });
+      this.onOpenOcrPreview();
+      return;
+    }
 
     this.setData({ submitting: true });
+    if (!this.data.pendingEvidenceKey) {
+      this.setData({ pendingEvidenceKey: 'evidence_' + this.data.caseId + '_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10) });
+      this._saveDraft();
+    }
     wx.showLoading({ title: '发送中...', mask: true });
 
     evidenceService.uploadEvidence({
@@ -491,18 +711,23 @@ Page({
       rawText: this.data.chatText,
       note: this.data.note,
       fileIds: this.data.uploadedFileIds || [],
-      supplement: this.data.supplement,
+      sourceHashes: this.data.sourceHashes || [],
+      perceptualHashes: this.data.perceptualHashes || [],
+      ocrBlocks: this.data.ocrBlocks || [],
+      idempotencyKey: this.data.pendingEvidenceKey,
     }).then(function (res) {
       wx.hideLoading();
 
       if (res.code === 0 && res.data) {
-        wx.showToast({ title: '已发送！', icon: 'success' });
+        that.setData({ evidenceRevision: res.data.revision });
+        that._clearDraft();
+        wx.showToast({ title: '证据已保存', icon: 'success' });
 
         if (that.data.supplement) {
-          // 补充内容模式：跳过性格弹窗，直接开始分析（force=true）
+          // 补充内容模式：沿用当前分析方式，基于新证据版本开始分析
           that._startAnalysis(true);
         } else {
-          // 普通模式：弹出性格信息弹窗
+          // 普通模式：由用户先选分析视角，再选分析深度。
           that.setData({
             showPersonalityModal: true,
           });
@@ -511,52 +736,56 @@ Page({
         that.setData({ submitting: false });
         wx.showToast({ title: res.message || '发送失败', icon: 'none' });
       }
-    }).catch(function () {
+    }).catch(function (error) {
       wx.hideLoading();
       that.setData({ submitting: false });
-      wx.showToast({ title: '发送失败，请重试', icon: 'none' });
+      wx.showToast({ title: error && error.errorCode === 'EVIDENCE_LOCKED' ? '请先打断当前分析' : '发送失败，请重试', icon: 'none' });
     });
   },
 
-  // ===== 性格信息弹窗 =====
+  // ===== 分析视角与深度面板 =====
 
-  /**
-   * 补充性格信息并开始分析
-   */
+  onSelectPerspective: function (event) {
+    var perspective = event && event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.perspective;
+    this.setData({ analysisPerspective: perspective === 'communication' ? 'communication' : 'evidence' });
+  },
+
+  /** 深度分析；沟通画像仅在用户主动选择时启用。 */
   onPersonalityConfirm: function () {
     var that = this;
-    var picker = this.selectComponent('#personalityPicker');
-
-    // 先触发订阅消息（必须在 tap 手势内同步调用，不能异步延迟）
-    if (picker && picker.hasAnyData()) {
-      var data = picker.getData();
-      // 请求订阅后，再异步保存性格信息 + 开始分析
-      that._requestSubscribe(function () {
-        caseService.updatePersonality(
-          that.data.caseId,
-          data.personalityA,
-          data.personalityB
-        ).then(function () {
-          that._startAnalysis(false);
-        }).catch(function () {
-          that._startAnalysis(false);
-        });
-      });
-    } else {
-      that._requestSubscribe(function () {
-        that._startAnalysis(false);
-      });
-    }
+    this.setData({ deepMode: true });
+    that._requestSubscribe(function () { that._savePersonalityThenStart(); });
   },
 
-  /**
-   * 跳过性格信息，先请求订阅再分析
-   */
+  /** 快速分析。 */
   onPersonalitySkip: function () {
     var that = this;
-    that._requestSubscribe(function () {
+    this.setData({ deepMode: false });
+    that._requestSubscribe(function () { that._savePersonalityThenStart(); });
+  },
+
+  _savePersonalityThenStart: function () {
+    var that = this;
+    var picker = this.selectComponent('#personalityPicker');
+    var profiles = picker ? picker.getData() : null;
+    if (this.data.analysisPerspective !== 'communication' || !profiles || !(profiles.personalityA || profiles.personalityB)) {
       that._startAnalysis(false);
-    });
+      return;
+    }
+    caseService.updatePersonality(this.data.caseId, profiles.personalityA, profiles.personalityB)
+      .then(function (res) {
+        var data = res && res.data || {};
+        that.setData({
+          personalityA: data.personalityA || profiles.personalityA || null,
+          personalityB: data.personalityB || profiles.personalityB || null,
+        });
+      })
+      .catch(function () {
+        wx.showToast({ title: '沟通偏好未保存，将按默认方式分析', icon: 'none' });
+      })
+      .then(function () {
+        that._startAnalysis(false);
+      });
   },
 
   /**
@@ -592,23 +821,34 @@ Page({
   /**
    * 切换深度模式
    */
-  onToggleDeepMode: function () {
-    this.setData({ deepMode: !this.data.deepMode });
+  onToggleDeepMode: function (e) {
+    var hasValue = e && e.detail && typeof e.detail.value === 'boolean';
+    this.setData({ deepMode: hasValue ? e.detail.value : !this.data.deepMode });
   },
 
   /**
    * 开始分析（等待云函数返回 analysisId 后再跳转，避免报告页竞态）
-   * @param {boolean} [force=false] - 强制重新分析（补充内容时使用）
+   * @param {boolean} [force=false] - 兼容旧调用签名，V3 不允许绕过分析锁
    */
   _startAnalysis: function (force) {
     var that = this;
     var deep = this.data.deepMode;
     this.setData({ showPersonalityModal: false });
 
+    if (!this.data.pendingAnalysisKey) {
+      this.setData({
+        pendingAnalysisKey: 'analysis_' + this.data.caseId + '_' + this.data.role + '_r' + (this.data.evidenceRevision || 'latest') + '_p' + this.data.analysisPerspective,
+      });
+    }
+
     wx.showLoading({ title: '正在启动分析...', mask: true });
 
     // 等待 analyzeCase 返回（拿到 analysisId 后再跳转，避免报告页找不到分析记录）
-    analysisService.analyzeCase(this.data.caseId, force === true, deep).then(function (analysisRes) {
+    analysisService.analyzeCase(this.data.caseId, force === true, deep, {
+      evidenceRevision: this.data.evidenceRevision,
+      perspective: this.data.analysisPerspective,
+      idempotencyKey: this.data.pendingAnalysisKey,
+    }).then(function (analysisRes) {
       wx.hideLoading();
 
       var analysisId = '';
@@ -637,14 +877,17 @@ Page({
     }).catch(function (err) {
       wx.hideLoading();
       console.warn('分析启动调用异常:', err);
-
-      // 降级：即使调用失败也跳转报告页（让轮询兜底）
-      var fallbackUrl = '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1';
-      if (that.data.supplement) {
-        wx.navigateBack();
-      } else {
-        wx.redirectTo({ url: fallbackUrl });
+      that.setData({ submitting: false });
+      if (err && err.errorCode === 'ANALYSIS_IN_PROGRESS') {
+        wx.showToast({ title: '对方已启动分析', icon: 'none' });
+        wx.redirectTo({ url: '/pages/report/report?caseId=' + that.data.caseId + '&analyzing=1' });
+        return;
       }
+      if (err && err.errorCode === 'EVIDENCE_REVISION_CHANGED') {
+        wx.showToast({ title: '证据版本已变化，请重新进入', icon: 'none' });
+        return;
+      }
+      wx.showToast({ title: (err && err.message) || '启动分析失败，请重试', icon: 'none' });
     });
   },
 });

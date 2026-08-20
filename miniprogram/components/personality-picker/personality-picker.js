@@ -22,6 +22,9 @@ Component({
     hintText: { type: String, value: '补充性格信息，让分析更懂你们' },
     partyALabel: { type: String, value: '关于你' },
     partyBLabel: { type: String, value: '关于对方' },
+    // 双人案件中，参与者只能编辑自己的资料；单人案件可补充双方资料。
+    editableA: { type: Boolean, value: true },
+    editableB: { type: Boolean, value: true },
     compact: { type: Boolean, value: false },
   },
 

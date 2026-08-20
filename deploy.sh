@@ -6,41 +6,66 @@
 set -e
 cd "$(dirname "$0")"
 
-# 5 个 DeepSeek API Key（逗号分隔，轮询+故障切换用）
-KEYS="sk-23bd49439b414f57befed541eb8ed185,sk-e34f919b70034cbaa9cd36d65fcb4deb,sk-5a4d075c50c74ed9b5d303b3e28750b1,sk-e0cd4608c3344e11ac176636924bd020,sk-e9fe7aead96441f3bafbcfd480e0f4a2"
+# LLM_API_KEYS 必须由本机环境或 CI 密钥注入，禁止写入仓库。
+if [ -z "${LLM_API_KEYS:-}" ]; then
+  echo "缺少 LLM_API_KEYS；请通过环境变量或 CI Secret 注入。" >&2
+  exit 1
+fi
 
 echo ""
-echo "=== 1/4 部署 analyzeCase 代码 (timeout=120s) ==="
+echo "=== 1/8 部署 analyzeCase 代码 (timeout=120s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"analyzeCase\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}"
 
 echo ""
-echo "=== 2/4 部署 chatWithAnalysis 代码 (timeout=60s) ==="
+echo "=== 2/8 部署 chatWithAnalysis 代码 (timeout=60s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"chatWithAnalysis\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
 
 echo ""
-echo "=== 3/4 部署 ocrImage 代码 (timeout=60s) ==="
+echo "=== 3/8 部署 ocrImage 代码 (timeout=60s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrImage\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":60}"
+
+echo "=== 等待 ocrImage 就绪 ==="
+sleep 8
+
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrImage\",\"timeout\":60,\"permissions\":{\"openapi\":[\"ocr.printedText\"]}}"
 
 echo ""
-echo "=== 4/4 部署 ocrBatch 代码 (timeout=120s) ==="
+echo "=== 4/8 部署 ocrBatch 代码 (timeout=120s) ==="
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"ocrBatch\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}"
+
+echo "=== 等待 ocrBatch 就绪 ==="
+sleep 8
+
 npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"ocrBatch\",\"timeout\":120,\"permissions\":{\"openapi\":[\"ocr.printedText\"]}}"
 
 echo ""
-echo "=== 配置 analyzeCase 环境变量 ==="
-# ⚠️ LLM_BASE_URL 必须显式设置，避免 CloudBase 残留旧值
-npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"analyzeCase\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"DEEP_LLM_MODEL\":\"deepseek-v4-pro\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
+echo "=== 5/7 创建 compressText 函数(如已存在会报错忽视) ==="
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"createFunction\",\"func\":{\"name\":\"compressText\"},\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions/compressText\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}" 2>/dev/null || true
 
 echo ""
-echo "=== 配置 chatWithAnalysis 环境变量 ==="
-npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"chatWithAnalysis\",\"envVariables\":{\"LLM_API_KEYS\":\"$KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
+echo "=== 6/7 部署 compressText 代码 (timeout=120s) ==="
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionCode\",\"functionRootPath\":\"D:/4.开发工具/code/app/cloudfunctions\",\"functionName\":\"compressText\",\"runtime\":\"Nodejs20.19\",\"handler\":\"index.main\",\"timeout\":120}"
+
+echo ""
+echo "=== 等待 compressText 就绪 ==="
+sleep 8
+
+echo ""
+echo "=== 7/8 配置 compressText 环境变量 ==="
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"compressText\",\"envVariables\":{\"LLM_API_KEYS\":\"$LLM_API_KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
+
+echo ""
+echo "=== 8/8 配置 analyzeCase + chatWithAnalysis 环境变量 ==="
+# ⚠️ LLM_BASE_URL 必须显式设置，避免 CloudBase 残留旧值
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"analyzeCase\",\"envVariables\":{\"LLM_API_KEYS\":\"$LLM_API_KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"DEEP_LLM_MODEL\":\"deepseek-v4-pro\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
+
+npx mcporter call cloudbase manageFunctions --args "{\"action\":\"updateFunctionConfig\",\"functionName\":\"chatWithAnalysis\",\"envVariables\":{\"LLM_API_KEYS\":\"$LLM_API_KEYS\",\"LLM_PROVIDER\":\"deepseek\",\"LLM_MODEL\":\"deepseek-v4-flash\",\"LLM_BASE_URL\":\"https://api.deepseek.com/v1\"}}"
 
 echo ""
 echo "══════════════════════════════════════"
 echo "=== 云函数部署完成 ==="
-echo "  已部署: analyzeCase, chatWithAnalysis, ocrImage, ocrBatch"
-echo "  已配置环境变量: analyzeCase, chatWithAnalysis, ocrBatch"
+echo "  已部署: analyzeCase, chatWithAnalysis, ocrImage, ocrBatch, compressText"
+echo "  已配置环境变量: analyzeCase, chatWithAnalysis, compressText"
 echo "══════════════════════════════════════"
 echo "下一步: 微信开发者工具上传小程序代码"
 echo ""

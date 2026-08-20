@@ -8,6 +8,7 @@ Page({
     caseId: '',
     /** 解析后的消息 */
     parsedMessages: [],
+    ocrBlocks: [],
     /** 原始文本 */
     rawText: '',
     /** 是否正在提交 */
@@ -20,10 +21,21 @@ Page({
     var prevPage = pages[pages.length - 2];
 
     if (prevPage && prevPage.data) {
+      var blocks = (prevPage.data.ocrBlocks || []).map(function (block) {
+        return {
+          speaker: block.speakerHint === 'self' ? '我' : block.speakerHint === 'other' ? '对方' : '系统',
+          content: block.text || '',
+          confidence: block.confidence || 0,
+          lowConfidence: Number(block.confidence) < 88,
+        };
+      });
+      var parsedMessages = prevPage.data.parsedMessages || [];
+      if (!parsedMessages.length) parsedMessages = blocks;
       this.setData({
         caseId: options.caseId || '',
         rawText: prevPage.data.chatText || '',
-        parsedMessages: prevPage.data.parsedMessages || [],
+        parsedMessages: parsedMessages,
+        ocrBlocks: blocks,
       });
     }
   },
@@ -85,7 +97,12 @@ Page({
       prevPage.setData({
         chatText: editedText,
         parsedMessages: this.data.parsedMessages,
+        ocrBlocks: this.data.parsedMessages.map(function (message) {
+          return { text: message.content, confidence: message.confidence, speakerHint: message.speaker === '我' ? 'self' : message.speaker === '对方' ? 'other' : 'system' };
+        }),
+        ocrConfirmed: true,
       });
+      if (prevPage._saveDraft) prevPage._saveDraft();
     }
 
     wx.navigateBack();

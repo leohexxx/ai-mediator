@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 分析报告页 (v4) — 轮询保底 + 实时监听
+// 分析报告页 (V3) — 证据版本、规则质量与中性报告
 // ═══════════════════════════════════════════════
 
 var caseService = require('../../services/case');
@@ -24,11 +24,17 @@ Page({
     shareCardData: null,
     shareLoading: false,
 
-    // 性格信息
+    // 可选沟通偏好资料；不参与事实、责任或置信度判断。
     showPersonalityEditor: false,
+    personalitySaving: false,
     personalityA: null,
     personalityB: null,
-    reanalyzing: false,
+    personalityTextA: '',
+    personalityTextB: '',
+    canEditPersonalityA: true,
+    canEditPersonalityB: true,
+
+    canceling: false,
     /** 是否为补充内容后的重新分析 */
     isReanalysis: false,
   },
@@ -49,7 +55,7 @@ Page({
     if (options.analyzing === '1') {
       this.setData({
         loading: false,
-        progress: { step: 'parsing', message: '分析已提交，正在准备中...', progress: 0 },
+        progress: { step: 'queued', message: '分析已进入队列...', progress: 0 },
       });
       // 如果有传 analysisId，直接记下来，避免 loadReport 的竞态
       if (options.analysisId) {
@@ -64,6 +70,18 @@ Page({
 
   onUnload: function () {
     this._cleanup();
+  },
+
+  onHide: function () {
+    if (this._progressWatcher) {
+      this._progressWatcher.close();
+      this._progressWatcher = null;
+    }
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+    this._clearStuckTimer();
   },
 
   onShow: function () {
@@ -108,6 +126,9 @@ Page({
       });
       this.loadReport();
       this._startPolling();
+    } else if (this.data.caseId && !this._progressWatcher && this._isAnalyzing()) {
+      this.loadReport();
+      this._startPolling();
     }
   },
 
@@ -128,7 +149,7 @@ Page({
   },
 
   /**
-   * 启动自动轮询（每 3 秒检查一次分析状态，作为 watch 的保底机制）
+   * 启动分析 ID 发现轮询；进度由 analysisService 的单一受权轮询负责。
    * 注意：_analysisId 可能延迟设置（loadReport 异步加载），首次 tick 若为 null
    * 直接跳过继续等待下一轮，不可清除定时器。
    */
@@ -148,16 +169,13 @@ Page({
       }
       // _analysisId 还没设上（loadReport 未完成），先查 case 数据获取
       if (!that._analysisId) {
-        var db = wx.cloud.database();
-        db.collection('cases').doc(that.data.caseId).field({ analysisId: true, status: true }).get({
-          success: function (res) {
-            if (res.data && res.data.analysisId) {
-              that._analysisId = res.data.analysisId;
-              that.watchProgress(res.data.analysisId);
+        caseService.getCaseDetail(that.data.caseId, { summaryOnly: true }).then(function (res) {
+            var caseData = res.code === 0 && res.data && res.data.caseData;
+            if (caseData && caseData.analysisId) {
+              that._analysisId = caseData.analysisId;
+              that.watchProgress(caseData.analysisId);
             }
-          },
-          fail: function () {},
-        });
+        }).catch(function () {});
         return;
       }
       // 分析已完成，停止轮询
@@ -166,22 +184,7 @@ Page({
         that._pollTimer = null;
         return;
       }
-      // 通过 DB 直接查询分析进度
-      var db = wx.cloud.database();
-      db.collection('analyses').doc(that._analysisId).field({ progress: true }).get({
-        success: function (res) {
-          var progress = res.data && res.data.progress;
-          if (progress) {
-            that.setData({ progress: progress, progressStuck: false });
-            if (progress.step === 'done' || progress.step === 'error') {
-              clearInterval(that._pollTimer);
-              that._pollTimer = null;
-              that.loadReport();
-            }
-          }
-        },
-        fail: function () {},
-      });
+      // 已建立进度监听后不再发起第二套轮询。
     }, 3000);
   },
 
@@ -190,7 +193,7 @@ Page({
    */
   _isAnalyzing: function () {
     var progress = this.data.progress;
-    return !progress || (progress.step !== 'done' && progress.step !== 'error');
+    return !progress || (progress.step !== 'done' && progress.step !== 'error' && progress.step !== 'canceled');
   },
 
   loadReport: function () {
@@ -201,13 +204,21 @@ Page({
       if (res.code === 0 && res.data) {
         var caseData = res.data.caseData;
         var analysis = res.data.analysis;
+        var currentRole = res.data.role || '';
+        var isSingle = caseData && caseData.mode === 'single';
+        var personalityA = caseData && caseData.party_a && caseData.party_a.personality || null;
+        var personalityB = caseData && caseData.party_b && caseData.party_b.personality || null;
 
         that.setData({
           caseData: caseData,
-          role: res.data.role,
+          role: currentRole,
           loading: false,
-          personalityA: (caseData.party_a && caseData.party_a.personality) || null,
-          personalityB: (caseData.party_b && caseData.party_b.personality) || null,
+          personalityA: personalityA,
+          personalityB: personalityB,
+          personalityTextA: that._formatPersonalityDisplay(personalityA),
+          personalityTextB: that._formatPersonalityDisplay(personalityB),
+          canEditPersonalityA: isSingle || currentRole === 'party_a',
+          canEditPersonalityB: isSingle || currentRole === 'party_b',
         });
 
         if (analysis && analysis.restricted) {
@@ -221,7 +232,12 @@ Page({
 
         if (analysis) {
           if (analysis.progress && analysis.progress.step === 'done') {
-            that.setData({ analysis: analysis, progress: analysis.progress, progressStuck: false, isReanalysis: analysis.isReanalysis === true });
+            that.setData({
+              analysis: analysis,
+              progress: analysis.progress,
+              progressStuck: false,
+              isReanalysis: analysis.isReanalysis === true || Number(analysis.lockedEvidenceRevision || analysis.evidenceRevision) > 1,
+            });
             // 已完成，停止轮询
             if (that._pollTimer) {
               clearInterval(that._pollTimer);
@@ -273,7 +289,7 @@ Page({
         that.setData({ progressStuck: true });
       }, 90000);
 
-      if (progress.step === 'done' || progress.step === 'error') {
+      if (progress.step === 'done' || progress.step === 'error' || progress.step === 'canceled') {
         that._clearStuckTimer();
         // 清理轮询（已完成）
         if (that._pollTimer) {
@@ -343,22 +359,9 @@ Page({
 
   onShareAppMessage: function () {
     var analysis = this.data.analysis;
-    var caseData = this.data.caseData;
-
-    var title = '啷个对';
-    if (analysis && analysis.coreConclusion) {
-      var winner = analysis.coreConclusion.overallWinner;
-      if (winner === 'party_a') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_a ? caseData.party_a.nickname : '你') + '更在理！';
-      } else if (winner === 'party_b') {
-        title = '啷个对？AI 说' + (caseData && caseData.party_b ? caseData.party_b.nickname : '对方') + '更在理！';
-      } else {
-        title = '啷个对：都有道理';
-      }
-    }
-
+    var revision = analysis && (analysis.lockedEvidenceRevision || analysis.evidenceRevision) || 1;
     return {
-      title: title,
+      title: '啷个对：第 ' + revision + ' 版证据的分歧与下一步',
       path: '/pages/report/report?caseId=' + this.data.caseId,
       imageUrl: '',
     };
@@ -366,7 +369,7 @@ Page({
 
   onShareTimeline: function () {
     return {
-      title: '啷个对 — 粘贴聊天记录，看谁更在理',
+      title: '啷个对 — 先整理事实，再看见分歧',
       query: 'caseId=' + this.data.caseId,
       imageUrl: '',
     };
@@ -420,67 +423,129 @@ Page({
    * 跳转到上传页（带 supplement 参数）
    */
   onSupplementEvidence: function () {
+    if (this._isAnalyzing() && this._analysisId) {
+      this.onCancelAndSupplement();
+      return;
+    }
     wx.navigateTo({
-      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1',
+      url: '/pages/upload/upload?caseId=' + this.data.caseId + '&supplement=1&perspective=' + ((this.data.analysis && this.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence'),
     });
   },
 
-  // ===== 性格信息 =====
+  onCancelAndSupplement: function () {
+    var that = this;
+    if (!this._analysisId || this.data.canceling) return;
+    wx.showModal({
+      title: '打断当前分析？',
+      content: '打断完成后，双方才能继续补充证据。本轮未完成结果不会被采用。',
+      confirmText: '打断并补证',
+      success: function (modalResult) {
+        if (!modalResult.confirm) return;
+        that.setData({ canceling: true });
+        wx.showLoading({ title: '正在打断...', mask: true });
+        analysisService.cancelAnalysis(that._analysisId).then(function (result) {
+          var status = result.data && result.data.status;
+          if (status === 'canceled') return status;
+          return that._waitForCancellation(that._analysisId, 0);
+        }).then(function () {
+          wx.hideLoading();
+          that.setData({ canceling: false });
+          wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1&perspective=' + ((that.data.analysis && that.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence') });
+        }).catch(function (error) {
+          wx.hideLoading();
+          that.setData({ canceling: false });
+          if (error && error.errorCode === 'ANALYSIS_ALREADY_COMPLETED') {
+            wx.navigateTo({ url: '/pages/upload/upload?caseId=' + that.data.caseId + '&supplement=1&perspective=' + ((that.data.analysis && that.data.analysis.perspective) === 'communication' ? 'communication' : 'evidence') });
+            return;
+          }
+          wx.showToast({ title: error && error.message || '打断失败，请重试', icon: 'none' });
+        });
+      },
+    });
+  },
+
+  _waitForCancellation: function (analysisId, attempt) {
+    var that = this;
+    if (attempt >= 40) return Promise.reject(new Error('打断超时，请稍后重试'));
+    return new Promise(function (resolve) { setTimeout(resolve, 1500); }).then(function () {
+      return analysisService.getAnalysis(analysisId);
+    }).then(function (analysis) {
+      if (analysis && analysis.status === 'canceled') return 'canceled';
+      if (analysis && analysis.status === 'completed') {
+        var completed = new Error('本轮分析已完成');
+        completed.errorCode = 'ANALYSIS_ALREADY_COMPLETED';
+        throw completed;
+      }
+      return that._waitForCancellation(analysisId, attempt + 1);
+    });
+  },
+
+  // ===== 沟通偏好（MBTI / 星座） =====
 
   onEditPersonality: function () {
+    if (this._isAnalyzing()) {
+      wx.showToast({ title: '请等待当前分析结束后再修改沟通偏好', icon: 'none' });
+      return;
+    }
     this.setData({ showPersonalityEditor: true });
   },
 
   onClosePersonalityEditor: function () {
-    this.setData({ showPersonalityEditor: false });
+    if (!this.data.personalitySaving) this.setData({ showPersonalityEditor: false });
   },
 
   onSavePersonality: function () {
     var that = this;
     var picker = this.selectComponent('#reportPersonalityPicker');
-
-    if (!picker || !picker.hasAnyData()) {
-      wx.showToast({ title: '请至少填写一项信息', icon: 'none' });
+    var profiles = picker ? picker.getData() : null;
+    if (!profiles || !(profiles.personalityA || profiles.personalityB)) {
+      wx.showToast({ title: '请至少填写一项沟通偏好', icon: 'none' });
       return;
     }
-
-    var data = picker.getData();
-    this.setData({ showPersonalityEditor: false, reanalyzing: true });
-
-    wx.showLoading({ title: '正在保存并重新分析...', mask: true });
-
-    caseService.updatePersonality(
-          that.data.caseId,
-          data.personalityA,
-          data.personalityB
-        ).then(function () {
-          return analysisService.analyzeCase(that.data.caseId, true);
-        }).then(function (analysisRes) {
-          wx.hideLoading();
-          that.setData({ reanalyzing: false });
-
-          if (analysisRes.code === 0) {
-            wx.showToast({ title: '分析已重新开始', icon: 'success' });
-            that.loadReport();
-          } else {
-            wx.showToast({ title: analysisRes.message || '分析失败', icon: 'none' });
-          }
-        }).catch(function () {
-          wx.hideLoading();
-          that.setData({ reanalyzing: false });
-          wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+    this.setData({ personalitySaving: true });
+    wx.showLoading({ title: '正在保存偏好...', mask: true });
+    caseService.updatePersonality(this.data.caseId, profiles.personalityA, profiles.personalityB)
+      .then(function (res) {
+        if (!res || res.code !== 0) throw new Error(res && res.message || '保存失败');
+        var updated = res.data || {};
+        var caseData = Object.assign({}, that.data.caseData || {});
+        caseData.party_a = Object.assign({}, caseData.party_a || {}, { personality: updated.personalityA || null });
+        caseData.party_b = Object.assign({}, caseData.party_b || {}, { personality: updated.personalityB || null });
+        that.setData({
+          caseData: caseData,
+          personalityA: updated.personalityA || null,
+          personalityB: updated.personalityB || null,
+          personalityTextA: that._formatPersonalityDisplay(updated.personalityA),
+          personalityTextB: that._formatPersonalityDisplay(updated.personalityB),
+          showPersonalityEditor: false,
         });
+        var deep = that.data.analysis && that.data.analysis.deep === true;
+        return analysisService.analyzeCase(that.data.caseId, true, deep, {
+          perspective: that.data.analysis && that.data.analysis.perspective === 'communication' ? 'communication' : 'evidence',
+        });
+      })
+      .then(function (result) {
+        wx.hideLoading();
+        that.setData({ personalitySaving: false });
+        if (!result || result.code !== 0) throw new Error(result && result.message || '重新分析启动失败');
+        wx.showToast({ title: '偏好已保存，正在更新建议', icon: 'success' });
+        that.loadReport();
+      })
+      .catch(function (error) {
+        wx.hideLoading();
+        that.setData({ personalitySaving: false });
+        wx.showToast({ title: error && error.message || '保存失败，请重试', icon: 'none' });
+      });
   },
 
-  _formatPersonalityDisplay: function (p) {
-    if (!p) return null;
+  _formatPersonalityDisplay: function (profile) {
+    if (!profile) return '';
+    var personalityUtil = require('../../utils/personality');
     var parts = [];
-    if (p.mbti) parts.push(p.mbti);
-    if (p.zodiac) {
-      var personalityUtil = require('../../utils/personality');
-      parts.push(personalityUtil.getZodiacLabel(p.zodiac) || p.zodiac);
-    }
-    if (p.element) parts.push(p.element);
-    return parts.length > 0 ? parts.join(' / ') : null;
+    if (profile.mbti) parts.push(profile.mbti);
+    if (profile.zodiac) parts.push(personalityUtil.getZodiacLabel(profile.zodiac) || profile.zodiac);
+    if (profile.element) parts.push(profile.element);
+    return parts.join(' · ');
   },
+
 });

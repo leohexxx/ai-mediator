@@ -1,7 +1,7 @@
 {
   "name": "ai-mediator",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:mini": "node --test miniprogram/__tests__/mvp-integration.test.cjs miniprogram/__tests__/cloudrun-analysis.test.cjs",
+    "test:cloudfunctions": "node --test cloudfunctions/scripts/__tests__/build-cf.test.cjs cloudfunctions/scripts/__tests__/case-status.test.cjs cloudfunctions/scripts/__tests__/consistency-guards.test.cjs",
+    "test:cloudrun": "npm test --prefix ai-mediator-backend/cloudrun",
+    "test:all": "npm test && npm run test:mini && npm run test:cloudfunctions && npm run test:cloudrun"
   },
   "dependencies": {
     "idb": "^8.0.0",

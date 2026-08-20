@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════
-// 啷个对 — 小程序入口 (v4 - 云开发修复)
+// 啷个对 — 小程序入口 (V3 - CloudBase 自然身份)
 // ═══════════════════════════════════════════════
 
 App({
@@ -23,14 +23,6 @@ App({
         that._pendingPrivacyAuth = true;
       });
     }
-
-    // 静默登录（非阻塞，失败不影响 app 启动）
-    this.doLogin().then(function (openid) {
-      that.globalData.openid = openid;
-      console.log('登录成功, openid:', openid);
-    }).catch(function (err) {
-      console.warn('登录失败（不影响使用，后续操作会自动重试）:', err);
-    });
 
     // 解析分享进入的案例 ID
     if (options && options.query) {
@@ -57,73 +49,6 @@ App({
   onHide: function () {},
 
   /**
-   * 登录流程 (v3)
-   * 1. wx.login() 建立微信会话（云函数调用前置条件）
-   * 2. 调用 login 云函数，通过 getWXContext 获取 openid
-   */
-  doLogin: function () {
-    var that = this;
-    return new Promise(function (resolve, reject) {
-      // 优先使用缓存
-      var cachedOpenid = wx.getStorageSync('openid');
-      if (cachedOpenid) {
-        that.globalData.openid = cachedOpenid;
-        resolve(cachedOpenid);
-        return;
-      }
-
-      // 检查云开发是否可用
-      if (!wx.cloud) {
-        reject(new Error('云开发不可用'));
-        return;
-      }
-
-      // Step 1: wx.login 建立会话（云函数调用的前置条件）
-      wx.login({
-        success: function () {
-          // Step 2: 调用 login 云函数获取 openid
-          wx.cloud.callFunction({
-            name: 'login',
-            data: {},
-            success: function (cfRes) {
-              var result = cfRes.result;
-              if (result && result.code === 0 && result.data && result.data.openid) {
-                var openid = result.data.openid;
-                wx.setStorageSync('openid', openid);
-                that.globalData.openid = openid;
-                resolve(openid);
-              } else {
-                reject(new Error((result && result.message) || '登录失败'));
-              }
-            },
-            fail: function (err) {
-              reject(err);
-            },
-          });
-        },
-        fail: function (err) {
-          reject(new Error('微信登录失败: ' + (err.errMsg || '')));
-        },
-      });
-    });
-  },
-
-  /**
-   * 确保已登录（其他页面调用此方法，确保 openid 可用）
-   * 如果未登录则自动重试
-   */
-  ensureLogin: function () {
-    var that = this;
-    if (this.globalData.openid) {
-      return Promise.resolve(this.globalData.openid);
-    }
-    return this.doLogin().catch(function (err) {
-      console.warn('ensureLogin 重试失败:', err);
-      return Promise.reject(err);
-    });
-  },
-
-  /**
    * 检查用户是否已同意隐私政策和用户协议
    */
   hasAgreedPrivacy: function () {
@@ -145,7 +70,6 @@ App({
   },
 
   globalData: {
-    openid: null,
     pendingCaseId: null,
     envId: 'cloudbase-d4g5p82875fe1a5ce',
   },

@@ -71,12 +71,24 @@ function statusLabel(status) {
     'single_submitted': '已上传，待分析',
     'waiting_party_b': '等待对方加入',
     'waiting_submission': '等待双方上传',
+    'dual_collecting': '双方可补充证据',
     'analyzing': '分析中',
+    'cancel_requested': '正在打断分析',
+    'canceled': '分析已打断',
     'single_completed': '分析完成',
     'completed': '分析完成',
+    'dual_a_submitted': '甲方分析完成，等待乙方补充',
+    'dual_b_submitted': '双方辩论分析完成',
     'expired': '已过期',
   };
   return map[status] || status;
+}
+
+function statusType(status) {
+  if (status === 'single_completed' || status === 'completed' || status === 'dual_b_submitted') return 'success';
+  if (status === 'analyzing') return 'analyzing';
+  if (status === 'expired') return 'expired';
+  return 'pending';
 }
 
 /**
@@ -125,6 +137,7 @@ module.exports = {
   formatDateTime: formatDateTime,
   truncate: truncate,
   statusLabel: statusLabel,
+  statusType: statusType,
   relationshipLabel: relationshipLabel,
   privacyLabel: privacyLabel,
   generateId: generateId,

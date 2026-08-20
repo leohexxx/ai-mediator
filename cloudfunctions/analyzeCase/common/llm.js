@@ -520,10 +520,10 @@ function extractCoreFields(rawText) {
   };
 }
 
-async function chatWithAnalysis(context, history, newMessage, onChunk) {
+async function chatWithAnalysis(context, history, newMessage, onChunk, safetyShown) {
   var config = getConfig();
 
-  var systemPrompt = chatPrompt.buildChatSystemPrompt(context);
+  var systemPrompt = chatPrompt.buildChatSystemPrompt(context, safetyShown);
 
   var messages = [
     { role: 'system', content: systemPrompt },
@@ -547,6 +547,40 @@ async function chatWithAnalysis(context, history, newMessage, onChunk) {
   return fullText;
 }
 
+/**
+ * 压缩文本 — 提取关键信息
+ * @param {string} text - 原文
+ * @returns {Promise<string>} 压缩后的文本
+ */
+async function compressText(text) {
+  var config = getConfig();
+  if (!config.apiKey) {
+    throw new Error('Missing API key. Set LLM_API_KEY environment variable.');
+  }
+
+  var userPrompt = chatPrompt.buildCompressUserPrompt(text);
+  var maxTokens = 4096;
+
+  var response = await httpPost(
+    buildChatEndpoint(config),
+    buildHeaders(config),
+    buildRequestBody(config, [{ role: 'user', content: userPrompt }], maxTokens, false),
+    60000
+  );
+
+  if (!response.ok) {
+    var errText = await response.text();
+    if (response.status === 401 || response.status === 403 || response.status === 429) {
+      markKeyBad(config.apiKey);
+    }
+    throw new Error('compressText LLM error: ' + response.status + ' ' + errText);
+  }
+
+  var data = await response.json();
+  var text2 = extractTextFromResponse(config, data);
+  return text2.trim() || text; // 如果返回空，退回原文
+}
+
 module.exports = {
   getConfig: getConfig,
   analyzeChat: analyzeChat,
@@ -554,6 +588,7 @@ module.exports = {
   mergeStages: mergeStages,
   compactPrior: compactPrior,
   chatWithAnalysis: chatWithAnalysis,
+  compressText: compressText,  // ← 新增
   COT_STEPS: COT_STEPS,
   STAGE_TIMEOUT_MS: STAGE_TIMEOUT_MS,
 };

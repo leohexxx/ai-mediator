@@ -1,75 +1,83 @@
 sequenceDiagram
-    participant A as 甲方(小李)
-    participant MP as 小程序端
-    participant CF as 云函数
+    participant A as 甲方 (Party A)
+    participant B as 乙方 (Party B)
+    participant FE as 小程序前端
+    participant UE as uploadEvidence
+    participant AC as analyzeCase
     participant DB as 云数据库
     participant LLM as DeepSeek API
-    participant B as 乙方(小王)
 
-    Note over A,B: ===== 阶段1: 创建案例 =====
-    A->>MP: 点击"开始调解"
-    MP->>CF: login(wx.login code)
-    CF-->>MP: openid + 自定义登录态
-    A->>MP: 填写标题、关系、隐私设置
-    MP->>CF: createCase(title, relationship, privacy)
-    CF->>DB: cases.insert({ party_a, status: 'waiting_party_b' })
-    CF->>DB: invitations.insert({ inviteCode, caseId })
-    CF-->>MP: { caseId, inviteCode }
+    Note over A,LLM: ═══ 阶段1: 甲方创建案例 ═══
+    A->>FE: 创建双人案例
+    FE->>DB: createCase(mode=dual)
+    DB-->>FE: caseId, status=waiting_party_b
 
-    Note over A,B: ===== 阶段2: 邀请乙方 =====
-    MP->>MP: 生成分享卡片 (onShareAppMessage)
-    A->>B: 微信聊天分享卡片
-    B->>MP: 点击卡片 / 扫码进入小程序
-    MP->>CF: joinCase(inviteCode)
-    CF->>DB: invitations.find({ inviteCode })
-    CF->>DB: cases.update({ party_b })
-    CF->>DB: invitations.update({ used: true })
-    CF-->>MP: { caseId, role: 'party_b' }
-    MP->>DB: cases watch → party_b 已加入
-    DB-->>MP: 变更推送
-    MP-->>A: 🟢 乙方已加入
+    Note over A,LLM: ═══ 阶段2: 乙方加入 ═══
+    B->>FE: 输入邀请码加入
+    FE->>DB: joinCase(inviteCode)
+    DB-->>FE: status=waiting_submission
 
-    Note over A,B: ===== 阶段3: 双方上传证据 =====
-    A->>MP: 选择聊天截图/粘贴文本
-    MP->>CF: uploadEvidence(caseId, rawText, party)
-    CF->>CF: parseWeChatChatLog(rawText) ← 复用 parser.ts
-    CF->>DB: evidence.insert({ caseId, party, parsedMessages })
-    CF->>DB: cases.update({ party_a.submitted: true })
-    CF-->>MP: { success: true }
+    Note over A,LLM: ═══ 阶段3: 甲方上传+初次分析 ═══
+    A->>FE: 上传聊天记录+备注note
+    FE->>UE: uploadEvidence(caseId, rawText, note)
+    UE->>DB: 写入evidence(含note字段)
+    UE->>DB: 更新party_a.submitted=true
+    Note over UE: mode=dual, party_a已提交, 乙方已加入
+    UE->>FE: autoAnalyze=true
+    FE->>AC: analyzeCase(caseId)
+    AC->>DB: 读取caseData+evidence(含note)
+    AC->>AC: buildPartiesAndContext()读取evidence.note→caseContext
+    AC->>LLM: 分析prompt(含备注)
+    LLM-->>AC: 分析结果
+    AC->>DB: status=dual_a_submitted
+    AC-->>FE: 分析完成
 
-    B->>MP: 选择聊天截图/粘贴文本
-    MP->>CF: uploadEvidence(caseId, rawText, party)
-    CF->>CF: parseWeChatChatLog(rawText)
-    CF->>DB: evidence.insert({ caseId, party, parsedMessages })
-    CF->>DB: cases.update({ party_b.submitted: true })
-    CF-->>MP: { success: true }
+    Note over A,LLM: ═══ 阶段4: 乙方查看+补充 ═══
+    B->>FE: 查看案例详情
+    FE->>DB: getCaseDetail(caseId)
+    Note over DB: 权限放宽
+    DB-->>FE: status=dual_a_submitted
 
-    Note over A,B: ===== 阶段4: 自动触发分析 =====
-    DB-->>CF: 触发器: 双方都已提交
-    CF->>DB: cases.update({ status: 'analyzing' })
-    CF->>DB: evidence.find({ caseId: both parties })
-    CF->>CF: formatChatForLLM(merged) ← 复用 parser.ts
-    CF->>DB: analyses.update({ progress.step: 'understanding', progress: 20 })
-    MP->>DB: watch analyses.progress
-    DB-->>MP: 步骤1: 理解对话 (20%)
-    CF->>LLM: analyzeChat(formatted, parties, context)
-    CF->>DB: analyses.update({ progress.step: 'evidence', progress: 40 })
-    DB-->>MP: 步骤2: 提取证据 (40%)
-    CF->>DB: analyses.update({ progress.step: 'emotion', progress: 55 })
-    DB-->>MP: 步骤3: 追踪情绪 (55%)
-    CF->>DB: analyses.update({ progress.step: 'judging', progress: 75 })
-    DB-->>MP: 步骤4: 综合判断 (75%)
-    LLM-->>CF: JSON 分析结果
-    CF->>DB: analyses.update({ full result + progress.step: 'done', progress: 100 })
-    DB-->>MP: 分析完成 (100%)
-    CF->>DB: cases.update({ status: 'completed', analysisId })
-    MP->>A: 分析报告已生成
-    MP->>B: 分析报告已生成
+    Note over B,LLM: ═══ 阶段5: 乙方补充+辩论分析 ═══
+    B->>FE: 补充己方聊天记录
+    FE->>UE: uploadEvidence(caseId, rawText, supplement=true)
+    UE->>DB: 写入乙方evidence
+    UE->>FE: autoAnalyze=true
+    FE->>AC: analyzeCase(caseId, force=true)
+    AC->>DB: 读取caseData
+    Note over AC: mode=dual, status=dual_a_submitted → 辩论模式
+    AC->>AC: buildPartiesAndContext()注入双人辩论指引
+    AC->>LLM: 辩论模式prompt(对比双方证据)
+    LLM-->>AC: 对比分析结果
+    AC->>DB: status=dual_b_submitted, isDebate=true
+    AC-->>FE: 辩论分析完成
 
-    Note over A,B: ===== 阶段5: 查看与追问 =====
-    A->>MP: 打开报告页
-    MP->>CF: getCaseDetail(caseId) → 含隐私校验
-    CF-->>MP: 完整报告数据
-    A->>MP: 追问 AI
-    MP->>CF: chatWithAnalysis 流式
-    CF-->>MP: 流式回答 (via DB watch)
+    Note over U,LLM: ═══ 追问安全提示流程 ═══
+    participant U as 用户
+    participant CW as chatWithAnalysis
+
+    U->>FE: 输入追问
+    FE->>CW: chatWithAnalysis(caseId, message, sessionId)
+    CW->>DB: 读取分析报告+session记录
+    CW->>CW: buildChatSystemPrompt含安全提示段落
+    alt 首次追问(safetyShown=false)
+        CW->>LLM: system prompt(含完整安全提示)
+        LLM-->>CW: 回复开头: 🔒 全程匿名...
+        CW->>DB: safetyShown=true
+    else 后续追问
+        CW->>LLM: system prompt(含简版安全提示)
+        LLM-->>CW: 回复开头: 🔒 您的隐私全程受保护...
+    end
+    CW->>DB: 流式写入chunks
+    FE->>DB: watch实时接收
+    DB-->>FE: chunks流式更新
+    FE-->>U: 显示AI回复
+
+    Note over U,LLM: ═══ 备注数据流 ═══
+    U->>FE: 填写note
+    FE->>UE: uploadEvidence({note:"..."})
+    UE->>DB: evidence.note="..."
+    FE->>AC: analyzeCase
+    AC->>DB: 查询最新evidence(note)
+    AC->>AC: caseContext+="用户补充说明:..."
+    AC->>LLM: prompt含备注

@@ -7,6 +7,7 @@ var cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 var db = cloud.database();
+var caseStatus = require('./common/caseStatus');
 
 /**
  * 云函数入口
@@ -43,21 +44,39 @@ exports.main = async function (event, context) {
 
     var role = isPartyA ? 'party_a' : 'party_b';
     var isSingleMode = caseData.mode === 'single' || (!hasPartyB);
-    var isCompleted = caseData.status === 'completed' || caseData.status === 'single_completed';
+    var isCompleted = caseStatus.isReportReady(caseData.status);
+
+    if (event.summaryOnly === true) {
+      return {
+        code: 0,
+        data: { caseData: caseData, role: role, isSingleMode: isSingleMode },
+        message: 'ok',
+      };
+    }
 
     // 获取己方证据
-    var myEvidence = await db.collection('evidence')
+    var myEvidence = await db.collection('evidence_batches')
       .where({ caseId: caseId, party: role })
+      .orderBy('revision', 'desc')
+      .limit(1)
       .get();
+    if (!myEvidence.data.length) {
+      myEvidence = await db.collection('evidence').where({ caseId: caseId, party: role }).get();
+    }
 
     // 获取对方证据（仅双人 + 分析完成 + 双方可见模式下可见）
     var otherParty = role === 'party_a' ? 'party_b' : 'party_a';
     var otherEvidence = null;
 
     if (!isSingleMode && isCompleted && caseData.privacy === 'both') {
-      var otherResult = await db.collection('evidence')
+      var otherResult = await db.collection('evidence_batches')
         .where({ caseId: caseId, party: otherParty })
+        .orderBy('revision', 'desc')
+        .limit(1)
         .get();
+      if (!otherResult.data.length) {
+        otherResult = await db.collection('evidence').where({ caseId: caseId, party: otherParty }).get();
+      }
       otherEvidence = otherResult.data.length > 0 ? otherResult.data[0] : null;
     }
 

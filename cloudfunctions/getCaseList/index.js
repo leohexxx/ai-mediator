@@ -13,7 +13,7 @@ var _ = db.command;
  * 云函数入口
  * @param {Object} event
  * @param {number} [event.pageSize=10] - 每页条数
- * @param {number} [event.page=1] - 页码（从1开始）
+ * @param {string} [event.cursor] - 上一页最后一条记录的 updatedAt
  * @param {Object} context
  */
 exports.main = async function (event, context) {
@@ -21,31 +21,29 @@ exports.main = async function (event, context) {
   var openid = wxContext.OPENID;
 
   try {
-    var pageSize = event.pageSize || 10;
-    var page = event.page || 1;
-    var skip = (page - 1) * pageSize;
+    var pageSize = Math.min(Math.max(Number(event.pageSize) || 10, 1), 50);
+    var cursor = typeof event.cursor === 'string' ? event.cursor : '';
 
-    // 查询用户作为甲方或乙方的案例
+    var participantFilter = _.or([
+      { 'party_a.openid': openid },
+      { 'party_b.openid': openid },
+    ]);
+    var whereFilter = cursor
+      ? _.and([participantFilter, { updatedAt: _.lt(cursor) }])
+      : participantFilter;
+
+    // 多取一条用于判断 hasMore，避免深页 skip 和每页 count 全表扫描。
     var result = await db.collection('cases')
-      .where(_.or([
-        { 'party_a.openid': openid },
-        { 'party_b.openid': openid },
-      ]))
+      .where(whereFilter)
       .orderBy('updatedAt', 'desc')
-      .skip(skip)
-      .limit(pageSize)
+      .limit(pageSize + 1)
       .get();
 
-    // 获取总数
-    var countResult = await db.collection('cases')
-      .where(_.or([
-        { 'party_a.openid': openid },
-        { 'party_b.openid': openid },
-      ]))
-      .count();
+    var hasMore = result.data.length > pageSize;
+    var pageData = hasMore ? result.data.slice(0, pageSize) : result.data;
 
     // 为每条案例附加角色信息
-    var list = result.data.map(function (item) {
+    var list = pageData.map(function (item) {
       var role = item.party_a.openid === openid ? 'party_a' : 'party_b';
       return {
         _id: item._id,
@@ -73,10 +71,12 @@ exports.main = async function (event, context) {
       code: 0,
       data: {
         list: list,
-        total: countResult.total,
-        page: page,
+        // total/page 仅为旧调用方保留；游标分页不再执行 count。
+        total: null,
+        page: Number(event.page) || 1,
         pageSize: pageSize,
-        hasMore: skip + pageSize < countResult.total,
+        hasMore: hasMore,
+        nextCursor: hasMore && list.length > 0 ? list[list.length - 1].updatedAt : null,
       },
       message: 'ok',
     };
